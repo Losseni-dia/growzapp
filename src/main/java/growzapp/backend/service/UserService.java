@@ -7,6 +7,7 @@ import growzapp.backend.model.dto.userDTO.UserDTO;
 import growzapp.backend.model.dto.userDTO.UserUpdateDTO;
 import growzapp.backend.model.entite.*;
 import growzapp.backend.repository.*;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,6 +26,7 @@ public class UserService {
     private final RoleRepository roleRepository; // ← AJOUTE ÇA (tu dois l'avoir ou le créer)
     private final PasswordEncoder passwordEncoder;
     private final DtoConverter converter;
+    private final EntityManager entityManager;
    // private final LangueRepository langueRepository; // Optionnel, si tu veux gérer les langues
 
     // ==================================================================
@@ -210,32 +212,59 @@ public class UserService {
 
 
     // === INSCRIPTION PUBLIQUE (rôle USER par défaut) ===
-@Transactional
-public UserDTO registerUser(UserCreateDTO dto) {
-    if (userRepository.existsByLogin(dto.getLogin())) {
-        throw new IllegalArgumentException("Ce login est déjà utilisé");
+    @Transactional
+    public UserDTO registerUser(UserCreateDTO dto) {
+        // === Vérifications (inchangées) ===
+        if (userRepository.existsByLogin(dto.getLogin())) {
+            throw new IllegalArgumentException("Ce login est déjà utilisé");
+        }
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            throw new IllegalArgumentException("Cet email est déjà utilisé");
+        }
+        if (!dto.getPassword().equals(dto.getConfirmPassword())) {
+            throw new IllegalArgumentException("Les mots de passe ne correspondent pas");
+        }
+
+        User user = new User();
+        user.setLogin(dto.getLogin());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setPrenom(dto.getPrenom());
+        user.setNom(dto.getNom());
+        user.setSexe(dto.getSexe());
+        user.setEmail(dto.getEmail());
+        user.setContact(dto.getContact());
+        user.setEnabled(true);
+
+        // Photo
+        if (dto.getImage() != null && !dto.getImage().isBlank()) {
+            user.setImage(dto.getImage());
+        } else {
+            handleAvatar(user);
+        }
+
+        // LOCALITÉ – ON UTILISE entityManager.getReference() → ÇA MARCHE À 100%
+        if (dto.getLocalite() != null && dto.getLocalite().id() != null) {
+            Localite localite = entityManager.getReference(Localite.class, dto.getLocalite().id());
+            user.setLocalite(localite);
+        }
+
+        // LANGUES – ON UTILISE getReference() POUR CHAQUE ID
+        if (dto.getLangues() != null && !dto.getLangues().isEmpty()) {
+            List<Langue> langues = dto.getLangues().stream()
+                    .filter(l -> l.getId() != null)
+                    .map(l -> entityManager.getReference(Langue.class, l.getId()))
+                    .toList();
+            user.setLangues(langues);
+        }
+
+        // Rôles
+        user.setRoles(resolveRoles(List.of("USER")));
+
+        user = userRepository.save(user);
+        return toDto(user);
     }
-    if (userRepository.existsByEmail(dto.getEmail())) {
-        throw new IllegalArgumentException("Cet email est déjà utilisé");
-    }
 
-    User user = new User();
-    user.setLogin(dto.getLogin());
-    user.setPassword(passwordEncoder.encode(dto.getPassword()));
-    user.setPrenom(dto.getPrenom());
-    user.setNom(dto.getNom());
-    user.setSexe(dto.getSexe());
-    user.setEmail(dto.getEmail());
-    user.setContact(dto.getContact());
-    user.setEnabled(true);
 
-    // Rôle USER par défaut
-    user.setRoles(resolveRoles(List.of("USER")));
-
-    handleAvatar(user);
-    user = userRepository.save(user);
-    return toDto(user);
-}
 
 // === Récupérer le DTO de l'utilisateur connecté ===
 public UserDTO getCurrentUserDto() {

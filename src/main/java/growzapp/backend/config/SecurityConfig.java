@@ -32,8 +32,10 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                                 .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers("/api/auth/**").permitAll()
-                                                .requestMatchers("/api/projets", "/api/projets/**").permitAll()
+                                                .requestMatchers("/api/auth/**",
+                                                                "/api/auth/register").permitAll()
+                                                .requestMatchers("/api/projets", "/api/projets/**", "/api/localites",
+                                                                "/api/langues").permitAll()
                                                 .requestMatchers("/api/investissements").authenticated()
                                                 .requestMatchers("/api/investissements/mes-investissements")
                                                 .authenticated()

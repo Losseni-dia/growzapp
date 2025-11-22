@@ -11,8 +11,19 @@ import growzapp.backend.model.dto.commonDTO.DtoConverter;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.UserRepository;
 import growzapp.backend.service.UserService;
+import jakarta.annotation.security.PermitAll;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -20,6 +31,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
 
 @RestController
 @RequestMapping("/api/auth")
@@ -62,12 +74,49 @@ public class AuthController {
 
 
     // INSCRIPTION PUBLIQUE
-    @PostMapping("/register")
-    public ApiResponseDTO<UserDTO> register(@Valid @RequestBody UserCreateDTO dto) {
+  @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+@PermitAll
+public ResponseEntity<ApiResponseDTO<UserDTO>> register(
+    @RequestPart("user") String userJson,
+    @RequestPart(value = "image", required = false) MultipartFile image
+) {
+    try {
+        // 1. Convertir le JSON string → DTO
+        ObjectMapper mapper = new ObjectMapper();
+        UserCreateDTO dto = mapper.readValue(userJson, UserCreateDTO.class);
+
+        // 2. Image → base64 (avec limite 5 Mo + gestion propre)
+        if (image != null && !image.isEmpty()) {
+            if (image.getSize() > 5 * 1024 * 1024) { // 5 Mo max
+                return ResponseEntity.badRequest()
+                    .body(ApiResponseDTO.error("Image trop volumineuse (max 5 Mo)"));
+            }
+            byte[] bytes = image.getBytes();
+            String base64 = "data:" + image.getContentType() + ";base64,"
+                + java.util.Base64.getEncoder().encodeToString(bytes);
+            dto.setImage(base64);
+        }
+
+        // 3. Inscription
         UserDTO created = userService.registerUser(dto);
-        return ApiResponseDTO.success(created)
-                .message("Inscription réussie ! Bienvenue sur GrowzApp");
+
+        return ResponseEntity.ok(
+            ApiResponseDTO.success(created)
+                .message("Inscription réussie ! Bienvenue sur GrowzApp")
+        );
+
+    } catch (JsonProcessingException e) {
+        return ResponseEntity.badRequest()
+            .body(ApiResponseDTO.error("Données utilisateur invalides"));
+    } catch (IOException e) {
+        return ResponseEntity.badRequest()
+            .body(ApiResponseDTO.error("Erreur lors du traitement de l'image"));
+    } catch (Exception e) {
+        e.printStackTrace();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(ApiResponseDTO.error("Erreur serveur"));
     }
+}
 
     // PROFIL DE L'UTILISATEUR CONNECTÉ
     @GetMapping("/me")

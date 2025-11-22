@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.localiteDTO.LocaliteDTO;
 import growzapp.backend.service.LocaliteService;
+import jakarta.annotation.security.PermitAll;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ public class LocaliteRestController {
     public ApiResponseDTO<LocaliteDTO> getById(@PathVariable Long id) {
         return ApiResponseDTO.success(localiteService.getById(id));
     }
+
 
     @PostMapping
     public ApiResponseDTO<LocaliteDTO> create(@RequestBody LocaliteDTO dto) {
