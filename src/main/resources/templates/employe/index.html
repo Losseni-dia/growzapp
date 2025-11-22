@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Employés</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            background: #27ae60;
+            font-size: 2.8em;
+            margin: 0 0 50px 0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        h2 {
+            color: #27ae60;
+            font-size: 1.8em;
+            margin: 0 0 20px 0;
+            font-weight: 600;
+        }
+
+        .d-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin: 25px 0;
+        }
+
+        .table th {
+            background: #27ae60;
+            color: white;
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .table tr:hover {
+            background: #f8fff9;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 18px;
+            margin: 0;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.95em;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+            padding: 14px 28px;
+            font-size: 1.1em;
+        }
+
+        .btn-success:hover {
+            background: #219653;
+            transform: scale(1.05);
+        }
+
+        .d-block {
+            display: block;
+        }
+
+        .text-muted {
+            color: #636e72;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="container">
+            <h1 th:text="${title}">Liste des employés</h1>
+
+            <div class="d-flex">
+                <h2>Employés enregistrés</h2>
+                <a href="/employes/create" class="btn btn-success">+ Créer un employé</a>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nom</th>
+                        <th>Prénom</th>
+                        <th>Email</th>
+                        <th>Fonctions</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="emp : ${employes}">
+                        <td th:text="${emp.nom}">Doe</td>
+                        <td th:text="${emp.prenom}">John</td>
+                        <td th:text="${emp.email}">john.doe@email.com</td>
+                        <td>
+                            <span th:each="ef : ${emp.fonctions}" class="d-block">
+                                <strong th:text="${ef.fonction.nom}">Développeur</strong>
+                                <small class="text-muted"
+                                    th:text="'depuis ' + ${#temporals.format(ef.datePriseFonction, 'dd/MM/yyyy')}">
+                                    depuis 15/03/2025
+                                </small>
+                            </span>
+                        </td>
+                        <td>
+                            <a th:href="@{/employes/{id}(id=${emp.id})}" class="btn btn-info">Voir</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+
+</html>

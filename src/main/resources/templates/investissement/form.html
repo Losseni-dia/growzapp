@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Investissement</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 35px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        h1 {
+            color: #27ae60;
+            text-align: center;
+            font-size: 2.2em;
+            margin-bottom: 30px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #636e72;
+            margin-bottom: 8px;
+        }
+
+        .form-control,
+        .form-select {
+            border-radius: 12px;
+            border: 1px solid #ddd;
+            padding: 12px;
+            font-size: 1em;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: #27ae60;
+            box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.2);
+        }
+
+        .btn {
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-top: 20px;
+            transition: 0.3s;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+            border: none;
+        }
+
+        .btn-success:hover {
+            background: #219653;
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: #636e72;
+            color: white;
+            border: none;
+            margin-left: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #4d5658;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 30px;
+            color: #27ae60;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="container">
+            <h1 th:text="${investissement.id != null ? 'Modifier' : 'Créer'} + ' Investissement'">
+                Investissement
+            </h1>
+
+            <form
+                th:action="@{${investissement.id != null} ? '/investissement/edit/' + ${investissement.id} : '/investissement/create'}"
+                th:object="${investissement}" method="post">
+
+                <div class="mb-3">
+                    <label class="form-label">Projet</label>
+                    <select th:field="*{projetId}" class="form-select" required>
+                        <option value="">Sélectionner un projet</option>
+                        <option th:each="p : ${projets}" th:value="${p.id}" th:text="${p.libelle}">Projet</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Nombre de parts</label>
+                    <input type="number" th:field="*{nombrePartsPris}" class="form-control" min="1" required />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Frais (optionnel)</label>
+                    <input type="number" step="0.01" th:field="*{frais}" class="form-control" />
+                </div>
+
+                <button type="submit" class="btn btn-success">
+                    <span th:text="${investissement.id != null ? 'Mettre à jour' : 'Créer'}">Créer</span>
+                </button>
+                <a th:href="@{/investissement/mes-investissements}" class="btn btn-secondary">
+                    Annuler
+                </a>
+            </form>
+
+            <a th:href="@{/investissement/mes-investissements}" class="back-link">
+                Retour à la liste
+            </a>
+        </div>
+    </div>
+</body>
+
+</html>

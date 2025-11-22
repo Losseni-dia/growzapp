@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Détail utilisateur</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            background: #27ae60;
+            font-size: 2.8em;
+            margin: 0 0 50px 0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .info-card {
+            background: white;
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .rounded-circle {
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-borderless {
+            width: 100%;
+            margin: 20px 0;
+        }
+
+        .table-borderless th {
+            font-weight: 600;
+            color: #27ae60;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .table-borderless td {
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 50px;
+            font-size: 0.9em;
+            font-weight: bold;
+            background: #27ae60;
+            color: white;
+            margin-right: 5px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            margin: 10px 8px 0 0;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-secondary {
+            background: #636e72;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4d5658;
+            transform: scale(1.05);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+
+        .me-2 {
+            margin-right: 10px;
+        }
+
+        .mt-4 {
+            margin-top: 30px;
+        }
+
+        .d-inline {
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="container">
+            <h1>
+                <span th:text="${user.prenom + ' ' + user.nom}">Losseni Dia</span>
+                <span class="badge" th:text="${user.sexe == 'M' ? 'Homme' : 'Femme'}"
+                    th:classappend="${user.sexe == 'M' ? '' : 'bg-danger'}">
+                    Homme
+                </span>
+            </h1>
+
+            <div class="info-card">
+            <img th:src="${user.image}" th:data-seed="${user.login}" alt="Avatar" class="rounded-circle"
+                onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=' + this.dataset.seed">
+
+                <table class="table-borderless">
+                    <tr>
+                        <th>Email</th>
+                        <td th:text="${user.email}">losseni.dia@growzapp.com</td>
+                    </tr>
+                    <tr>
+                        <th>Contact</th>
+                        <td th:text="${user.contact}">+225 07 89 01 23</td>
+                    </tr>
+                    <tr>
+                        <th>Localité</th>
+                        <td th:text="${user.localite?.nom}">Dakar</td>
+                    </tr>
+                    <tr>
+                        <th>Rôles</th>
+                        <td>
+                            <span th:each="role : ${user.roles}" class="badge" th:text="${role}">ADMIN</span>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="mt-4 text-center">
+                    <a href="/users" class="btn btn-secondary me-2">Retour</a>
+                    <form th:action="@{/users/{id}/delete(id=${user.id})}" method="post" class="d-inline"
+                        onsubmit="return confirm('Supprimer cet utilisateur ?');">
+                        <button type="submit" class="btn btn-danger">Supprimer</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

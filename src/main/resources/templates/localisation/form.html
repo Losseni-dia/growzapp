@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Formulaire site</title>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 th:text="${title}">Créer un site</h3>
+            </div>
+            <div class="card-body">
+                <form
+                    th:action="@{${localisation.id} ? '/localisations/' + ${localisation.id} + '/edit' : '/localisations/create'}"
+                    th:object="${localisation}" method="post">
+
+                    <!-- === NOM === -->
+                    <div class="mb-3">
+                        <label class="form-label">Nom du site <span class="text-danger">*</span></label>
+                        <input type="text" th:field="*{nom}" class="form-control" required
+                            placeholder="Ex: Site Industriel A">
+                    </div>
+
+                    <!-- === ADRESSE === -->
+                    <div class="mb-3">
+                        <label class="form-label">Adresse</label>
+                        <input type="text" th:field="*{adresse}" class="form-control"
+                            placeholder="Ex: 123 Rue de l'Industrie">
+                    </div>
+
+                    <!-- === CONTACT === -->
+                    <div class="mb-3">
+                        <label class="form-label">Contact</label>
+                        <input type="email" th:field="*{contact}" class="form-control"
+                            placeholder="Ex: contact@sitea.com">
+                    </div>
+
+                    <!-- === RESPONSABLE === -->
+                    <div class="mb-3">
+                        <label class="form-label">Responsable</label>
+                        <input type="text" th:field="*{responsable}" class="form-control" placeholder="Ex: M. Diallo">
+                    </div>
+
+                    <!-- === LOCALITÉ (PAR NOM) === -->
+                    <div class="mb-3">
+                        <label class="form-label">Localité <span class="text-danger">*</span></label>
+                        <input type="text" th:field="*{localiteNom}" class="form-control" required
+                            th:readonly="${localisation.localiteId != null}" placeholder="Ex: Dakar">
+                    </div>
+
+                    <!-- === BOUTONS === -->
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-success">
+                            <span th:text="${localisation.id} ? 'Mettre à jour' : 'Créer'">Créer</span>
+                        </button>
+                        <a href="/localisations" class="btn btn-secondary">Annuler</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

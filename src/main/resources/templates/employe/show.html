@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Détail employé</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            background: #27ae60;
+            font-size: 2.8em;
+            margin: 0 0 50px 0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        .info-card {
+            background: white;
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+        }
+
+        h5 {
+            color: #27ae60;
+            font-size: 1.5em;
+            margin: 30px 0 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #27ae60;
+        }
+
+        .list-group {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .list-group-item {
+            background: #f8f9fa;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            border-left: 4px solid #27ae60;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            margin: 10px 8px 0 0;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #219653;
+            transform: scale(1.05);
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: #636e72;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4d5658;
+            transform: scale(1.05);
+        }
+
+        .text-muted {
+            color: #636e72;
+            font-size: 0.9em;
+        }
+
+        .mt-4 {
+            margin-top: 30px;
+        }
+
+        .me-2 {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="container">
+            <h1 th:text="${employe.prenom + ' ' + employe.nom}">John Doe</h1>
+
+            <div class="info-card">
+                <p><strong>Email :</strong> <span th:text="${employe.email}">john@growzapp.com</span></p>
+                <p><strong>Téléphone :</strong> <span th:text="${employe.telephone}">+225 07 89 01 23</span></p>
+
+                <h5>Fonctions :</h5>
+                <ul class="list-group">
+                    <li th:each="ef : ${employe.fonctions}" class="list-group-item">
+                        <span>
+                            <strong th:text="${ef.fonction.nom}">Développeur</strong>
+                            <small class="text-muted"
+                                th:text="'depuis ' + ${#temporals.format(ef.datePriseFonction, 'dd/MM/yyyy')}">
+                                depuis 15/03/2025
+                            </small>
+                        </span>
+                    </li>
+                </ul>
+
+                <div class="mt-4">
+                    <a th:href="@{/employes/{id}/add-fonction(id=${employe.id})}" class="btn btn-success me-2">
+                        + Ajouter une fonction
+                    </a>
+                    <a th:href="@{/employes/{id}/edit(id=${employe.id})}" class="btn btn-warning me-2">Modifier
+                        employé</a>
+                    <a href="/employes" class="btn btn-secondary">Retour</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

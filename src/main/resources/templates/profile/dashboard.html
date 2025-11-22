@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Tableau de bord - GrowzApp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #27ae60;
+            font-size: 2.8em;
+            margin-bottom: 50px;
+            font-weight: 700;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 35px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-card h3 {
+            color: #27ae60;
+            font-size: 1.6em;
+            margin-bottom: 15px;
+        }
+
+        .stat-card .number {
+            font-size: 3.5em;
+            font-weight: 700;
+            color: #27ae60;
+            margin: 10px 0;
+        }
+
+        .stat-card .label {
+            font-size: 1.1em;
+            color: #636e72;
+            margin: 10px 0;
+        }
+
+        .btn {
+            display: block;
+            margin: 25px auto 0;
+            background: #27ae60;
+            color: white;
+            padding: 16px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            width: 260px;
+            font-size: 1.1em;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #219653;
+            transform: scale(1.05);
+        }
+
+        .info-card {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+        }
+
+        .info-card h2 {
+            color: #27ae60;
+            border-bottom: 3px solid #27ae60;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .logout {
+            text-align: center;
+            margin: 100px 0;
+        }
+
+        .logout a {
+            background: #e74c3c;
+            color: white;
+            padding: 16px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .logout a:hover {
+            background: #c0392b;
+        }
+
+        .no-role {
+            font-size: 1.4em;
+            color: #636e72;
+            text-align: center;
+            padding: 40px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <h1>Bienvenue, <span th:text="${user.prenom + ' ' + user.nom}">Utilisateur</span> !</h1>
+
+        <!-- Infos personnelles -->
+        <div class="info-card">
+            <h2>Mes informations personnelles</h2>
+            <p><strong>Email :</strong> <span th:text="${user.email}">-</span></p>
+            <p><strong>Téléphone :</strong> <span th:text="${user.contact}">-</span></p>
+            <p><strong>Localité :</strong> <span th:text="${user.localite?.nom}">-</span></p>
+        </div>
+
+        <!-- Cartes statistiques -->
+        <div class="stats-grid">
+
+            <!-- PORTEUR : Mes Projets Créés -->
+            <div th:if="${estPorteur}" class="stat-card">
+                <h3>Mes Projets Créés</h3>
+                <div class="number" th:text="${nbProjets ?: 0}">0</div>
+                <div class="label">projet(s) en cours</div>
+                <a th:href="@{/profile/mes-projets}" class="btn">Voir mes projets</a>
+            </div>
+
+            <!-- INVESTISSEUR : Mes Investissements -->
+            <div th:if="${estInvestisseur}" class="stat-card">
+                <h3>Mes Investissements</h3>
+                <div class="number" th:text="${nbInvestissements ?: 0}">0</div>
+                <div class="label">projet(s) financés</div>
+                <div class="number" style="font-size: 2.8em; margin: 15px 0;">
+                    <span th:text="${totalPercu != null ? #numbers.formatDecimal(totalPercu, 0, 2) : '0'}">0</span> FCFA
+                </div>
+                <div class="label">perçus en dividendes</div>
+                <a th:href="@{/profile/mes-investissements}" class="btn">Voir mes dividendes</a>
+            </div>
+
+            <!-- AUCUN RÔLE ACTIF -->
+            <div th:if="${!estPorteur && !estInvestisseur}" class="stat-card">
+                <h3>Bienvenue sur GrowzApp !</h3>
+                <p class="no-role">
+                    Vous n'avez pas encore de rôle actif.<br>
+                    Devenez porteur de projet ou investisseur dès maintenant !
+                </p>
+                <a th:href="@{/projets}" class="btn">Découvrir les projets</a>
+            </div>
+
+        </div>
+    <div class="test-buttons" style="margin: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+        <h3>Test des Emails</h3>
+        <a href="/test-email" class="btn"
+            style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; margin: 5px;">
+            Tester Email Simple
+        </a>
+        <a href="/test-contrat-email" class="btn"
+            style="background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; margin: 5px;">
+            Tester Envoi Contrat PDF
+        </a>
+    </div>
+
+        <div class="logout">
+            <a th:href="@{/logout}">Déconnexion</a>
+        </div>
+    </div>
+</body>
+
+</html>

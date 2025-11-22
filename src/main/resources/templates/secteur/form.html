@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Formulaire secteur</title>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 th:text="${title}">Créer un secteur</h3>
+            </div>
+            <div class="card-body">
+                <form th:action="@{${secteur.id} ? '/secteurs/' + ${secteur.id} + '/edit' : '/secteurs/create'}"
+                    th:object="${secteur}" method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Nom du secteur <span class="text-danger">*</span></label>
+                        <input type="text" th:field="*{nom}" class="form-control" required
+                            placeholder="Ex: Agriculture">
+                    </div>
+                    <button type="submit" class="btn btn-success">
+                        <span th:text="${secteur.id} ? 'Mettre à jour' : 'Créer'">Créer</span>
+                    </button>
+                    <a href="/secteurs" class="btn btn-secondary">Annuler</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title>Mes Investissements</title>
+</head>
+
+<body>
+    <div layout:fragment="content" class="container py-5">
+        <h1 class="mb-4">Mes Investissements</h1>
+
+        <div th:each="inv : ${investissements}" class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 th:text="${inv.projet.libelle}"></h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Montant :</strong>
+                    <span th:text="${#numbers.formatCurrency(inv.nombrePartsPris * inv.projet.prixUnePart)}"></span>
+                </p>
+                <p><strong>Parts :</strong> <span th:text="${inv.nombrePartsPris}"></span></p>
+                <p><strong>Date :</strong>
+                    <span th:text="${#temporals.format(inv.date, 'dd/MM/yyyy')}"></span>
+                </p>
+                <p><strong>Statut :</strong>
+                    <span class="badge" th:classappend="${inv.statutPartInvestissement == 'VALIDE' ? 'bg-success' : 
+                                      inv.statutPartInvestissement == 'ANNULE' ? 'bg-danger' : 'bg-warning'}"
+                        th:text="${inv.statutPartInvestissement}"></span>
+                </p>
+
+                <div th:if="${inv.contrat != null}" class="mt-3">
+                    <a th:href="@{'/files/download/' + ${inv.contrat.fichierUrl.substring(inv.contrat.fichierUrl.lastIndexOf('/') + 1)}}"
+                        class="btn btn-success" target="_blank">
+                        Télécharger mon contrat (avec QR code)
+                    </a>
+                </div>
+                <div th:if="${inv.contrat == null && inv.statutPartInvestissement == 'VALIDE'}">
+                    <span class="text-info">Contrat en cours de génération...</span>
+                </div>
+                <div th:if="${inv.statutPartInvestissement == 'EN_ATTENTE'}">
+                    <span class="text-muted">En attente de validation</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

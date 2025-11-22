@@ -1,0 +1,5 @@
+CREATE TABLE `fonctions` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `nom` VARCHAR(100) NOT NULL UNIQUE,
+    `description` VARCHAR(255)
+);

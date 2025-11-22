@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Détail projet</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* TITRE PRINCIPAL : BLANC SUR FOND VERT */
+        h1 {
+            text-align: center;
+            color: white;
+            background: #27ae60;
+            font-size: 2.8em;
+            margin: 0 0 50px 0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .badge {
+            font-size: 1em;
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-weight: bold;
+        }
+
+        .bg-light {
+            background: #f8f9fa;
+            color: #2d3436;
+        }
+
+        .info-card {
+            background: white;
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+
+        h5 {
+            color: #27ae60;
+            font-size: 1.5em;
+            margin: 30px 0 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #27ae60;
+        }
+
+        .list-group {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .list-group-item {
+            background: #f8f9fa;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            border-left: 4px solid #27ae60;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            margin: 10px 8px 0 0;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: #636e72;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4d5658;
+            transform: scale(1.05);
+        }
+
+        .btn-outline-secondary {
+            background: transparent;
+            color: #636e72;
+            border: 2px solid #636e72;
+        }
+
+        .btn-outline-secondary:hover {
+            background: #636e72;
+            color: white;
+        }
+
+        .text-danger {
+            color: #e74c3c;
+        }
+
+        .border {
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 16px;
+            background: #f8fff9;
+            margin-bottom: 12px;
+        }
+
+        .d-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .img-fluid {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="container">
+            <!-- TITRE DU PROJET DANS LE H1 -->
+            <h1>
+                <span th:text="${projet.libelle}">Énergie Solaire</span>
+                <span class="badge bg-light" th:text="${projet.statutProjet}">EN_COURS</span>
+            </h1>
+
+            <div class="info-card">
+                <!-- IMAGE POSTER -->
+                <div th:if="${projet.poster}" class="text-center mb-4">
+                    <img th:src="${projet.poster}" alt="Poster" class="img-fluid" style="max-height: 300px;">
+                </div>
+
+                <div class="row">
+                    <div>
+                        <p><strong>Description :</strong> <span th:text="${projet.description}">Projet
+                                photovoltaïque</span></p>
+                        <p><strong>Valuation :</strong> <span th:text="${#numbers.formatCurrency(projet.valuation)}">50
+                                000EUR</span></p>
+                        <p><strong>ROI projeté :</strong> <span th:text="${projet.roiProjete + '%'}">15.5%</span></p>
+                        <p><strong>Objectif :</strong> <span
+                                th:text="${#numbers.formatCurrency(projet.objectifFinancement)}">50 000EUR</span></p>
+                        <p><strong>Collecté :</strong> <span
+                                th:text="${#numbers.formatCurrency(projet.montantCollecte)}">2 500EUR</span></p>
+                        <p><strong>Parts :</strong> <span
+                                th:text="${projet.partsPrises + ' / ' + projet.partsDisponible}">50 / 1000</span></p>
+                        <p><strong>Prix une part :</strong> <span
+                                th:text="${#numbers.formatCurrency(projet.prixUnePart)}">50EUR</span></p>
+                    </div>
+                    <div>
+                        <p><strong>Créé le :</strong> <span
+                                th:text="${#temporals.format(projet.createdAt, 'dd/MM/yyyy HH:mm')}">12/11/2025</span>
+                        </p>
+                        <p><strong>Financement :</strong>
+                            <span
+                                th:text="${projet.dateDebut != null ? #temporals.format(projet.dateDebut, 'dd/MM/yyyy') : 'Non défini'}">01/06/2025</span>
+                            to
+                            <span
+                                th:text="${projet.dateFin != null ? #temporals.format(projet.dateFin, 'dd/MM/yyyy') : 'Non défini'}">01/12/2025</span>
+                        </p>
+                        <p><strong>Porteur :</strong> <span th:text="${projet.porteurNom}">Jean Dupont</span></p>
+                        <p><strong>Site :</strong> <span th:text="${projet.siteNom}">Site Industriel Dakar</span></p>
+                        <p><strong>Secteur :</strong> <span th:text="${projet.secteurNom}">Énergie</span></p>
+                    </div>
+                </div>
+
+                <!-- DOCUMENTS -->
+                <h5>Documents</h5>
+                <ul class="list-group mb-3" th:if="${#lists.isEmpty(projet.documents)} == false">
+                    <li th:each="doc : ${projet.documents}" class="list-group-item">
+                        <div>
+                            <strong th:text="${doc.nom}">Plan.pdf</strong><br>
+                            <small class="text-muted"
+                                th:text="${doc.type + ' - ' + #temporals.format(doc.uploadedAt, 'dd/MM/yyyy')}">
+                                PDF - 12/11/2025
+                            </small>
+                        </div>
+                        <a th:href="@{'/files/download/' + ${doc.url.substring(doc.url.lastIndexOf('/') + 1)}}"
+                            class="btn btn-outline-secondary" target="_blank">
+                            Télécharger
+                        </a>
+                    </li>
+                </ul>
+                <p th:if="${#lists.isEmpty(projet.documents)}" class="text-muted">Aucun document.</p>
+
+                <!-- INVESTISSEMENTS -->
+                <h5>Investissements</h5>
+                <div th:if="${#lists.isEmpty(projet.investissements)}" class="text-muted mb-3">
+                    Aucun investissement pour le moment.
+                </div>
+                <div th:each="inv : ${projet.investissements}" class="border">
+                    <div class="d-flex">
+                        <div>
+                            <strong th:text="${inv.investisseurNom}">Maya Dia</strong>
+                            <small class="text-muted d-block">
+                                <span th:text="${inv.nombrePartsPris + ' parts'}">50 parts</span>
+                                to
+                                <span th:text="${#numbers.formatCurrency(inv.nombrePartsPris * projet.prixUnePart)}">2
+                                    500EUR</span>
+                                (<span th:text="${inv.valeurPartsPrisEnPourcent + '%'}">5%</span> equity)
+                            </small>
+                            <small class="text-muted">
+                                Le <span th:text="${#temporals.format(inv.date, 'dd/MM/yyyy HH:mm')}">15/02/2025</span>
+                                — Statut : <span class="badge bg-success"
+                                    th:text="${inv.statutPartInvestissement}">VALIDE</span>
+                            </small>
+                        </div>
+                        <div th:if="${inv.frais > 0}">
+                            <small class="text-danger">Frais : <span
+                                    th:text="${#numbers.formatCurrency(inv.frais)}">250EUR</span></small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOUTONS -->
+            <!-- BOUTONS -->
+            <div class="mt-4">
+                <a th:href="@{/projets/{id}/edit(id=${projet.id})}" class="btn btn-warning">Modifier</a>
+                <a href="/projets" class="btn btn-secondary">Retour</a>
+            </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

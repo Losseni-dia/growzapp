@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${projet.libelle}">Projet</title>
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+            background: #f4f4f4;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        h1 {
+            color: #27ae60;
+            text-align: center;
+        }
+
+        .info {
+            background: #eefaf1;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #27ae60;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .text-center {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        a {
+            color: #27ae60;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1 th:text="${projet.libelle}">Projet</h1>
+
+        <div class="info">
+            <p><strong>Référence :</strong> <span th:text="${projet.reference}">123</span></p>
+            <p><strong>Description :</strong> <span th:text="${projet.description}">...</span></p>
+            <p><strong>Objectif :</strong> <span th:text="${projet.objectifFinancement} + ' FCFA'">1 000 000</span></p>
+            <p><strong>Collecté :</strong> <span th:text="${projet.montantCollecte} + ' FCFA'">450 000</span></p>
+            <p><strong>Statut :</strong>
+                <span class="badge"
+                    th:classappend="${projet.statutProjet == 'EN_COURS' ? 'badge-success' : 'badge-warning'}"
+                    th:text="${projet.statutProjet}">EN_COURS</span>
+            </p>
+        </div>
+
+        <h2>Investissements</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Investisseur</th>
+                    <th>Parts</th>
+                    <th>Valeur (%)</th>
+                    <th>Frais</th>
+                    <th>Statut</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="inv : ${projet.investissements}">
+                    <td th:text="${inv.id}">1</td>
+                    <td th:text="${inv.investisseurNom}">Jean Dupont</td>
+                    <td th:text="${inv.nombrePartsPris}">50</td>
+                    <td th:text="${inv.valeurPartsPrisEnPourcent} + '%'">5.0%</td>
+                    <td th:text="${inv.frais} + ' FCFA'">5000</td>
+                    <td>
+                        <span class="badge"
+                            th:classappend="${inv.statutPartInvestissement == 'VALIDE' ? 'badge-success' : 'badge-warning'}"
+                            th:text="${inv.statutPartInvestissement}">VALIDE</span>
+                    </td>
+                    <td th:text="${#temporals.format(inv.date, 'dd/MM/yyyy')}">15/11/2025</td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(projet.investissements)}">
+                    <td colspan="7" class="text-center">Aucun investissement</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="text-center">
+            <a th:href="@{/profile/mes-projets}">Retour aux projets</a>
+        </div>
+    </div>
+
+</body>
+
+</html>

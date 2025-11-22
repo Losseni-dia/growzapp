@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Formulaire</title>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <h3 th:text="${title}">Créer fonction</h3>
+        <form th:action="@{${fonction.id} ? '/fonctions/' + ${fonction.id} + '/edit' : '/fonctions/create'}"
+            th:object="${fonction}" method="post">
+            <div class="mb-3">
+                <label class="form-label">Nom *</label>
+                <input type="text" th:field="*{nom}" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea th:field="*{description}" class="form-control" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-success">
+                <span th:text="${fonction.id} ? 'Mettre à jour' : 'Créer'">Créer</span>
+            </button>
+            <a href="/fonctions" class="btn btn-secondary">Annuler</a>
+        </form>
+    </div>
+</body>
+
+</html>

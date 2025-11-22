@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Détail site</title>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <h3 th:text="${localisation.nom}">Site Industriel A</h3>
+                <!-- BOUTON AJOUTER LOCALISATION -->
+                <a th:href="@{/localites/{localiteId}/create-localisation(localiteId=${localisation.localiteId})}"
+                    class="btn btn-success btn-sm">
+                    + Ajouter une localisation
+                </a>
+            </div>
+            <div class="card-body">
+                <!-- === INFOS GÉNÉRALES === -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Adresse :</strong> <span th:text="${localisation.adresse}">123 Rue de
+                                l'Industrie</span></p>
+                        <p><strong>Contact :</strong> <span th:text="${localisation.contact}">contact@sitea.com</span>
+                        </p>
+                        <p><strong>Responsable :</strong> <span th:text="${localisation.responsable}">M. Diallo</span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Créé le :</strong>
+                            <span th:text="${#temporals.format(localisation.createdAt, 'dd/MM/yyyy HH:mm')}">
+                                12/11/2025 10:30
+                            </span>
+                        </p>
+                        <p><strong>Localité :</strong>
+                            <strong th:text="${localisation.localiteNom}">Dakar</strong>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- === PROJETS ASSOCIÉS === -->
+                <h5 class="mt-4">Projets associés :</h5>
+                <div th:if="${#lists.isEmpty(localisation.projets)}" class="text-muted mb-3">
+                    Aucun projet associé.
+                </div>
+                <ul class="list-group mb-3" th:unless="${#lists.isEmpty(localisation.projets)}">
+                    <li th:each="projet : ${localisation.projets}" class="list-group-item">
+                        <span th:text="${projet}">Projet Énergie Solaire</span>
+                    </li>
+                </ul>
+
+                <!-- === ACTIONS === -->
+                <div class="mt-4">
+                    <a th:href="@{/localisations/{id}/edit(id=${localisation.id})}"
+                        class="btn btn-warning me-2">Modifier</a>
+                    <a href="/localisations" class="btn btn-secondary">Retour à la liste</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

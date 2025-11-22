@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Détail Investissement - GrowzApp</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+        }
+
+        .btn-pdf {
+            background: #27ae60;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .btn-pdf:hover {
+            background: #219653;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #27ae60, #219653);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2em;
+        }
+
+        .stat {
+            margin: 15px 0;
+            font-size: 1.2em;
+        }
+
+        .label {
+            font-weight: 600;
+            color: #636e72;
+        }
+
+        .value {
+            font-weight: bold;
+            color: #27ae60;
+        }
+
+        .dividende-list {
+            margin-top: 30px;
+        }
+
+        .dividende {
+            background: #eefaf1;
+            padding: 18px;
+            margin: 12px 0;
+            border-radius: 12px;
+            border-left: 5px solid #27ae60;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .paye {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .planifie {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .btn-pdf {
+            background: #27ae60;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .btn-pdf:hover {
+            background: #219653;
+        }
+
+        .back {
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .back a {
+            color: #27ae60;
+            font-weight: bold;
+            text-decoration: none;
+            font-size: 1.1em;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #777;
+            font-style: italic;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            1 <h1 th:text="${investissement.projet?.libelle}">Projet</h1>
+        </div>
+
+        <div class="stat">
+            <span class="label">Investi le :</span>
+            <span class="value" th:text="${#temporals.format(investissement.date, 'dd/MM/yyyy')}">01/01/2025</span>
+        </div>
+
+        <div class="stat">
+            <span class="label">Nombre de parts :</span>
+            <span class="value" th:text="${investissement.nombrePartsPris}">0</span>
+        </div>
+
+        <div class="stat">
+            <span class="label">Montant investi :</span>
+            <span class="value"
+                th:text="${#numbers.formatDecimal((investissement.nombrePartsPris * (investissement.projet?.prixUnePart ?: 0)), 0, 2) + ' FCFA'}">
+                0 FCFA
+            </span>
+        </div>
+    <div class="back">
+        <a th:href="@{'/investissements/' + ${investissement.id} + '/dividendes'}" class="btn-pdf"
+            style="margin-right: 20px;">
+            Voir les dividendes
+        </a>
+    
+        <a th:href="@{/profile/mes-investissements}">
+            Retour à mes investissements
+        </a>
+    </div>
+</body>
+
+</html>

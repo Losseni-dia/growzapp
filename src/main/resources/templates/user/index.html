@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layouts/main}">
+
+<head>
+    <title>Liste des utilisateurs</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            background: #27ae60;
+            font-size: 2.8em;
+            margin: 0 0 50px 0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        h2 {
+            color: #27ae60;
+            font-size: 1.8em;
+            margin: 0 0 20px 0;
+            font-weight: 600;
+        }
+
+        .d-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 18px;
+            margin: 5px 5px 0 0;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.95em;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+            padding: 14px 28px;
+            font-size: 1.1em;
+        }
+
+        .btn-success:hover {
+            background: #219653;
+            transform: scale(1.05);
+        }
+
+        .btn-outline-primary {
+            background: transparent;
+            color: #27ae60;
+            border: 2px solid #27ae60;
+        }
+
+        .btn-outline-primary:hover {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-outline-warning {
+            background: transparent;
+            color: #f39c12;
+            border: 2px solid #f39c12;
+        }
+
+        .btn-outline-warning:hover {
+            background: #f39c12;
+            color: white;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin: 25px 0;
+        }
+
+        .table th {
+            background: #27ae60;
+            color: white;
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .table tr:hover {
+            background: #f8fff9;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 50px;
+            font-size: 0.85em;
+            font-weight: bold;
+            background: #27ae60;
+            color: white;
+            margin-right: 5px;
+        }
+
+        .text-primary {
+            color: #27ae60;
+        }
+
+        .text-danger {
+            color: #e74c3c;
+        }
+
+        .rounded-circle {
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+        }
+
+        .alert-info {
+            background: #f0f8ff;
+            color: #17a2b8;
+            padding: 16px;
+            border-radius: 12px;
+            border-left: 5px solid #17a2b8;
+            margin: 20px 0;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="container">
+            <h1>Liste des utilisateurs</h1>
+
+            <!-- Ajoute ce bouton en haut à droite -->
+            <div class="d-flex">
+                <h2>Utilisateurs enregistrés</h2>
+                <a href="/users/create" class="btn btn-success">+ Créer un utilisateur</a>
+            </div>
+
+            <div th:if="${#lists.isEmpty(users)}" class="alert-info">
+                Aucun utilisateur trouvé.
+            </div>
+
+            <table class="table" th:unless="${#lists.isEmpty(users)}">
+                <thead>
+                    <tr>
+                        <th>Photo</th>
+                        <th>Prénom</th>
+                        <th>Nom</th>
+                        <th>Sexe</th>
+                        <th>Email</th>
+                        <th>Contact</th>
+                        <th>Localité</th>
+                        <th>Rôles</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="user : ${users}">
+                        <td>
+                            <img th:src="${user.image}" th:data-seed="${user.login}" alt="Avatar" class="rounded-circle"
+                                onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=' + this.dataset.seed">
+                        </td>
+                        <td th:text="${user.prenom}">Losseni</td>
+                        <td th:text="${user.nom}">Dia</td>
+                        <td>
+                            <span th:text="${user.sexe == 'M' ? 'Homme' : 'Femme'}"
+                                th:classappend="${user.sexe == 'M' ? 'text-primary' : 'text-danger'}">
+                                Homme
+                            </span>
+                        </td>
+                        <td th:text="${user.email}">losseni.dia@growzapp.com</td>
+                        <td th:text="${user.contact}">+225 07 89 01 23</td>
+                        <td th:text="${user.localite?.nom}">Dakar</td>
+                        <td>
+                            <span th:each="role : ${user.roles}" class="badge" th:text="${role}">ADMIN</span>
+                        </td>
+                        <td>
+                            <a th:href="@{/users/{id}(id=${user.id})}" class="btn btn-outline-primary">Voir</a>
+                            <a th:href="@{/users/{id}/edit(id=${user.id})}" class="btn btn-outline-warning">Modifier</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+
+</html>

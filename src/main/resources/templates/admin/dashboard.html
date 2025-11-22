@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:fragment="content">
+
+<head>
+    <style>
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 2rem;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #6c757d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: var(--primary, #27ae60);
+        }
+
+        .tab.active {
+            color: var(--primary, #27ae60);
+            border-bottom-color: var(--primary, #27ae60);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-card .btn-link {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.2rem;
+            color: var(--primary, #27ae60);
+            text-decoration: none;
+        }
+
+        .stat-card h3 {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card .number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .stat-card .label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            border-radius: 4px;
+            transition: width 0.6s ease;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+        }
+
+        .badge-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .badge-success {
+            background: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <h1 th:text="${title}">Tableau de bord Admin</h1>
+
+        <!-- Onglets -->
+        <div class="tabs">
+            <div class="tab active" onclick="openTab(event, 'projets')"
+                th:classappend="${currentUri == '/admin' ? 'active' : ''}">
+                Projets
+            </div>
+            <div class="tab" onclick="openTab(event, 'investissements')"
+                th:classappend="${currentUri.startsWith('/admin/investissements') ? 'active' : ''}">
+                Investissements
+            </div>
+            <div class="tab" onclick="openTab(event, 'utilisateurs')"
+                th:classappend="${currentUri.startsWith('/admin/users') ? 'active' : ''}">
+                Utilisateurs
+            </div>
+            <div class="tab" onclick="openTab(event, 'employes')"
+                th:classappend="${currentUri.startsWith('/admin/employes') ? 'active' : ''}">
+                Employés
+            </div>
+            <div class="tab" onclick="openTab(event, 'sites')"
+                th:classappend="${currentUri.startsWith('/admin/sites') ? 'active' : ''}">
+                Sites & Localités
+            </div>
+            <div class="tab" onclick="openTab(event, 'dividendes')"
+                th:classappend="${currentUri.startsWith('/admin/dividendes') ? 'active' : ''}">
+                Dividendes
+            </div>
+        </div>
+
+        <!-- Projets -->
+        <div id="projets" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <a th:href="@{/projets}" class="btn-link" title="Voir tous les projets">→</a>
+                    <h3>Total projets</h3>
+                    <div class="number" th:text="${totalProjets}">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>En cours</h3>
+                    <div class="number" th:text="${enCours}">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Terminés</h3>
+                    <div class="number" th:text="${termines}">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Financement</h3>
+                    <div class="number" th:text="${#numbers.formatDecimal(montantCollecteTotal, 1, 2, 2) + ' FCFA'}">
+                        0 FCFA
+                    </div>
+                    <div class="label">
+                        sur <span th:text="${#numbers.formatDecimal(objectifTotal, 1, 2, 2) + ' FCFA'}">
+                            0 FCFA
+                        </span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress" th:style="'width: ' + ${tauxRemplissage} + '%'"></div>
+                    </div>
+                    <small th:text="${tauxRemplissage} + '%'">0%</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Autres onglets (inchangés, mais tu peux les compléter) -->
+        <div id="sites" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <a th:href="@{/localites}" class="btn-link">→</a>
+                    <h3>Localités</h3>
+                    <div class="number" th:text="${totalLocalites}">0</div>
+                </div>
+                <div class="stat-card">
+                    <a th:href="@{/sites}" class="btn-link">→</a>
+                    <h3>Sites</h3>
+                    <div class="number" th:text="${totalSites}">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="employes" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <a th:href="@{/admin/employes}" class="btn-link">→</a>
+                    <h3>Employés</h3>
+                    <div class="number" th:text="${totalEmployes}">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            evt.currentTarget.classList.add('active');
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title ?: 'GrowzApp'}">GrowzApp</title>
+
+    <!-- Bootstrap 5 + FontAwesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+
+    <!-- CSRF -->
+    <meta name="_csrf" th:content="${_csrf?.token}" />
+    <meta name="_csrf_header" th:content="${_csrf?.headerName}" />
+
+    <style>
+        :root {
+            --primary: #27ae60;
+            --primary-dark: #219653;
+            --sidebar-width: 260px;
+            --sidebar-collapsed: 70px;
+            --text-light: rgba(255, 255, 255, 0.9);
+            --text-active: #ffffff;
+            --bg-hover: rgba(255, 255, 255, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        /* === SIDEBAR === */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: var(--sidebar-width);
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            transition: width 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+
+        .sidebar-header h3 {
+            margin: 0;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .toggle-btn {
+            position: absolute;
+            top: 25px;
+            right: -15px;
+            background: white;
+            color: var(--primary);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .toggle-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .nav-link {
+            color: var(--text-light);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s;
+            border-left: 4px solid transparent;
+            text-decoration: none;
+        }
+
+        .nav-link i {
+            width: 30px;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        .nav-link span {
+            margin-left: 15px;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            background: var(--bg-hover);
+            border-left-color: white;
+            color: var(--text-active);
+        }
+
+        .sidebar.collapsed .nav-link span,
+        .sidebar.collapsed .sidebar-header h3 {
+            display: none;
+        }
+
+        .sidebar.collapsed .toggle-btn {
+            right: -15px;
+        }
+
+        /* === MAIN CONTENT === */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+            padding: 30px;
+            background: #f5f7fa;
+        }
+
+        .main-content.expanded {
+            margin-left: var(--sidebar-collapsed);
+        }
+
+        .content-wrapper {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+            min-height: calc(100vh - 100px);
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: var(--sidebar-collapsed);
+            }
+
+            .main-content {
+                margin-left: var(--sidebar-collapsed);
+            }
+
+            .sidebar-header h3,
+            .nav-link span {
+                display: none;
+            }
+
+            .toggle-btn {
+                right: -15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Growz<span style="color:#f1c40f">Admin</span></h3>
+            <div class="toggle-btn" onclick="toggleSidebar()">
+                <i class="fas fa-chevron-left" id="toggleIcon"></i>
+            </div>
+        </div>
+        <nav>
+            <a th:href="@{/admin}" class="nav-link" th:classappend="${currentUri == '/admin' ? 'active' : ''}">
+                <i class="fas fa-tachometer-alt"></i><span>Tableau de bord</span>
+            </a>
+            <a th:href="@{/admin/users}" class="nav-link"
+                th:classappend="${currentUri.startsWith('/admin/users') ? 'active' : ''}">
+                <i class="fas fa-users"></i><span>Utilisateurs</span>
+            </a>
+            <a th:href="@{/admin/investissements}" class="nav-link"
+                th:classappend="${currentUri.startsWith('/admin/investissements') ? 'active' : ''}">
+                <i class="fas fa-handshake"></i><span>Investissements</span>
+            </a>
+            <a th:href="@{/admin/dividendes}" class="nav-link"
+                th:classappend="${currentUri.startsWith('/admin/dividendes') ? 'active' : ''}">
+                <i class="fas fa-coins"></i><span>Dividendes</span>
+            </a>
+            <a th:href="@{/profile}" class="nav-link"
+                th:classappend="${currentUri.startsWith('/profile') ? 'active' : ''}">
+                <i class="fas fa-user-circle"></i><span>Profil</span>
+            </a>
+            <a th:href="@{/logout}" class="nav-link">
+                <i class="fas fa-sign-out-alt"></i><span>Déconnexion</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content" id="mainContent">
+        <div class="content-wrapper">
+            <div layout:fragment="content">
+                <!-- Contenu de la page -->
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT -->
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const toggleIcon = document.getElementById('toggleIcon');
+
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+
+            if (sidebar.classList.contains('collapsed')) {
+                toggleIcon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+            } else {
+                toggleIcon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+            }
+        }
+
+        // Auto-collapse sur mobile
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 992) {
+                document.getElementById('sidebar').classList.add('collapsed');
+                document.getElementById('mainContent').classList.add('expanded');
+                document.getElementById('toggleIcon').classList.replace('fa-chevron-left', 'fa-chevron-right');
+            }
+        });
+
+        // Gestion des rôles via AJAX
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.role-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', async function () {
+                    const userId = this.closest('.role-checkboxes').dataset.userId;
+                    const selectedRoles = Array.from(this.closest('.role-checkboxes').querySelectorAll('.role-checkbox'))
+                        .filter(cb => cb.checked)
+                        .map(cb => cb.value);
+
+                    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+                    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+                    try {
+                        const res = await fetch(`/admin/users/${userId}/roles`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                [csrfHeader]: csrfToken
+                            },
+                            body: JSON.stringify({ roles: selectedRoles })
+                        });
+
+                        const data = await res.json();
+                        const msgDiv = this.closest('td').querySelector('.role-message');
+                        msgDiv.innerHTML = `<small style="color:${data.success ? 'green' : 'red'}">${data.message}</small>`;
+                        setTimeout(() => msgDiv.innerHTML = '', 3000);
+                    } catch (err) {
+                        console.error("Erreur:", err);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

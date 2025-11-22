@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Projets</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            background: #27ae60;
+            font-size: 2.8em;
+            margin: 0 0 50px 0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        h2 {
+            color: #27ae60;
+            font-size: 1.8em;
+            margin: 0 0 20px 0;
+            font-weight: 600;
+        }
+
+        .d-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 25px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        /* TITRE DU PROJET : BLANC SUR FOND VERT */
+        .card-title {
+            color: white !important;
+            background: #27ae60;
+            font-size: 1.5em;
+            margin: 0;
+            padding: 18px 25px;
+            font-weight: 600;
+            text-align: center;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3);
+        }
+
+        .card-body {
+            padding: 20px 25px;
+            flex-grow: 1;
+        }
+
+        .card-body p {
+            margin: 10px 0;
+            font-size: 1.05em;
+        }
+
+        .card-body strong {
+            color: #27ae60;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 50px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .bg-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .bg-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .bg-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .card-footer {
+            padding: 15px 25px;
+            background: #f8f9fa;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 18px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.95em;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+            transform: scale(1.05);
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+            transform: scale(1.05);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+            padding: 14px 28px;
+            font-size: 1.1em;
+        }
+
+        .btn-success:hover {
+            background: #219653;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="container">
+            <h1 th:text="${title}">Liste des projets</h1>
+
+            <div class="d-flex">
+                <h2>Projets actifs</h2>
+                <a href="/projets/create" class="btn btn-success">+ Ajouter</a>
+            </div>
+
+            <div class="row">
+                <div th:each="p : ${projets}" class="stat-card">
+                    <h5 class="card-title" th:text="${p.libelle}">Énergie Solaire</h5>
+                    <div class="card-body">
+                        <p><strong>Porteur :</strong> <span th:text="${p.porteurNom}">Jean Dupont</span></p>
+                        <p><strong>Site :</strong> <span th:text="${p.siteNom}">Site A</span></p>
+                        <p><strong>Secteur :</strong> <span th:text="${p.secteurNom}">Énergie</span></p>
+                        <p><strong>Statut :</strong>
+                            <span class="badge"
+                                th:classappend="${p.statutProjet == 'EN_COURS' ? 'bg-success' : p.statutProjet == 'TERMINE' ? 'bg-info' : 'bg-warning'}"
+                                th:text="${p.statutProjet}">EN_COURS</span>
+                        </p>
+                        <p><strong>Objectif :</strong> <span
+                                th:text="${#numbers.formatCurrency(p.objectifFinancement)}">50 000 EUR</span></p>
+                        <p><strong>Collecté :</strong> <span th:text="${#numbers.formatCurrency(p.montantCollecte)}">2
+                                500 EUR</span></p>
+                        <p><strong>Parts :</strong> <span th:text="${p.partsPrises + ' / ' + p.partsDisponible}">50 /
+                                1000</span></p>
+                        <p><strong>Documents :</strong> <span th:text="${#lists.size(p.documents)}">2</span></p>
+                    </div>
+                    <div class="card-footer">
+                        <a th:href="@{/projets/{id}(id=${p.id})}" class="btn btn-info">Voir</a>
+                        <a th:href="@{/projets/{id}/edit(id=${p.id})}" class="btn btn-warning">Modifier</a>
+                        <form th:action="@{/projets/{id}/delete(id=${p.id})}" method="post" class="d-inline"
+                            onsubmit="return confirm('Supprimer ce projet ?')">
+                            <button type="submit" class="btn btn-danger">Supprimer</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

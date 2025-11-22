@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mes Projets Créés - GrowzApp</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #27ae60;
+            font-size: 2.6em;
+            margin-bottom: 20px;
+        }
+
+        .back {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .back a {
+            color: #27ae60;
+            font-size: 1.1em;
+            text-decoration: none;
+        }
+
+        .projet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 30px;
+        }
+
+        .projet-card {
+            background: white;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .projet-card:hover {
+            transform: translateY(-10px);
+        }
+
+        .projet-header {
+            height: 160px;
+            background: linear-gradient(135deg, #27ae60, #219653);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            font-size: 1.4em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .projet-body {
+            padding: 25px;
+        }
+
+        .projet-title {
+            font-size: 1.5em;
+            color: #27ae60;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .stat {
+            margin: 12px 0;
+            font-size: 1.1em;
+        }
+
+        .label {
+            color: #636e72;
+            font-weight: 600;
+        }
+
+        .value {
+            font-weight: bold;
+            color: #27ae60;
+        }
+
+        .progress {
+            height: 12px;
+            background: #e0e0e0;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #27ae60;
+            width: 0;
+            transition: width 1.5s ease;
+        }
+
+        .status-badge {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .en-prep {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .en-cours {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .termine {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .btn {
+            display: block;
+            margin: 20px auto 0;
+            background: #27ae60;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            width: 220px;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background: #219653;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 60px;
+            color: #777;
+            font-size: 1.4em;
+            font-style: italic;
+        }
+
+        .logout {
+            text-align: center;
+            margin: 80px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <h1>Mes Projets Créés</h1>
+        <div class="back">
+            <a th:href="@{/profile}">Retour au tableau de bord</a>
+        </div>
+
+        <!-- Aucun projet -->
+        <div th:if="${projets == null or #lists.isEmpty(projets)}" class="no-data">
+            Vous n'avez créé aucun projet pour le moment.<br><br>
+            <a th:href="@{/projets/creer}" class="btn">+ Créer mon premier projet</a>
+        </div>
+
+        <!-- Liste des projets -->
+        <div th:if="${projets != null and not #lists.isEmpty(projets)}" class="projet-grid">
+            <div th:each="p : ${projets}" class="projet-card">
+                <div class="projet-header">
+                    <span th:text="${p.libelle}">Nom du projet</span>
+                </div>
+
+                <div class="projet-body">
+                    <div class="projet-title" th:text="${p.libelle}">Projet</div>
+
+                    <div class="stat">
+                        <span class="label">Statut :</span>
+                        <span class="status-badge" th:classappend="${
+                              p.statutProjet == 'EN_PREPARATION' ? 'en-prep' :
+                              p.statutProjet == 'EN_COURS' ? 'en-cours' : 'termine'
+                          }" th:text="${p.statutProjet}">EN_PRÉPARATION</span>
+                    </div>
+
+                    <div class="stat">
+                        <span class="label">Objectif :</span>
+                        <span class="value" th:text="${#numbers.formatDecimal(p.objectifFinancement, 0, 2)} + ' FCFA'">0
+                            FCFA</span>
+                    </div>
+
+                    <div class="stat">
+                        <span class="label">Collecté :</span>
+                        <span class="value" th:text="${#numbers.formatDecimal(p.montantCollecte, 0, 2)} + ' FCFA'">0
+                            FCFA</span>
+                    </div>
+
+                    <div class="stat">
+                        <span class="label">Parts vendues :</span>
+                        <span class="value" th:text="${p.partsPrises} + ' / ' + ${p.partsDisponible}">0 / 0</span>
+                    </div>
+
+                    <!-- Barre de progression -->
+                    <div class="progress">
+                        <div class="progress-bar"
+                            th:attr="data-percent=${p.objectifFinancement > 0 ? (p.montantCollecte / p.objectifFinancement * 100) : 0}"
+                            th:style="'width: ' + ${p.objectifFinancement > 0 ? (p.montantCollecte / p.objectifFinancement * 100) : 0} + '%'">
+                        </div>
+                    </div>
+                    <div style="text-align:center; font-weight:bold; color:#27ae60; margin-top:8px;">
+                        <span
+                            th:text="${p.objectifFinancement > 0 ? #numbers.formatDecimal((p.montantCollecte / p.objectifFinancement * 100), 1, 1) : 0} + '% financé'">
+                            0%
+                        </span>
+                    </div>
+
+                    <a th:href="@{/projets/{id}(id=${p.id})}" class="btn">Gérer ce projet</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="logout">
+            <a th:href="@{/logout}">Déconnexion</a>
+        </div>
+    </div>
+
+    <script>
+        // Animation douce de la barre au chargement
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll('.progress-bar').forEach(bar => {
+                setTimeout(() => {
+                    const percent = bar.getAttribute('data-percent') || 0;
+                    bar.style.width = percent + '%';
+                }, 300);
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title>Liste des Utilisateurs</title>
+    <style>
+        .role-checkboxes .form-check {
+            margin: 5px 0;
+        }
+
+        .role-message {
+            min-height: 20px;
+            margin-top: 5px;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+            color: white;
+        }
+
+        .badge-admin {
+            background: #e74c3c;
+        }
+
+        .badge-porteur {
+            background: #3498db;
+        }
+
+        .badge-investisseur {
+            background: #2ecc71;
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="container-fluid">
+            <h1 class="mb-4">Liste des Utilisateurs</h1>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-success">
+                        <tr>
+                            <th>ID</th>
+                            <th>Nom</th>
+                            <th>Email</th>
+                            <th>Rôles</th>
+                            <th>Investissements</th>
+                            <th>Projets</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="user : ${users}">
+                            <td th:text="${user.id}">1</td>
+                            <td th:text="${user.prenom + ' ' + user.nom}">Jean Dupont</td>
+                            <td th:text="${user.email}">jean@example.com</td>
+                            <td>
+                                <div class="role-checkboxes" th:data-user-id="${user.id}">
+                                    <div class="form-check form-check-inline">
+                                        <input type="checkbox" class="form-check-input role-checkbox" value="ADMIN"
+                                            th:checked="${#lists.contains(user.roles, 'ADMIN')}"
+                                            id="admin-|${user.id}|">
+                                        <label class="form-check-label badge badge-admin"
+                                            th:for="'admin-' + ${user.id}">ADMIN</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input type="checkbox" class="form-check-input role-checkbox" value="PORTEUR"
+                                            th:checked="${#lists.contains(user.roles, 'PORTEUR')}"
+                                            id="porteur-|${user.id}|">
+                                        <label class="form-check-label badge badge-porteur"
+                                            th:for="'porteur-' + ${user.id}">PORTEUR</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input type="checkbox" class="form-check-input role-checkbox"
+                                            value="INVESTISSEUR"
+                                            th:checked="${#lists.contains(user.roles, 'INVESTISSEUR')}"
+                                            id="investisseur-|${user.id}|">
+                                        <label class="form-check-label badge badge-investisseur"
+                                            th:for="'investisseur-' + ${user.id}">INVESTISSEUR</label>
+                                    </div>
+                                </div>
+                                <div class="role-message small"></div>
+                                <small class="text-muted" th:if="${#lists.isEmpty(user.roles)}">Aucun rôle</small>
+                            </td>
+                            <td th:text="${#lists.size(user.investissements)}">3</td>
+                            <td th:text="${#lists.size(user.projets)}">1</td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(users)}">
+                            <td colspan="6" class="text-center py-4 text-muted">Aucun utilisateur</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <a th:href="@{/admin}" class="btn btn-outline-success mt-3">
+                ← Retour au tableau de bord
+            </a>
+        </div>
+    </div>
+</body>
+
+</html>

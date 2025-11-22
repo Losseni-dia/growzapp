@@ -1,0 +1,4 @@
+CREATE TABLE `secteurs` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `nom` VARCHAR(50) NOT NULL 
+);

@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "path": "../../../../../../.."
+    },
+    {
+      "path": "../../../../../../../../../../../../../PID/smartbooking"
+    },
+    {
+      "path": "../../../../../../../../../../../springEventApp/eventapp"
+    },
+    {
+      "path": "../../../../../../../../frontend"
+    }
+  ],
+  "settings": {
+    "java.project.sourcePaths": [""]
+  }
+}

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Rapport Mensuel – GrowzApp</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            background: #27ae60;
+            font-size: 2.8em;
+            margin: 0 0 50px 0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        h2 {
+            color: #27ae60;
+            font-size: 1.8em;
+            margin: 30px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #27ae60;
+            text-align: center;
+        }
+
+        .info-card {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+        }
+
+        .info-card p {
+            margin: 12px 0;
+            font-size: 1.1em;
+        }
+
+        .info-card strong {
+            color: #27ae60;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        th {
+            background: #27ae60;
+            color: white;
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background: #f8fff9;
+        }
+
+        .total {
+            font-size: 1.4em;
+            font-weight: bold;
+            text-align: right;
+            margin: 30px 0;
+            color: #27ae60;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 60px;
+            color: #636e72;
+            font-size: 0.95em;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Rapport Mensuel des Investissements</h1>
+        <h2 th:text="${#temporals.format(mois, 'MMMM yyyy', T(java.util.Locale).FRENCH)}">Octobre 2025</h2>
+
+        <div class="info-card">
+            <p><strong>Total collecté ce mois :</strong> <span
+                    th:text="${#numbers.formatCurrency(totalCollecte)}">€12,450.00</span></p>
+            <p><strong>Nombre d'investissements :</strong> <span th:text="${investissements.size()}">8</span></p>
+            <p><strong>Nombre de projets financés :</strong> <span th:text="${projetsDistincts}">3</span></p>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Investisseur</th>
+                    <th>Projet</th>
+                    <th>Montant</th>
+                    <th>Parts</th>
+                    <th>Contrat</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="inv : ${investissements}">
+                    <td th:text="${#temporals.format(inv.date, 'dd/MM/yyyy HH:mm', T(java.util.Locale).FRENCH)}">
+                        15/10/2025 14:30</td>
+                    <td th:text="${inv.investisseur.prenom + ' ' + inv.investisseur.nom}">Jean Dupont</td>
+                    <td th:text="${inv.projet.libelle}">Ferme Bio du Nord</td>
+                    <td th:text="${#numbers.formatCurrency(inv.nombrePartsPris * inv.projet.prixUnePart)}">€1,500.00
+                    </td>
+                    <td th:text="${inv.nombrePartsPris}">10</td>
+                    <td>
+                        <a th:href="${inv.contrat.lienVerification}" th:text="${inv.contrat.numeroContrat}"
+                            style="color:#27ae60; font-weight:bold; text-decoration:none;">
+                            CTR-2025-000127
+                        </a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="total">
+            Total : <span th:text="${#numbers.formatCurrency(totalCollecte)}">€12,450.00</span>
+        </div>
+
+        <div class="footer">
+            <p><strong>GrowzApp</strong> – Rapport généré le
+                <span
+                    th:text="${#temporals.format(#temporals.createNow(), 'dd MMMM yyyy à HH:mm', T(java.util.Locale).FRENCH))}">14
+                    novembre 2025 à 17:00</span>
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

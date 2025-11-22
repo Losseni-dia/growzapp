@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Vérification du contrat – GrowzApp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 40px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* TITRE PRINCIPAL : BLANC SUR FOND VERT */
+        h1 {
+            text-align: center;
+            color: white;
+            background: #27ae60;
+            font-size: 2.8em;
+            margin: 0 0 50px 0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        h2 {
+            color: #27ae60;
+            font-size: 1.8em;
+            margin: 30px 0 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #27ae60;
+            text-align: center;
+        }
+
+        .valide {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 1.3em;
+            margin: 20px 0;
+        }
+
+        .invalide {
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 1.3em;
+            margin: 20px 0;
+        }
+
+        .error {
+            background: #fdf2f2;
+            color: #c0392b;
+            padding: 18px;
+            border-radius: 12px;
+            border-left: 5px solid #e74c3c;
+            margin: 25px 0;
+            font-size: 1.1em;
+        }
+
+        .info-card {
+            background: #f8fff9;
+            padding: 25px;
+            border-radius: 12px;
+            border-left: 5px solid #27ae60;
+            margin: 30px 0;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .info-card p {
+            margin: 12px 0;
+            font-size: 1.1em;
+        }
+
+        .info-card strong {
+            color: #27ae60;
+        }
+
+        .qr {
+            text-align: center;
+            padding: 25px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin: 40px 0;
+        }
+
+        .qr img {
+            width: 180px;
+            height: 180px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .qr p {
+            margin-top: 12px;
+            color: #636e72;
+            font-size: 0.95em;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #636e72;
+            font-size: 0.95em;
+            padding: 20px;
+        }
+
+        .footer a {
+            color: #27ae60;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        hr {
+            border: none;
+            height: 1px;
+            background: #ddd;
+            margin: 40px 0;
+        }
+
+        @media (max-width: 576px) {
+            body {
+                margin: 20px;
+            }
+
+            .container {
+                padding: 25px;
+            }
+
+            h1 {
+                font-size: 2.2em;
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- TITRE PRINCIPAL -->
+        <h1>Vérification d'authenticité</h1>
+
+        <!-- CAS INVALIDE -->
+        <div th:if="${!valide}">
+            <div class="invalide">
+                <h2>CONTRAT INVALIDE OU INCONNU</h2>
+                <div class="error" th:text="${error}">
+                    Ce numéro de contrat n’existe pas dans notre système.
+                </div>
+            </div>
+        </div>
+
+        <!-- CAS VALIDE -->
+        <div th:if="${valide}" class="valide">
+            <h2>CONTRAT AUTHENTIQUE</h2>
+            <p>Ce contrat est officiellement enregistré sur GrowzApp</p>
+        </div>
+
+        <!-- INFORMATIONS DU CONTRAT (si valide) -->
+        <div th:if="${valide}" class="info-card">
+            <p><strong>Numéro de contrat :</strong> <span th:text="${contrat.numeroContrat}">CTR-2025-000127</span></p>
+            <p><strong>Date de génération :</strong>
+                <span
+                    th:text="${#temporals.format(contrat.dateGeneration, 'dd MMMM yyyy à HH:mm', T(java.util.Locale).FRENCH)}">
+                    14 novembre 2025 à 17:00
+                </span>
+            </p>
+            <p><strong>Projet :</strong> <span th:text="${projet.libelle}">Ferme Solaire Dakar</span></p>
+            <p><strong>Investisseur :</strong> <span th:text="${user.prenom + ' ' + user.nom}">Jean Dupont</span></p>
+            <p><strong>Montant investi :</strong>
+                <span
+                    th:text="${#numbers.formatCurrency(investissement.nombrePartsPris * projet.prixUnePart)}">€7,750.00</span>
+            </p>
+            <p><strong>Parts acquises :</strong> <span th:text="${investissement.nombrePartsPris}">50</span></p>
+        </div>
+
+        <!-- QR CODE (si valide) -->
+        <div class="qr" th:if="${valide}">
+            <img th:src="@{'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + ${contrat.lienVerification}}"
+                alt="QR Code de vérification" />
+            <p><small>Scannez pour partager la vérification</small></p>
+        </div>
+
+        <!-- SÉPARATEUR -->
+        <hr>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <p><strong>GrowzApp</strong> – Plateforme d’investissement agricole durable</p>
+            <p><a th:href="@{https://growzapp.com}">growzapp.com</a></p>
+        </div>
+    </div>
+</body>
+
+</html>

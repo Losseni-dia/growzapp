@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Rapport – GrowzApp</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            background: #27ae60;
+            font-size: 2.8em;
+            margin: 0 0 50px 0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        .test-container {
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-container p {
+            font-size: 1.1em;
+            color: #555;
+            margin: 20px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            margin: 10px;
+            background: #27ae60;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #219653;
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: #636e72;
+        }
+
+        .btn-secondary:hover {
+            background: #4d5658;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 100px;
+            color: #636e72;
+            font-size: 0.95em;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="test-container">
+            <h1>Test du Rapport Mensuel</h1>
+            <p>Clique sur le bouton pour générer un rapport PDF du <strong>mois dernier</strong>.</p>
+            <p>Le fichier sera téléchargé automatiquement.</p>
+
+            <a href="/rapport/test" class="btn">Générer Rapport Test</a>
+            <br>
+            <a href="/admin/dashboard" class="btn btn-secondary">Retour au Dashboard</a>
+        </div>
+
+        <div class="footer">
+            <p><strong>GrowzApp</strong> – Administration</p>
+        </div>
+    </div>
+</body>
+
+</html>

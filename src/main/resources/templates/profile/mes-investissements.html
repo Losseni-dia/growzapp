@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mes Investissements & Dividendes - GrowzApp</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fa;
+            color: #2d3436;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #27ae60;
+            font-size: 2.6em;
+            margin-bottom: 20px;
+        }
+
+        .back {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .back a {
+            color: #27ae60;
+            font-size: 1.1em;
+            text-decoration: none;
+        }
+
+        .summary {
+            background: white;
+            padding: 30px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .total-amount {
+            font-size: 3em;
+            font-weight: 700;
+            color: #27ae60;
+        }
+
+        .invest-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+            gap: 30px;
+        }
+
+        .invest-card {
+            background: white;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .invest-card:hover {
+            transform: translateY(-10px);
+        }
+
+        .invest-header {
+            background: linear-gradient(135deg, #27ae60, #219653);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .invest-body {
+            padding: 25px;
+        }
+
+        .projet-title {
+            font-size: 1.6em;
+            color: #27ae60;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .stat {
+            margin: 12px 0;
+            font-size: 1.1em;
+        }
+
+        .label {
+            color: #636e72;
+            font-weight: 600;
+        }
+
+        .value {
+            font-weight: bold;
+            color: #27ae60;
+        }
+
+        .btn-detail {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .btn-detail a {
+            background: #27ae60;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1em;
+            transition: background 0.3s;
+        }
+
+        .btn-detail a:hover {
+            background: #219653;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 60px;
+            color: #777;
+            font-size: 1.4em;
+            font-style: italic;
+        }
+
+        .logout {
+            text-align: center;
+            margin: 80px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Mes Investissements & Dividendes</h1>
+        <div class="back">
+            <a th:href="@{/dashboard}">Retour au tableau de bord</a>
+        </div>
+
+        <!-- Résumé -->
+        <div class="summary">
+            <div class="total-amount"
+                th:text="${totalPercu != null ? #numbers.formatDecimal(totalPercu, 0, 2) + ' FCFA' : '0 FCFA'}">
+                0 FCFA
+            </div>
+            <p style="font-size:1.3em; color:#636e72;">Total perçu en dividendes</p>
+        </div>
+
+        <!-- Aucun investissement -->
+        <div th:if="${investissements == null or #lists.isEmpty(investissements)}" class="no-data">
+            Vous n'avez pas encore investi dans un projet.<br><br>
+            <a th:href="@{/projets}"
+                style="background:#27ae60;color:white;padding:14px 30px;border-radius:50px;text-decoration:none;font-weight:bold;">
+                Découvrir les projets disponibles
+            </a>
+        </div>
+
+        <!-- Liste des investissements -->
+        <div class="invest-grid" th:if="${investissements != null and not #lists.isEmpty(investissements)}">
+            <div th:each="inv : ${investissements}" class="invest-card">
+                <div class="invest-header">
+                    <span th:text="${inv.projet?.libelle ?: 'Projet inconnu'}">Projet</span>
+                </div>
+                <div class="invest-body">
+                    <div class="projet-title" th:text="${inv.projet?.libelle}">Projet</div>
+                    <div class="stat">
+                        <span class="label">Investi le :</span>
+                        <span class="value" th:text="${#temporals.format(inv.date, 'dd/MM/yyyy')}">01/01/2025</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Nombre de parts :</span>
+                        <span class="value" th:text="${inv.nombrePartsPris}">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Montant investi :</span>
+                        <span class="value"
+                            th:text="${#numbers.formatDecimal((inv.nombrePartsPris * (inv.projet?.prixUnePart ?: 0)), 0, 2) + ' FCFA'}">
+                            0 FCFA
+                        </span>
+                    </div>
+
+                    <div class="btn-detail">
+                        <a th:href="@{/investissements/{id}(id=${inv.id})}">
+                            Voir détails
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="logout">
+            <a th:href="@{/logout}">Déconnexion</a>
+        </div>
+    </div>
+</body>
+
+</html>

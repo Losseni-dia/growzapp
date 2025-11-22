@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <title>Header</title>
+</head>
+
+<body>
+    <header th:fragment="header" class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/" th:href="@{/}">
+                GrowzApp
+            </a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item" th:classappend="${module == 'home' ? 'active' : ''}">
+                        <a class="nav-link" th:href="@{/}">Accueil</a>
+                    </li>
+                    <li class="nav-item" th:classappend="${module == 'users' ? 'active' : ''}">
+                        <a class="nav-link" th:href="@{/users}">Utilisateurs</a>
+                    </li>
+                </ul>
+                <span class="navbar-text text-light">
+                    © 2025 GrowzApp – Tous droits réservés
+                </span>
+            </div>
+        </div>
+    </header>
+</body>
+
+</html>

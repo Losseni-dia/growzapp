@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Détail dividende</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        margin: 40px;
+        background: #f5f7fa;
+        color: #2d3436;
+        line-height: 1.6;
+    }
+
+    .container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    h1 {
+        text-align: center;
+        color: white;
+        background: #27ae60;
+        font-size: 2.8em;
+        margin: 0 0 50px 0;
+        padding: 20px;
+        border-radius: 16px;
+        font-weight: 700;
+        box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+    }
+
+    .info-card {
+        background: white;
+        padding: 35px;
+        border-radius: 16px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        margin-bottom: 40px;
+    }
+
+    .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 20px;
+    }
+
+    .alert {
+        padding: 16px;
+        border-radius: 12px;
+        margin: 20px 0;
+        font-size: 1.1em;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .alert-success {
+        background: #f8fff9;
+        color: #27ae60;
+        border-left: 5px solid #27ae60;
+    }
+
+    .alert-danger {
+        background: #fdf2f2;
+        color: #c0392b;
+        border-left: 5px solid #e74c3c;
+    }
+
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.2em;
+        cursor: pointer;
+        color: inherit;
+        opacity: 0.7;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .btn-close:hover {
+        opacity: 1;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 50px;
+        font-size: 0.9em;
+        font-weight: bold;
+        background: #27ae60;
+        color: white;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 14px 28px;
+        margin: 10px 8px 0 0;
+        border-radius: 50px;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1em;
+        transition: all 0.3s;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-success {
+        background: #27ae60;
+        color: white;
+        padding: 16px 32px;
+        font-size: 1.2em;
+    }
+
+    .btn-success:hover {
+        background: #219653;
+        transform: scale(1.05);
+    }
+
+    .btn-success.disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-primary {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #138496;
+    }
+
+    .btn-secondary {
+        background: #636e72;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #4d5658;
+    }
+
+    h4 {
+        color: #27ae60;
+        font-size: 1.6em;
+        margin: 30px 0 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #27ae60;
+    }
+
+    .text-muted {
+        color: #636e72;
+        font-size: 0.9em;
+    }
+
+    .mt-5 {
+        margin-top: 40px;
+    }
+
+    .mt-4 {
+        margin-top: 30px;
+    }
+
+    .mt-2 {
+        margin-top: 10px;
+    }
+
+    .d-block {
+        display: block;
+    }
+</style>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="container">
+            <h1>Dividende #<span th:text="${dividende.id}">1</span></h1>
+
+            <div class="info-card">
+
+                <!-- MESSAGES -->
+                <div th:if="${successMessage}" class="alert alert-success">
+                    <span th:text="${successMessage}"></span>
+                    <button type="button" class="btn-close" onclick="this.parentElement.remove()">x</button>
+                </div>
+                <div th:if="${errorMessage}" class="alert alert-danger">
+                    <span th:text="${errorMessage}"></span>
+                    <button type="button" class="btn-close" onclick="this.parentElement.remove()">x</button>
+                </div>
+
+                <!-- INFOS -->
+                <div class="row">
+                    <div>
+                        <p><strong>Montant par part :</strong> <span
+                                th:text="${#numbers.formatCurrency(dividende.montantParPart)}">15.50 EUR</span></p>
+                        <p><strong>Montant total :</strong> <span
+                                th:text="${#numbers.formatCurrency(dividende.montantTotal)}">1550.00 EUR</span></p>
+                        <p><strong>Investissement :</strong> <span th:text="${dividende.investissementInfo}">Ferme
+                                Solaire - Maya Dia</span></p>
+                    </div>
+                    <div>
+                        <p><strong>Date de paiement :</strong> <span
+                                th:text="${#temporals.format(dividende.datePaiement, 'dd/MM/yyyy')}">01/12/2025</span>
+                        </p>
+                        <p><strong>Statut :</strong> <span class="badge"
+                                th:text="${dividende.statutDividende}">VERSE</span></p>
+                    </div>
+                </div>
+
+                <!-- FACTURE -->
+                <h4>Facture</h4>
+
+                <div th:if="${dividende.fileName == null}">
+                    <a th:href="@{/factures/dividende/{id}/generer(id=${dividende.id})}" class="btn btn-success btn-lg"
+                        onclick="this.innerHTML='Génération en cours...'; this.classList.add('disabled'); return true;">
+                        Générer la facture PDF
+                    </a>
+                </div>
+
+                <div th:if="${dividende.fileName != null}" class="alert alert-success">
+                    <strong>Facture générée !</strong><br>
+                    <a th:href="@{'/files/download/' + ${dividende.fileName}}" class="btn btn-primary mt-2"
+                        target="_blank">
+                        Télécharger la facture PDF
+                    </a>
+                    <small class="d-block mt-2 text-muted">
+                        Fichier : <span th:text="${dividende.fileName}">FAC-2025-0001.pdf</span>
+                    </small>
+                </div>
+
+                <div class="mt-4">
+                    <a href="/dividendes" class="btn btn-secondary">Retour à la liste</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

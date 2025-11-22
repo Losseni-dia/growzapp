@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" layout:decorate="~{layouts/main}">
+
+<head>
+    <title th:text="${title}">Fonctions</title>
+</head>
+
+<body>
+    <div layout:fragment="content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 th:text="${title}">Fonctions</h2>
+            <a href="/fonctions/create" class="btn btn-success">+ Ajouter</a>
+        </div>
+        <div th:if="${success}" class="alert alert-info">
+            <span th:text="${success}">Message</span>
+        </div>
+
+        <table class="table table-striped">
+            <thead class="table-primary">
+                <tr>
+                    <th>Nom</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="f : ${fonctions}">
+                    <td th:text="${f.nom}">Développeur</td>
+                    <td th:text="${f.description}">Développeur Java</td>
+                    <td>
+                        <a th:href="@{/fonctions/{id}/edit(id=${f.id})}" class="btn btn-sm btn-warning">Éditer</a>
+                        <form th:action="@{/fonctions/{id}/delete(id=${f.id})}" method="post" class="d-inline"
+                            onsubmit="return confirm('Supprimer ?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Supprimer</button>
+                        </form>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+
+</html>
