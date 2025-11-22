@@ -4,14 +4,8 @@ package growzapp.backend.controller.api;
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.projetDTO.ProjetCreateDTO;
 import growzapp.backend.model.dto.projetDTO.ProjetDTO;
-import growzapp.backend.model.entite.Localite;
-import growzapp.backend.model.entite.Pays;
-import growzapp.backend.model.entite.Secteur;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.model.enumeration.StatutProjet;
-import growzapp.backend.repository.LocaliteRepository;
-import growzapp.backend.repository.PaysRepository;
-import growzapp.backend.repository.SecteurRepository;
 import growzapp.backend.repository.UserRepository;
 import growzapp.backend.service.ProjetService;
 import jakarta.transaction.Transactional;
@@ -24,7 +18,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -35,9 +28,7 @@ public class ProjetRestController {
 
     private final ProjetService projetService;
     private final UserRepository userRepository;
-    private final PaysRepository paysRepository;
-    private final LocaliteRepository localiteRepository;
-    private final SecteurRepository secteurRepository;
+   
 
     // LISTE DES PROJETS VALIDÉS (PUBLIQUE) – C’ÉTAIT ÇA QUI MANQUAIT DEPUIS LE
     // DÉBUT !!! 

@@ -13,13 +13,23 @@ import growzapp.backend.model.dto.userDTO.UserDTO;
 import growzapp.backend.model.entite.*;
 import growzapp.backend.model.enumeration.StatutDividende;
 import growzapp.backend.model.enumeration.StatutProjet;
+import growzapp.backend.repository.LocalisationRepository;
+import growzapp.backend.repository.SecteurRepository;
+import growzapp.backend.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
+
 @Component
+@RequiredArgsConstructor // AJOUTÉ – injecte les repositories ci-dessous
 public class DtoConverter {
+
+        private final SecteurRepository secteurRepository;
+        private final UserRepository userRepository;
+        private final LocalisationRepository localisationRepository;
 
         public UserDTO toUserDto(User user) {
                 UserDTO dto = new UserDTO();
@@ -244,25 +254,67 @@ public class DtoConverter {
     }
 
     public Projet toProjetEntity(ProjetDTO dto) {
-        Projet projet = new Projet();
-        projet.setId(dto.id());
-        projet.setPoster(dto.poster());
-        projet.setReference(dto.reference());
-        projet.setLibelle(dto.libelle());
-        projet.setDescription(dto.description());
-        projet.setValuation(dto.valuation());
-        projet.setRoiProjete(dto.roiProjete());
-        projet.setPartsDisponible(dto.partsDisponible());
-        projet.setPartsPrises(dto.partsPrises());
-        projet.setPrixUnePart(dto.prixUnePart());
-        projet.setObjectifFinancement(dto.objectifFinancement());
-        projet.setMontantCollecte(dto.montantCollecte());
-        projet.setDateDebut(dto.dateDebut());
-        projet.setDateFin(dto.dateFin());
-        projet.setValeurTotalePartsEnPourcent(dto.valeurTotalePartsEnPourcent());
-        projet.setStatutProjet(dto.statutProjet() != null ? dto.statutProjet() : StatutProjet.EN_PREPARATION);
-        projet.setCreatedAt(dto.createdAt() != null ? dto.createdAt() : LocalDateTime.now());
-        return projet;
+            Projet projet = new Projet();
+            projet.setId(dto.id());
+            projet.setPoster(dto.poster());
+            projet.setReference(dto.reference());
+            projet.setLibelle(dto.libelle());
+            projet.setDescription(dto.description());
+            projet.setValuation(dto.valuation());
+            projet.setRoiProjete(dto.roiProjete());
+            projet.setPartsDisponible(dto.partsDisponible());
+            projet.setPartsPrises(dto.partsPrises());
+            projet.setPrixUnePart(dto.prixUnePart());
+            projet.setObjectifFinancement(dto.objectifFinancement());
+            projet.setMontantCollecte(dto.montantCollecte());
+            projet.setDateDebut(dto.dateDebut());
+            projet.setDateFin(dto.dateFin());
+            projet.setValeurTotalePartsEnPourcent(dto.valeurTotalePartsEnPourcent());
+            projet.setStatutProjet(dto.statutProjet() != null ? dto.statutProjet() : StatutProjet.EN_PREPARATION);
+            projet.setCreatedAt(dto.createdAt() != null ? dto.createdAt() : LocalDateTime.now());
+            return projet;
+    }
+    
+    // === MÉTHODE CRITIQUE POUR L'UPDATE – À NE SURTOUT PAS SUPPRIMER ===
+    public void updateProjetFromDto(ProjetDTO dto, Projet entity) {
+            if (dto.libelle() != null && !dto.libelle().trim().isEmpty()) {
+                    entity.setLibelle(dto.libelle().trim());
+            }
+            if (dto.description() != null)
+                    entity.setDescription(dto.description());
+            if (dto.reference() != null)
+                    entity.setReference(dto.reference());
+            if (dto.roiProjete() >0)
+                    entity.setRoiProjete(dto.roiProjete());
+            if (dto.partsDisponible() >0)
+                    entity.setPartsDisponible(dto.partsDisponible());
+            if (dto.prixUnePart() >0)
+                    entity.setPrixUnePart(dto.prixUnePart());
+            if (dto.objectifFinancement() >0)
+                    entity.setObjectifFinancement(dto.objectifFinancement());
+            if (dto.dateDebut() != null)
+                    entity.setDateDebut(dto.dateDebut());
+            if (dto.dateFin() != null)
+                    entity.setDateFin(dto.dateFin());
+            if (dto.statutProjet() != null)
+                    entity.setStatutProjet(dto.statutProjet());
+
+            // Relations
+            if (dto.secteurId() != null && dto.secteurId() > 0) {
+                    entity.setSecteur(secteurRepository.findById(dto.secteurId())
+                                    .orElseThrow(() -> new RuntimeException(
+                                                    "Secteur non trouvé (ID: " + dto.secteurId() + ")")));
+            }
+            if (dto.porteurId() != null && dto.porteurId() > 0) {
+                    entity.setPorteur(userRepository.findById(dto.porteurId())
+                                    .orElseThrow(() -> new RuntimeException(
+                                                    "Porteur non trouvé (ID: " + dto.porteurId() + ")")));
+            }
+            if (dto.siteId() != null && dto.siteId() > 0) {
+                    entity.setSiteProjet(localisationRepository.findById(dto.siteId())
+                                    .orElseThrow(() -> new RuntimeException(
+                                                    "Site non trouvé (ID: " + dto.siteId() + ")")));
+            }
     }
 
     // === Investissement ===

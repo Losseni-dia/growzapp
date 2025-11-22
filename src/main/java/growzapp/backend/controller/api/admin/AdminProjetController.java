@@ -41,17 +41,11 @@ public class AdminProjetController {
             @RequestPart("projet") @Valid ProjetDTO dto,
             @RequestPart(value = "poster", required = false) MultipartFile poster) {
 
-        // On force l'ID pour éviter les erreurs
-        dto = dto.withId(id);
+        MultipartFile[] files = poster != null ? new MultipartFile[] { poster } : null;
 
-        MultipartFile[] files = poster != null && !poster.isEmpty()
-                ? new MultipartFile[] { poster }
-                : null;
+        ProjetDTO updated = projetService.updateProjet(id, dto, files); // PLUS DE SAVE()
 
-        ProjetDTO updated = projetService.save(dto, files);
-
-        return ApiResponseDTO.success(updated)
-                .message("Projet mis à jour avec succès");
+        return ApiResponseDTO.success(updated).message("Projet mis à jour avec succès");
     }
 
     // Changer le statut (valider / rejeter / remettre en préparation etc.)
