@@ -12,7 +12,6 @@ import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.UserRepository;
 import growzapp.backend.service.UserService;
 import jakarta.annotation.security.PermitAll;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 
@@ -127,11 +126,33 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
     }
 
     // MISE À JOUR DU PROFIL (seulement ses propres données)
-    @PutMapping("/me")
-    @PreAuthorize("isAuthenticated()")
-    public ApiResponseDTO<UserDTO> updateMyProfile(@Valid @RequestBody UserUpdateDTO dto) {
-        UserDTO updated = userService.updateMyProfile(dto);
-        return ApiResponseDTO.success(updated)
-                .message("Profil mis à jour avec succès");
+    @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated")
+    public ResponseEntity<ApiResponseDTO<UserDTO>> updateMyProfile(
+            @RequestPart("user") String userJson,
+            @RequestPart(value = "image", required = false) MultipartFile image) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            UserUpdateDTO dto = mapper.readValue(userJson, UserUpdateDTO.class);
+
+            if (image != null && !image.isEmpty()) {
+                if (image.getSize() > 5 * 1024 * 1024) {
+                    return ResponseEntity.badRequest()
+                            .body(ApiResponseDTO.error("Image trop volumineuse (max 5 Mo)"));
+                }
+                byte[] bytes = image.getBytes();
+                String base64 = "data:" + image.getContentType() + ";base64,"
+                        + java.util.Base64.getEncoder().encodeToString(bytes);
+                dto.setImage(base64);
+            }
+
+            UserDTO updated = userService.updateMyProfile(dto);
+            return ResponseEntity.ok(ApiResponseDTO.success(updated)
+                    .message("Profil mis à jour avec succès"));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponseDTO.error("Erreur : " + e.getMessage()));
+        }
     }
 }

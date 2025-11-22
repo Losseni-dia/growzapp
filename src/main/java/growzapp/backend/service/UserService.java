@@ -280,36 +280,57 @@ public UserDTO updateMyProfile(UserUpdateDTO dto) {
     if (current == null)
         throw new RuntimeException("Non authentifié");
 
-    // Vérifications unicité
-    if (!current.getLogin().equals(dto.getLogin()) && userRepository.existsByLogin(dto.getLogin())) {
+    // === Unicité login/email (seulement si modifié) ===
+    if (dto.getLogin() != null && !dto.getLogin().equals(current.getLogin())
+            && userRepository.existsByLogin(dto.getLogin())) {
         throw new IllegalArgumentException("Ce login est déjà utilisé");
     }
-    if (dto.getEmail() != null && !current.getEmail().equals(dto.getEmail())
+    if (dto.getEmail() != null && !dto.getEmail().equals(current.getEmail())
             && userRepository.existsByEmail(dto.getEmail())) {
         throw new IllegalArgumentException("Cet email est déjà utilisé");
     }
 
-    current.setLogin(dto.getLogin());
-    current.setPrenom(dto.getPrenom());
-    current.setNom(dto.getNom());
-    current.setEmail(dto.getEmail());
-    current.setContact(dto.getContact());
-    current.setSexe(dto.getSexe());
+    // === Champs simples : on ne met à jour que si la valeur est fournie ===
+    if (dto.getLogin() != null && !dto.getLogin().isBlank())
+        current.setLogin(dto.getLogin());
+    if (dto.getPrenom() != null && !dto.getPrenom().isBlank())
+        current.setPrenom(dto.getPrenom());
+    if (dto.getNom() != null && !dto.getNom().isBlank())
+        current.setNom(dto.getNom());
+    if (dto.getEmail() != null && !dto.getEmail().isBlank())
+        current.setEmail(dto.getEmail());
+    if (dto.getContact() != null)
+        current.setContact(dto.getContact().isBlank() ? null : dto.getContact());
+    if (dto.getSexe() != null)
+        current.setSexe(dto.getSexe());
 
-    // LOCALITÉ : LA MÉTHODE PARFAITE
-    if (dto.getLocalite() != null && dto.getLocalite().id() != null) {
-        Localite loc = new Localite();
-        loc.setId(dto.getLocalite().id());
-        current.setLocalite(loc);
-    } else {
-        current.setLocalite(null);
-    }
-
+    // === Mot de passe ===
     if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
         current.setPassword(passwordEncoder.encode(dto.getPassword()));
     }
 
-    handleAvatar(current);
+    // === Photo (si upload via multipart) ===
+    if (dto.getImage() != null && !dto.getImage().isBlank()) {
+        current.setImage(dto.getImage());
+    }
+
+    // === Localité ===
+    if (dto.getLocalite() != null && dto.getLocalite().id() != null && dto.getLocalite().id() > 0) {
+        current.setLocalite(entityManager.getReference(Localite.class, dto.getLocalite().id()));
+    }
+
+    // === Langues ===
+    if (dto.getLangues() != null) { // ← C'EST LA CLÉ : on teste juste "présent", pas "non vide" !
+        List<Langue> nouvelles = dto.getLangues().stream()
+                .filter(l -> l.getId() != null && l.getId() > 0)
+                .map(l -> entityManager.getReference(Langue.class, l.getId()))
+                .toList();
+
+        //current.getLangues().clear();
+        current.getLangues().addAll(nouvelles);
+    }
+    // Sinon → on garde les langues actuelles (ne rien faire)
+
     current = userRepository.save(current);
     return toDto(current);
 }
