@@ -2,13 +2,20 @@ package growzapp.backend.controller.api.admin;
 
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.projetDTO.ProjetDTO;
+import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.enumeration.StatutProjet;
+import growzapp.backend.repository.ProjetRepository;
+import growzapp.backend.service.FileUploadService;
 import growzapp.backend.service.ProjetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -19,6 +26,8 @@ import java.util.List;
 public class AdminProjetController {
 
     private final ProjetService projetService;
+    private final FileUploadService fileUploadService;
+    private final ProjetRepository projetRepository;
 
     // Liste complète (avec recherche)
     @GetMapping
@@ -35,18 +44,31 @@ public class AdminProjetController {
     }
 
     // Modification complète (multipart : JSON + poster optionnel)
-    @PutMapping(value = "/{id}", consumes = { "multipart/form-data" })
-    public ApiResponseDTO<ProjetDTO> update(
-            @PathVariable Long id,
-            @RequestPart("projet") @Valid ProjetDTO dto,
-            @RequestPart(value = "poster", required = false) MultipartFile poster) {
+  @PutMapping(value = "/{id}", consumes = "multipart/form-data")
+public ApiResponseDTO<ProjetDTO> update(
+        @PathVariable Long id,
+        @RequestPart("projet") String projetJson,
+        @RequestPart(value = "poster", required = false) MultipartFile poster) {
 
-        MultipartFile[] files = poster != null ? new MultipartFile[] { poster } : null;
+    try {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode node = mapper.readTree(projetJson);
 
-        ProjetDTO updated = projetService.updateProjet(id, dto, files); // PLUS DE SAVE()
+        ProjetDTO updated = projetService.updateProjetFromJson(id, node);
 
-        return ApiResponseDTO.success(updated).message("Projet mis à jour avec succès");
+        if (poster != null && !poster.isEmpty()) {
+            String url = fileUploadService.uploadPoster(poster, id);
+            Projet entity = projetRepository.findById(id).orElseThrow();
+            entity.setPoster(url);
+            projetRepository.save(entity);
+            updated = updated.withPoster(url);
+        }
+
+        return ApiResponseDTO.success(updated);
+    } catch (Exception e) {
+        return ApiResponseDTO.error("Erreur : " + e.getMessage());
     }
+}
 
     // Changer le statut (valider / rejeter / remettre en préparation etc.)
     @PatchMapping("/{id}/statut")

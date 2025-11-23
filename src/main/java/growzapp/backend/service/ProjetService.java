@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -170,21 +172,22 @@ public class ProjetService {
     // UPDATE (LA MÉTHODE QUI MARCHE À 100%)
     // ========================
 
-    @Transactional
-    public ProjetDTO updateProjet(Long id, ProjetDTO dto, MultipartFile[] files) {
-        Projet projet = projetRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Projet non trouvé : " + id));
+  @Transactional
+public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
+    Projet projet = projetRepository.findById(id).orElseThrow();
 
-        converter.updateProjetFromDto(dto, projet);
-
-        if (files != null && files.length > 0 && !files[0].isEmpty()) {
-            String posterUrl = fileUploadService.uploadPoster(files[0], id);
-            projet.setPoster(posterUrl);
-        }
-
-        Projet saved = projetRepository.save(projet);
-        return converter.toProjetDto(saved);
+    if (node.has("libelle")) projet.setLibelle(node.get("libelle").asText());
+    if (node.has("description")) projet.setDescription(node.get("description").asText());
+    if (node.has("secteurNom")) {
+        Secteur secteur = secteurRepository.findByNomIgnoreCase(node.get("secteurNom").asText())
+                .orElseGet(() -> secteurRepository.save(new Secteur(node.get("secteurNom").asText())));
+        projet.setSecteur(secteur);
     }
+    // ... autres champs
+
+    Projet saved = projetRepository.save(projet);
+    return converter.toProjetDto(saved);
+}
 
     // ========================
     // AUTRES
