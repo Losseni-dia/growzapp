@@ -32,17 +32,21 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                                 .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers("/api/auth/**",
-                                                                "/api/auth/register").permitAll()
+                                                .requestMatchers("/api/auth/**", "/api/auth/register").permitAll()
                                                 .requestMatchers("/api/projets", "/api/projets/**", "/api/localites",
-                                                                "/api/langues").permitAll()
+                                                                "/api/langues")
+                                                .permitAll()
                                                 .requestMatchers("/api/investissements").authenticated()
                                                 .requestMatchers("/api/investissements/mes-investissements")
                                                 .authenticated()
                                                 .requestMatchers("/api/projets/mes-projets").authenticated()
-
-                                                // LA LIGNE MAGIQUE QUI RÉSOUT TOUT
                                                 .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+
+                                                // LIGNE AJOUTÉE → LIBÈRE LES IMAGES
+                                                .requestMatchers("/uploads/posters/**").permitAll()
+
+                                                // Tu peux aussi libérer les assets React si besoin
+                                                .requestMatchers("/static/**", "/assets/**", "/favicon.ico").permitAll()
 
                                                 .anyRequest().authenticated())
 
@@ -52,8 +56,6 @@ public class SecurityConfig {
 
                                 .formLogin(form -> form.disable())
                                 .httpBasic(basic -> basic.disable())
-
-                                // AJOUT DU FILTRE JWT (OBLIGATOIRE !)
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();

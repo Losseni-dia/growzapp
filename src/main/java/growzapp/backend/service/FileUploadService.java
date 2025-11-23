@@ -1,5 +1,6 @@
 package growzapp.backend.service;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -10,28 +11,35 @@ import org.springframework.web.multipart.MultipartFile;
 
 import lombok.RequiredArgsConstructor;
 
+// FileUploadService.java
 @Service
 @RequiredArgsConstructor
 public class FileUploadService {
 
-    private static final String UPLOAD_DIR = "uploads/posters/";
+    // Chemin ABSOLU à la racine du projet
+    private static final Path UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
+            .resolve("uploads").resolve("posters");
+
+    static {
+        try {
+            Files.createDirectories(UPLOAD_ROOT);
+        } catch (IOException e) {
+            throw new RuntimeException("Impossible de créer le dossier uploads/posters", e);
+        }
+    }
 
     public String uploadPoster(MultipartFile file, Long projetId) {
         try {
-            // Création du dossier si inexistant
-            Path uploadPath = Paths.get(UPLOAD_DIR);
-            Files.createDirectories(uploadPath);
+            String original = file.getOriginalFilename();
+            String safeName = projetId + "_" + System.currentTimeMillis() + "_" +
+                    original.replaceAll("[^a-zA-Z0-9.-]", "_");
 
-            String fileName = projetId + "_" + System.currentTimeMillis() + "_"
-                    + file.getOriginalFilename();
-            Path filePath = uploadPath.resolve(fileName);
+            Path destination = UPLOAD_ROOT.resolve(safeName);
+            Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
 
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            // Retourne l'URL accessible via le navigateur
-            return "/uploads/posters/" + fileName;
+            return "/uploads/posters/" + safeName;
         } catch (Exception e) {
-            throw new RuntimeException("Impossible d'uploader le poster", e);
+            throw new RuntimeException("Échec upload poster", e);
         }
     }
 }

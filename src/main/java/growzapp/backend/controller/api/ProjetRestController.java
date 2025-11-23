@@ -4,9 +4,12 @@ package growzapp.backend.controller.api;
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.projetDTO.ProjetCreateDTO;
 import growzapp.backend.model.dto.projetDTO.ProjetDTO;
+import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.model.enumeration.StatutProjet;
+import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.repository.UserRepository;
+import growzapp.backend.service.FileUploadService;
 import growzapp.backend.service.ProjetService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -15,9 +18,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 
 @RestController
@@ -28,6 +37,8 @@ public class ProjetRestController {
 
     private final ProjetService projetService;
     private final UserRepository userRepository;
+    private final ProjetRepository projetRepository;
+    private final FileUploadService fileUploadService;
    
 
     // LISTE DES PROJETS VALIDÉS (PUBLIQUE) – C’ÉTAIT ÇA QUI MANQUAIT DEPUIS LE
@@ -39,45 +50,50 @@ public class ProjetRestController {
     }
 
     // Création publique – tout utilisateur connecté
-    @PostMapping(consumes = { "multipart/form-data" })
-    @PreAuthorize("isAuthenticated()")
+    @PostMapping(consumes = "multipart/form-data")
+    @PreAuthorize("isAuthenticated")
     @Transactional
     public ApiResponseDTO<ProjetDTO> create(
             Authentication authentication,
-            @RequestPart("projet") ProjetCreateDTO createDto,
+            @RequestPart("projet") String projetJson,
             @RequestPart(value = "poster", required = false) MultipartFile poster) {
 
-        String login = authentication.getName();
-        User currentUser = userRepository.findByLogin(login)
+        User currentUser = userRepository.findByLogin(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-        MultipartFile[] files = poster != null ? new MultipartFile[] { poster } : null;
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            ProjetCreateDTO dto = mapper.readValue(projetJson, ProjetCreateDTO.class);
 
-        // LA LIGNE MAGIQUE QUI RÈGLE TOUT
-        ProjetDTO saved = projetService.createFromCreateDto(createDto, files, currentUser);
+            // 1. Création du projet (sans poster)
+            ProjetDTO saved = projetService.createFromCreateDto(dto, currentUser);
 
-        return ApiResponseDTO.success(saved)
-                .message("Projet soumis avec succès ! L'administrateur va le valider bientôt 🚀");
-    }
+            // 2. Upload du poster si présent
+            if (poster != null && !poster.isEmpty()) {
+                if (poster.getSize() > 10 * 1024 * 1024) {
+                    return ApiResponseDTO.error("Poster trop volumineux (max 10 Mo)");
+                }
 
-    // Détail projet
-    // Détail projet → UNIQUEMENT pour les utilisateurs connectés
-    @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")  // ← SEUL LES CONNECTÉS PEUVENT VOIR LE DÉTAIL
-    public ApiResponseDTO<ProjetDTO> getById(@PathVariable Long id) {
-        ProjetDTO projet = projetService.getById(id);
+                String posterUrl = fileUploadService.uploadPoster(poster, saved.id());
 
-        // Bonus sécurité : on ne montre le détail complet QUE si le projet est VALIDEE
-        // OU si c'est un admin / le porteur du projet
-        // (sinon on pourrait deviner des infos sur des projets en attente)
-        if (projet.statutProjet() != StatutProjet.VALIDE) {
-            throw new AccessDeniedException("Ce projet n'est pas encore publié");
+                // Mise à jour en base
+                Projet entity = projetRepository.findById(saved.id()).orElseThrow();
+                entity.setPoster(posterUrl);
+                projetRepository.save(entity);
+
+                // On renvoie un NOUVEAU DTO avec le poster (record = immuable)
+                saved = saved.withPoster(posterUrl); // ← LA SEULE LIGNE À CHANGER
+            }
+
+            return ApiResponseDTO.success(saved)
+                    .message("Projet soumis avec succès !");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ApiResponseDTO.error("Erreur : " + e.getMessage());
         }
-
-    return ApiResponseDTO.success(projet);
-}
-
-
+    }
+    
     // Mes projets (porteur)
     @GetMapping("/mes-projets")
     @PreAuthorize("isAuthenticated()") // ← TOUT USER CONNECTÉ

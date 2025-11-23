@@ -24,7 +24,6 @@ public class ProjetService {
     private final FileUploadService fileUploadService;
     private final LocalisationRepository localisationRepository;
     private final LocaliteRepository localiteRepository;
-    private final PaysRepository paysRepository;
     private final SecteurRepository secteurRepository;
     private final DtoConverter converter;
 
@@ -112,73 +111,61 @@ public class ProjetService {
         return save(dto, null);
     }
 
-    // Création via ProjetCreateDTO (porteur)
     @Transactional
-    public ProjetDTO createFromCreateDto(ProjetCreateDTO createDto, MultipartFile[] files, User currentUser) {
-        // === SECTEUR ===
-        Secteur secteur = secteurRepository.findByNomIgnoreCase(createDto.secteurNom().trim())
+    public ProjetDTO createFromCreateDto(ProjetCreateDTO dto, User currentUser) {
+
+        // === Secteur (créé si inexistant) ===
+        Secteur secteur = secteurRepository
+                .findByNomIgnoreCase(dto.secteurNom().trim())
                 .orElseGet(() -> {
                     Secteur nouveau = new Secteur();
-                    nouveau.setNom(createDto.secteurNom().trim());
-                    return secteurRepository.saveAndFlush(nouveau);
+                    nouveau.setNom(dto.secteurNom().trim());
+                    return nouveau; // ← on ne sauvegarde PAS ici
                 });
 
-        // === PAYS (optionnel) ===
-        if (createDto.paysNom() != null && !createDto.paysNom().trim().isEmpty()) {
-            paysRepository.findByNomIgnoreCase(createDto.paysNom().trim())
-                    .orElseGet(() -> {
-                        Pays nouveau = new Pays();
-                        nouveau.setNom(createDto.paysNom().trim());
-                        return paysRepository.saveAndFlush(nouveau);
-                    });
-        }
-
-        // === LOCALITÉ ===
-        Localite localite = localiteRepository.findByNomIgnoreCase(createDto.localiteNom().trim())
+        // === Localité (créé si inexistant) ===
+        Localite localite = localiteRepository
+                .findByNomIgnoreCase(dto.localiteNom().trim())
                 .orElseGet(() -> {
                     Localite nouvelle = new Localite();
-                    nouvelle.setNom(createDto.localiteNom().trim());
+                    nouvelle.setNom(dto.localiteNom().trim());
                     nouvelle.setCodePostal("00000");
-                    return localiteRepository.saveAndFlush(nouvelle);
+                    return nouvelle; // ← on ne sauvegarde PAS ici
                 });
 
-        // === SITE (Localisation) ===
+        // === Site projet ===
         Localisation siteProjet = new Localisation();
-        siteProjet.setNom("Site du projet : " + createDto.libelle());
+        siteProjet.setNom("Site du projet : " + dto.libelle());
         siteProjet.setAdresse("À définir par l'admin");
         siteProjet.setContact(currentUser.getContact() != null ? currentUser.getContact() : "Non renseigné");
         siteProjet.setResponsable(currentUser.getPrenom() + " " + currentUser.getNom());
         siteProjet.setLocalite(localite);
         siteProjet = localisationRepository.saveAndFlush(siteProjet);
 
-        // === PROJET ===
+        // === Projet ===
         Projet projet = new Projet();
-        projet.setLibelle(createDto.libelle());
-        projet.setDescription(createDto.description());
+        projet.setLibelle(dto.libelle());
+        projet.setDescription(dto.description());
         projet.setStatutProjet(StatutProjet.SOUMIS);
         projet.setCreatedAt(LocalDateTime.now());
         projet.setPorteur(currentUser);
         projet.setSecteur(secteur);
         projet.setSiteProjet(siteProjet);
+        // poster sera rempli dans le controller après l’upload
 
-        // Poster
-        if (files != null && files.length > 0 && !files[0].isEmpty()) {
-            String posterUrl = fileUploadService.uploadPoster(files[0], null);
-            projet.setPoster(posterUrl);
+        // Tout est sauvegardé d’un coup grâce à @Transactional + cascade ou flush final
+        Projet saved = projetRepository.save(projet);
+
+        // On sauvegarde secteur & localité uniquement s’ils sont nouveaux
+        if (secteur.getId() == null) {
+            secteur = secteurRepository.save(secteur);
+        }
+        if (localite.getId() == null) {
+            localite = localiteRepository.save(localite);
         }
 
-        Projet savedProjet = projetRepository.save(projet);
-
-        // Re-upload avec l'ID réel
-        if (files != null && files.length > 0 && !files[0].isEmpty()) {
-            String finalUrl = fileUploadService.uploadPoster(files[0], savedProjet.getId());
-            savedProjet.setPoster(finalUrl);
-            projetRepository.save(savedProjet);
-        }
-
-        return converter.toProjetDto(savedProjet);
+        return converter.toProjetDto(saved);
     }
-
     // ========================
     // UPDATE (LA MÉTHODE QUI MARCHE À 100%)
     // ========================
