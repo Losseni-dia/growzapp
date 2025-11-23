@@ -3,13 +3,10 @@ package growzapp.backend.controller.api.admin;
 
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.userDTO.UserDTO;
+import growzapp.backend.repository.RoleRepository;
 import growzapp.backend.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +20,7 @@ import java.util.List;
 public class AdminUserController {
 
     private final UserService userService;
+    private final RoleRepository roleRepository;
 
     // ==================================================================
     // 1. Liste paginée + recherche (par nom, prénom, email, login)
@@ -73,6 +71,16 @@ public class AdminUserController {
     // ==================================================================
     // 5. Modifier uniquement les rôles (pratique dans l’UI)
     // ==================================================================
+
+    @GetMapping("/roles")
+    public List<String> getAllRoles() {
+        return roleRepository.findAll().stream()
+                .map(role -> role.getRole()) // retourne juste "ADMIN", "USER", etc.
+                .sorted()
+                .toList();
+    }
+    
+
     @PatchMapping("/{id}/roles")
     public ApiResponseDTO<UserDTO> updateRoles(
             @PathVariable Long id,

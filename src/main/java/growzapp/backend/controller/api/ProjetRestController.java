@@ -49,6 +49,15 @@ public class ProjetRestController {
         return ApiResponseDTO.success(projets);
     }
 
+
+    // DÉTAIL D'UN PROJET — ACCESSIBLE À TOUT USER CONNECTÉ
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponseDTO<ProjetDTO> getById(@PathVariable Long id) {
+        ProjetDTO projet = projetService.getById(id);
+        return ApiResponseDTO.success(projet);
+    }
+
     // Création publique – tout utilisateur connecté
     @PostMapping(consumes = "multipart/form-data")
     @PreAuthorize("isAuthenticated")
