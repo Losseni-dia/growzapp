@@ -62,10 +62,13 @@ public class User {
     )
     private Set<Role> roles = new HashSet<>();
 
-    @OneToMany(mappedBy = "porteur", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "porteur", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Projet> projets = new ArrayList<>();
 
-    @OneToMany(mappedBy = "investisseur", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "investisseur", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Investissement> investissements = new ArrayList<>();
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Wallet wallet;
    
 }

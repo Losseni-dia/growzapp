@@ -9,8 +9,11 @@ import growzapp.backend.model.entite.*;
 import growzapp.backend.repository.*;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+
+import org.hibernate.Hibernate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -166,29 +169,24 @@ public class UserService {
     // ==================================================================
     // Helpers privés
     // ==================================================================
-    // Remplace ta méthode resolveRoles() actuelle par celle-ci (plus propre)
     private Set<Role> resolveRoles(List<String> roleNames) {
         if (roleNames == null || roleNames.isEmpty()) {
+            // Par défaut, on donne ROLE_USER
             roleNames = List.of("USER");
         }
 
-        Set<Role> resolvedRoles = new HashSet<>();
-
-        for (String name : roleNames) {
-            String normalizedName = name.toUpperCase().replaceAll("^ROLE_", "");
-            String roleValue = "ROLE_" + normalizedName; // Spring Security attend ROLE_XXX
-
-            Role role = roleRepository.findByRole(normalizedName)
-                    .orElseGet(() -> {
-                        Role newRole = new Role();
-                        newRole.setRole(normalizedName); // on stocke juste "ADMIN", "MODERATOR", etc.
-                        return roleRepository.save(newRole);
-                    });
-
-            resolvedRoles.add(role);
-        }
-
-        return resolvedRoles;
+        return roleNames.stream()
+                .map(name -> {
+                    String normalized = name.toUpperCase().startsWith("ROLE_") ? name.toUpperCase()
+                            : "ROLE_" + name.toUpperCase();
+                    return roleRepository.findByRole(normalized.replace("ROLE_", ""))
+                            .orElseGet(() -> {
+                                Role newRole = new Role();
+                                newRole.setRole(normalized.replace("ROLE_", ""));
+                                return roleRepository.save(newRole);
+                            });
+                })
+                .collect(Collectors.toSet());
     }
 
     private void copyDtoToEntity(UserDTO dto, User user) {
@@ -272,10 +270,13 @@ public class UserService {
 
 
 // === Récupérer le DTO de l'utilisateur connecté ===
+@Transactional(readOnly = true)
 public UserDTO getCurrentUserDto() {
-    User user = getCurrentUser();
-    if (user == null) throw new RuntimeException("Utilisateur non trouvé");
-    return toDto(user);
+    String login = SecurityContextHolder.getContext().getAuthentication().getName();
+
+    return converter.toUserDto(
+            userRepository.findByLogin(login)
+                    .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé")));
 }
 
 // === Mise à jour du profil par l'utilisateur (pas de rôles) ===

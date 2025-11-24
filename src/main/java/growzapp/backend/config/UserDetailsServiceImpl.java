@@ -1,10 +1,14 @@
 package growzapp.backend.config;
 
+// UserDetailsServiceImpl.java
+
 import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.*;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.stream.Collectors;
@@ -13,22 +17,23 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
 
-    private final UserRepository userRepository;
+        private final UserRepository userRepository;
 
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByLogin(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + username));
+        @Override
+        public UserDetails loadUserByUsername(String login) throws UsernameNotFoundException {
+                User user = userRepository.findByLogin(login)
+                                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + login));
 
-        var authorities = user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getRole()))
-                .collect(Collectors.toList());
-
-        return new org.springframework.security.core.userdetails.User(
-                user.getLogin(),
-                user.getPassword(),
-                user.isEnabled(),
-                true, true, true,
-                authorities);
-    }
+                return org.springframework.security.core.userdetails.User
+                                .withUsername(user.getLogin())
+                                .password(user.getPassword())
+                                .authorities(user.getRoles().stream()
+                                                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getRole()))
+                                                .collect(Collectors.toList()))
+                                .accountExpired(false)
+                                .accountLocked(false)
+                                .credentialsExpired(false)
+                                .disabled(!user.isEnabled())
+                                .build();
+        }
 }

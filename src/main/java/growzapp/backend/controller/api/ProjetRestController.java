@@ -2,6 +2,8 @@
 package growzapp.backend.controller.api;
 
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
+import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
+import growzapp.backend.model.dto.investisementDTO.InvestissementRequestDto;
 import growzapp.backend.model.dto.projetDTO.ProjetCreateDTO;
 import growzapp.backend.model.dto.projetDTO.ProjetDTO;
 import growzapp.backend.model.entite.Projet;
@@ -10,6 +12,7 @@ import growzapp.backend.model.enumeration.StatutProjet;
 import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.repository.UserRepository;
 import growzapp.backend.service.FileUploadService;
+import growzapp.backend.service.InvestissementService;
 import growzapp.backend.service.ProjetService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,7 @@ public class ProjetRestController {
     private final UserRepository userRepository;
     private final ProjetRepository projetRepository;
     private final FileUploadService fileUploadService;
+    private final InvestissementService investissementService;
    
 
     // LISTE DES PROJETS VALIDÉS (PUBLIQUE) – C’ÉTAIT ÇA QUI MANQUAIT DEPUIS LE
@@ -112,7 +116,27 @@ public class ProjetRestController {
         return ApiResponseDTO.success(projects);
     }
 
-    // Dans ton ProjetController.java
+
+
+
+   @PostMapping("/{projetId}/investir")
+@PreAuthorize("isAuthenticated()")
+public ApiResponseDTO<InvestissementDTO> investir(
+        @PathVariable Long projetId,
+        @RequestBody InvestissementRequestDto dto,
+        Authentication auth) {
+
+    // CETTE LIGNE MARCHE MAINTENANT À 100%
+    String login = auth.getName(); // ou auth.getPrincipal().getUsername()
+    User user = userRepository.findByLogin(login)
+            .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+    InvestissementRequestDto request = new InvestissementRequestDto(projetId, dto.nombrePartsPris());
+    InvestissementDTO result = investissementService.investir(request, user);
+
+    return ApiResponseDTO.success(result)
+            .message("Investissement enregistré ! En attente de validation admin.");
+}
 
    
 

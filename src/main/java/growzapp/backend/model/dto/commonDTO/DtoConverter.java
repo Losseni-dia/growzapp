@@ -62,10 +62,18 @@ public class DtoConverter {
                                 ? user.getLangues().stream().map(Langue::getNom).toList()
                                 : List.of());
 
-                // On ne charge PLUS les projets/investissements ici → trop lourd pour le login
+                dto.setProjets(user.getProjets().stream()
+                                .map(this::toProjetDto)
+                                .toList());
+
+                // === INVESTISSEMENTS FAITS ===
+                dto.setInvestissements(user.getInvestissements().stream()
+                                .map(this::toInvestissementDto)
+                                .toList());
                 return dto;
         }
 
+      
     // === Secteur ===
     public SecteurDTO toSecteurDto(Secteur secteur) {
         List<String> projetNoms = secteur.getProjets().stream()

@@ -33,9 +33,9 @@ public class SecurityConfig {
 
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/api/auth/**", "/api/auth/register").permitAll()
-                                                .requestMatchers("/api/projets", "/api/projets/**", "/api/localites",
-                                                                "/api/langues")
-                                                .permitAll()
+                                                .requestMatchers("/api/projets").permitAll()
+                                                .requestMatchers("/api/projets/{id}").permitAll()
+                                                .requestMatchers("/api/localites", "/api/langues").permitAll()
                                                 .requestMatchers("/api/investissements").authenticated()
                                                 .requestMatchers("/api/investissements/mes-investissements")
                                                 .authenticated()

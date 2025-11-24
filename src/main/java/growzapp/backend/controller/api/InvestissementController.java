@@ -4,6 +4,7 @@ import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.commonDTO.DtoConverter;
 import growzapp.backend.model.dto.investisementDTO.InvestissementCreateDTO; // ← Tu vas créer ce DTO
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
+import growzapp.backend.model.dto.investisementDTO.InvestissementRequestDto;
 import growzapp.backend.model.entite.Investissement;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.InvestissementRepository;
@@ -127,4 +128,8 @@ public class InvestissementController {
         investissementRepository.deleteById(id);
         return ApiResponseDTO.success("Investissement supprimé");
     }
+
+
+
+    
 }

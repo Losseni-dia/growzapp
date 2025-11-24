@@ -120,9 +120,9 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
     // PROFIL DE L'UTILISATEUR CONNECTÉ
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
-    public ApiResponseDTO<UserDTO> getMyProfile() {
-        UserDTO user = userService.getCurrentUserDto();
-        return ApiResponseDTO.success(user);
+    public ApiResponseDTO<UserDTO> getUserById(@PathVariable Long id) {
+        UserDTO userDTO = userService.getUserDtoById(id);
+        return ApiResponseDTO.success(userDTO);
     }
 
     // MISE À JOUR DU PROFIL (seulement ses propres données)
