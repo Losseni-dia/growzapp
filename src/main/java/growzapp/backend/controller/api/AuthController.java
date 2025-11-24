@@ -5,6 +5,7 @@ import growzapp.backend.model.dto.AuthDTO.LoginRequest;
 import growzapp.backend.model.dto.AuthDTO.LoginResponse;
 import growzapp.backend.model.dto.userDTO.UserCreateDTO;
 import growzapp.backend.model.dto.userDTO.UserDTO;
+import growzapp.backend.model.dto.userDTO.UserSearchDTO;
 import growzapp.backend.model.dto.userDTO.UserUpdateDTO;
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.commonDTO.DtoConverter;
@@ -22,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -56,9 +58,7 @@ public class AuthController {
             System.out.println("ÉCHEC AUTH : " + e.getMessage());
             throw e;
         }
-                
-
-       
+            
 
         User userEntity = userRepository.findByLogin(request.getLogin())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
@@ -155,4 +155,39 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
                     .body(ApiResponseDTO.error("Erreur : " + e.getMessage()));
         }
     }
+
+
+
+   // Dans ton AuthController.java → ajoute cette méthode n’importe où dans la classe
+
+   // AJOUTE ÇA DANS AuthController.java (n’importe où dans la classe)
+
+   @GetMapping("/search")
+   @PreAuthorize("isAuthenticated()")
+   public ResponseEntity<List<UserSearchDTO>> searchUsers(@RequestParam("term") String term) {
+
+       if (term == null || term.trim().length() < 2) {
+           return ResponseEntity.ok(List.of());
+       }
+
+       // On cherche avec %term% pour plus de souplesse
+       String search = "%" + term.toLowerCase() + "%";
+
+       List<User> users = userRepository.findBySearchTerm(search);
+
+       List<UserSearchDTO> result = users.stream()
+               .filter(u -> !u.getLogin().equalsIgnoreCase("admin")) // optionnel
+               .limit(10)
+               .map(u -> new UserSearchDTO(
+                       u.getId(),
+                       (u.getPrenom() + " " + u.getNom()).trim(),
+                       u.getLogin(),
+                       u.getImage()))
+               .toList();
+
+       return ResponseEntity.ok(result);
+   }
+
+
+
 }

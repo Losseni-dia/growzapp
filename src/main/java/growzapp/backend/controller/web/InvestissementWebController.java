@@ -135,13 +135,13 @@ public class InvestissementWebController {
     }
 
     // === DÉTAIL INVESTISSEMENT ===
-    @GetMapping("/{id}")
-    public String showInvestissement(@PathVariable Long id, Model model) {
+   // @GetMapping("/{id}")
+   /*  public String showInvestissement(@PathVariable Long id, Model model) {
         Investissement investissement = investissementService.findById(id);
         investissement.getDividendes().forEach(div -> Hibernate.initialize(div.getFacture()));
         model.addAttribute("investissement", investissement);
         return "investissement/show";
-    }
+    } */
 
     // === DIVIDENDES D’UN INVESTISSEMENT ===
     @GetMapping("/{id}/dividendes")

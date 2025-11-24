@@ -10,9 +10,11 @@ import growzapp.backend.model.dto.paysDTO.PaysDTO;
 import growzapp.backend.model.dto.projetDTO.ProjetDTO;
 import growzapp.backend.model.dto.secteurDTO.SecteurDTO;
 import growzapp.backend.model.dto.userDTO.UserDTO;
+import growzapp.backend.model.dto.walletDTOs.TransactionDTO;
 import growzapp.backend.model.entite.*;
 import growzapp.backend.model.enumeration.StatutDividende;
 import growzapp.backend.model.enumeration.StatutProjet;
+import growzapp.backend.model.enumeration.TypeTransaction;
 import growzapp.backend.repository.LocalisationRepository;
 import growzapp.backend.repository.SecteurRepository;
 import growzapp.backend.repository.UserRepository;
@@ -513,15 +515,92 @@ public class DtoConverter {
     }
 
     public Facture toFactureEntity(FactureDTO dto) {
-        Facture facture = new Facture();
-        facture.setId(dto.id());
-        facture.setNumeroFacture(dto.numeroFacture());
-        facture.setMontantHT(dto.montantHT() != null ? dto.montantHT() : 0.0);
-        facture.setTva(dto.tva() != null ? dto.tva() : 0.0);
-        facture.setMontantTTC(dto.montantTTC() != null ? dto.montantTTC() : 0.0);
-        facture.setDateEmission(dto.dateEmission());
-        facture.setDatePaiement(dto.datePaiement());
-        facture.setStatut(dto.statut());
-        return facture;
+            Facture facture = new Facture();
+            facture.setId(dto.id());
+            facture.setNumeroFacture(dto.numeroFacture());
+            facture.setMontantHT(dto.montantHT() != null ? dto.montantHT() : 0.0);
+            facture.setTva(dto.tva() != null ? dto.tva() : 0.0);
+            facture.setMontantTTC(dto.montantTTC() != null ? dto.montantTTC() : 0.0);
+            facture.setDateEmission(dto.dateEmission());
+            facture.setDatePaiement(dto.datePaiement());
+            facture.setStatut(dto.statut());
+            return facture;
     }
+    
+
+
+
+        // ==================================================================
+    // ========================= TRANSACTION ============================
+    // ==================================================================
+
+        // Dans DtoConverter.java → AJOUTE ÇA À LA FIN
+
+        public TransactionDTO toTransactionDto(Transaction transaction) {
+                // === Toujours : l'utilisateur propriétaire du wallet (expéditeur ou
+                // destinataire selon le type) ===
+                User owner = transaction.getWallet().getUser();
+
+                // === Infos de base (toujours présentes) ===
+                Long userId = owner.getId();
+                String userPrenom = owner.getPrenom();
+                String userNom = owner.getNom();
+                String userLogin = owner.getLogin();
+
+                // === Pour les transferts : on récupère l'autre partie ===
+                Long destinataireUserId = null;
+                String destinatairePrenom = null;
+                String destinataireNom = null;
+                String destinataireLogin = null;
+
+                Long expediteurUserId = null;
+                String expediteurPrenom = null;
+                String expediteurNom = null;
+                String expediteurLogin = null;
+
+                if (transaction.getDestinataireWallet() != null
+                                && transaction.getDestinataireWallet().getUser() != null) {
+                        User autre = transaction.getDestinataireWallet().getUser();
+
+                        // Si c'est un TRANSFER_OUT → l'autre est le destinataire
+                        // Si c'est un TRANSFER_IN → l'autre est l'expéditeur
+                        if (transaction.getType() == TypeTransaction.TRANSFER_OUT) {
+                                destinataireUserId = autre.getId();
+                                destinatairePrenom = autre.getPrenom();
+                                destinataireNom = autre.getNom();
+                                destinataireLogin = autre.getLogin();
+                        } else if (transaction.getType() == TypeTransaction.TRANSFER_IN) {
+                                expediteurUserId = autre.getId();
+                                expediteurPrenom = autre.getPrenom();
+                                expediteurNom = autre.getNom();
+                                expediteurLogin = autre.getLogin();
+                        }
+                }
+
+                return new TransactionDTO(
+                                transaction.getId(),
+                                transaction.getMontant(),
+                                transaction.getType(),
+                                transaction.getStatut(),
+                                transaction.getCreatedAt(),
+                                transaction.getCompletedAt(),
+                                transaction.getDescription(),
+
+                                // Infos du propriétaire du wallet (toujours là)
+                                userId,
+                                userPrenom,
+                                userNom,
+                                userLogin,
+
+                                // Destinataire (seulement si TRANSFER_OUT)
+                                destinataireUserId,
+                                destinatairePrenom != null ? destinatairePrenom + " " + destinataireNom : null,
+                                destinataireLogin,
+
+                                // Expéditeur (seulement si TRANSFER_IN)
+                                expediteurUserId,
+                                expediteurPrenom != null ? expediteurPrenom + " " + expediteurNom : null,
+                                expediteurLogin);
+        }
+
 }

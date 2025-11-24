@@ -1,20 +1,12 @@
+// Wallet.java → VERSION BANQUE PROFESSIONNELLE
 package growzapp.backend.model.entite;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.persistence.*;
+import lombok.*;
+import java.math.BigDecimal;
 
-// Wallet.java
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Entity
 @Table(name = "wallets")
 @Data
@@ -29,68 +21,62 @@ public class Wallet {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", unique = true, nullable = false)
+    @JsonIgnoreProperties({ "wallet", "roles", "langues", "projets", "investissements", "hibernateLazyInitializer" })
     private User user;
+    
 
-    @Column(nullable = false, columnDefinition = "DECIMAL(15,2) DEFAULT 0.00")
-    private double soldeDisponible = 0.0;
+    @Column(nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal soldeDisponible = BigDecimal.ZERO;
 
-    @Column(nullable = false, columnDefinition = "DECIMAL(15,2) DEFAULT 0.00")
-    private double soldeBloque = 0.0; // argent réservé tant que l'investissement est EN_ATTENTE
+    @Column(nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal soldeBloque = BigDecimal.ZERO;
 
-    public double getSoldeTotal() {
-        return soldeDisponible + soldeBloque;
+    public BigDecimal getSoldeTotal() {
+        return soldeDisponible.add(soldeBloque);
     }
 
-    // Méthodes utilitaires qu’on va utiliser dans le service
-    public void debiterDisponible(double montant) {
-        if (montant > soldeDisponible)
+    // Méthodes utilitaires — propres et safe
+    public void debiterDisponible(BigDecimal montant) {
+        if (montant.compareTo(soldeDisponible) > 0)
             throw new IllegalArgumentException("Solde insuffisant");
-        this.soldeDisponible -= montant;
+        this.soldeDisponible = this.soldeDisponible.subtract(montant);
     }
 
-    public void crediterDisponible(double montant) {
-        this.soldeDisponible += montant;
+    public void crediterDisponible(BigDecimal montant) {
+        this.soldeDisponible = this.soldeDisponible.add(montant);
     }
 
-    public void bloquer(double montant) {
+    public void bloquer(BigDecimal montant) {
         debiterDisponible(montant);
-        this.soldeBloque += montant;
+        this.soldeBloque = this.soldeBloque.add(montant);
     }
 
-    public void debloquer(double montant) {
-        if (montant > soldeBloque)
+    public void debloquer(BigDecimal montant) {
+        if (montant.compareTo(soldeBloque) > 0)
             throw new IllegalArgumentException("Fonds bloqués insuffisants");
-        this.soldeBloque -= montant;
+        this.soldeBloque = this.soldeBloque.subtract(montant);
         crediterDisponible(montant);
     }
 
-    public void validerBloque(double montant) {
-        if (montant > soldeBloque)
-            throw new IllegalArgumentException("Fonds bloqués insuffisants");
-        this.soldeBloque -= montant;
-        // L'argent reste dans le système mais n'est plus dans le wallet de
-        // l'utilisateur
-        // (il est transféré au projet/porteur)
-    }
-
-    public void bloquerFonds(double montant) {
-        if (montant > soldeDisponible)
+    public void bloquerFonds(BigDecimal montant) {
+        if (montant.compareTo(soldeDisponible) > 0)
             throw new RuntimeException("Solde insuffisant");
-        this.soldeDisponible -= montant;
-        this.soldeBloque += montant;
+        this.soldeDisponible = this.soldeDisponible.subtract(montant);
+        this.soldeBloque = this.soldeBloque.add(montant);
     }
 
-    public void debloquerFonds(double montant) {
-        if (montant > soldeBloque)
+    public void debloquerFonds(BigDecimal montant) {
+        if (montant.compareTo(soldeBloque) > 0)
             throw new IllegalStateException("Fonds bloqués insuffisants");
-        this.soldeBloque -= montant;
-        this.soldeDisponible += montant;
+        this.soldeBloque = this.soldeBloque.subtract(montant);
+        this.soldeDisponible = this.soldeDisponible.add(montant);
     }
 
-    public void validerInvestissement(double montant) {
-        if (montant > soldeBloque)
+    public void validerInvestissement(BigDecimal montant) {
+        if (montant.compareTo(soldeBloque) > 0)
             throw new IllegalStateException("Fonds bloqués insuffisants");
-        this.soldeBloque -= montant;
-        // L'argent est transféré au projet → il sort du wallet
+        this.soldeBloque = this.soldeBloque.subtract(montant);
     }
 }

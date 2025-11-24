@@ -1,7 +1,0 @@
-CREATE TABLE `employes` (
-    `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `nom` VARCHAR(60) NOT NULL,
-    `prenom` VARCHAR(60) NOT NULL,
-    `email` VARCHAR(191) NOT NULL UNIQUE,
-    `telephone` VARCHAR(20)
-);

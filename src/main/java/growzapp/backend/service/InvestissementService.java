@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -119,42 +120,37 @@ public class InvestissementService {
 
     
 
-@Transactional
-public Investissement validerInvestissement(Long id) throws IOException, DocumentException, WriterException {
-    Investissement inv = investissementRepository.findById(id)
-        .orElseThrow(() -> new RuntimeException("Investissement non trouvé"));
+    @Transactional
+    public Investissement validerInvestissement(Long id) throws IOException, DocumentException, WriterException {
+        Investissement inv = investissementRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Investissement non trouvé"));
 
-    if (inv.getStatutPartInvestissement() != StatutPartInvestissement.EN_ATTENTE) {
-        throw new IllegalStateException("Investissement déjà traité");
+        if (inv.getStatutPartInvestissement() != StatutPartInvestissement.EN_ATTENTE) {
+            throw new IllegalStateException("Investissement déjà traité");
+        }
+
+        Projet projet = inv.getProjet();
+        Wallet wallet = inv.getInvestisseur().getWallet();
+
+        // 1. Valider les fonds bloqués → transférer définitivement
+        wallet.validerInvestissement(BigDecimal.valueOf(inv.getMontantInvesti()));
+
+        // 2. Mettre à jour le projet
+        projet.setPartsPrises(projet.getPartsPrises() + inv.getNombrePartsPris());
+        projet.setMontantCollecte(projet.getMontantCollecte() + inv.getMontantInvesti());
+
+        // 3. Générer contrat + PDF + email
+        Contrat contrat = contratService.genererEtSauvegarderContrat(inv);
+        inv.setContrat(contrat);
+
+        byte[] pdf = contratService.genererPdfDepuisContrat(contrat);
+        emailService.envoyerContratParEmail(inv, pdf);
+
+        // 4. Statut final
+        inv.setStatutPartInvestissement(StatutPartInvestissement.VALIDE);
+
+        return investissementRepository.save(inv);
     }
-
-    Projet projet = inv.getProjet();
-    Wallet wallet = inv.getInvestisseur().getWallet();
-
-    // 1. Valider les fonds bloqués → transférer définitivement
-    wallet.validerInvestissement(inv.getMontantInvesti());
-
-    // 2. Mettre à jour le projet
-    projet.setPartsPrises(projet.getPartsPrises() + inv.getNombrePartsPris());
-    projet.setMontantCollecte(projet.getMontantCollecte() + inv.getMontantInvesti());
-
-    // 3. Générer contrat + PDF + email
-    Contrat contrat = contratService.genererEtSauvegarderContrat(inv);
-    inv.setContrat(contrat);
-
-    byte[] pdf = contratService.genererPdfDepuisContrat(contrat);
-    emailService.envoyerContratParEmail(inv, pdf);
-
-    // 4. Statut final
-    inv.setStatutPartInvestissement(StatutPartInvestissement.VALIDE);
-
-    return investissementRepository.save(inv);
-}
-
-   public Investissement findById(Long id) {
-       return repository.findById(id)
-               .orElse(null); // Retourne null si non trouvé
-   }
   
 
 public InvestissementDTO getInvestissementWithDividendes(Long id) {
@@ -199,7 +195,6 @@ public List<InvestissementDTO> getByInvestisseurId(Long investisseurId) {
 
 @Transactional
 public InvestissementDTO investir(InvestissementRequestDto dto, User investisseur) {
-    // 1. Récupérer le projet avec verrou pessimiste (évite les sur-réservations)
     Projet projet = projetRepository.findByIdWithLock(dto.projetId())
         .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé"));
 
@@ -207,9 +202,9 @@ public InvestissementDTO investir(InvestissementRequestDto dto, User investisseu
         throw new IllegalStateException("Ce projet n'accepte plus d'investissements");
     }
 
-    // 2. Calculs
-    double prixPart = projet.getPrixUnePart();
-    double montantTotal = dto.nombrePartsPris() * prixPart;
+    // Utilise BigDecimal partout
+    BigDecimal prixPart = BigDecimal.valueOf(projet.getPrixUnePart());
+    BigDecimal montantTotal = BigDecimal.valueOf(dto.nombrePartsPris()).multiply(prixPart);
 
     if (dto.nombrePartsPris() <= 0) {
         throw new IllegalArgumentException("Le nombre de parts doit être positif");
@@ -220,24 +215,22 @@ public InvestissementDTO investir(InvestissementRequestDto dto, User investisseu
         throw new IllegalStateException("Pas assez de parts disponibles");
     }
 
-    // 3. Récupérer le wallet de l'investisseur
     Wallet wallet = investisseur.getWallet();
     if (wallet == null) {
         throw new IllegalStateException("Wallet non configuré");
     }
 
-    // 4. Bloquer les fonds
+    // BigDecimal partout
     wallet.bloquerFonds(montantTotal);
 
-    // 5. Créer l'investissement
     Investissement investissement = new Investissement();
     investissement.setNombrePartsPris(dto.nombrePartsPris());
-    investissement.setMontantInvesti(montantTotal);
+    investissement.setMontantInvesti(montantTotal.doubleValue()); // si l'entité attend un double
     investissement.setInvestisseur(investisseur);
     investissement.setProjet(projet);
     investissement.setStatutPartInvestissement(StatutPartInvestissement.EN_ATTENTE);
     investissement.setDate(LocalDateTime.now());
-    investissement.calculerPourcentageEquity(); // méthode dans l'entité
+    investissement.calculerPourcentageEquity();
 
     investissement = investissementRepository.save(investissement);
 
