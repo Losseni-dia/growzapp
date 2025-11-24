@@ -28,13 +28,13 @@ public class WalletController {
     // =========================== DÉPÔT ================================
     // ==================================================================
     @PostMapping("/depot")
-    public ResponseEntity<Wallet> deposer(
+    public ResponseEntity<WalletDTO> deposer(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody DepotRequest request) {
 
         Long userId = getCurrentUserId(userDetails);
         Wallet wallet = walletService.deposerFonds(userId, request.montant());
-        return ResponseEntity.ok(wallet);
+        return ResponseEntity.ok(new WalletDTO(wallet)); // DTO propre, sans boucle
     }
 
     // ==================================================================
