@@ -79,4 +79,12 @@ public class Wallet {
             throw new IllegalStateException("Fonds bloqués insuffisants");
         this.soldeBloque = this.soldeBloque.subtract(montant);
     }
+
+    public void validerRetrait(BigDecimal montant) {
+        if (montant.compareTo(soldeBloque) > 0) {
+            throw new IllegalStateException("Fonds bloqués insuffisants");
+        }
+        this.soldeBloque = this.soldeBloque.subtract(montant);
+        // L'argent est "sorti" du système → plus dans le wallet
+    }
 }

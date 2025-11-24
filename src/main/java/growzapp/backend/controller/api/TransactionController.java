@@ -11,6 +11,7 @@ import growzapp.backend.model.enumeration.StatutTransaction;
 import growzapp.backend.model.enumeration.TypeTransaction;
 import growzapp.backend.repository.TransactionRepository;
 import growzapp.backend.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -68,24 +70,30 @@ public class TransactionController {
     // ==================================================================
     // 3. Admin : Valider un retrait
     // ==================================================================
-    @PatchMapping("/{id}/valider-retrait")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<TransactionDTO> validerRetrait(@PathVariable Long id) {
-        Transaction tx = transactionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Transaction introuvable"));
+   @PatchMapping("/{id}/valider-retrait")
+@PreAuthorize("hasRole('ADMIN')")
+@Transactional  // TRÈS IMPORTANT
+public ResponseEntity<TransactionDTO> validerRetrait(@PathVariable Long id) {
+    Transaction tx = transactionRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Transaction introuvable"));
 
-        if (tx.getType() != TypeTransaction.RETRAIT) {
-            throw new IllegalArgumentException("Seule une transaction de type RETRAIT peut être validée");
-        }
-        if (tx.getStatut() != StatutTransaction.EN_ATTENTE_VALIDATION) {
-            throw new IllegalStateException("Cette transaction n'est plus en attente");
-        }
-
-        tx.setStatut(StatutTransaction.SUCCESS);
-        transactionRepository.save(tx);
-
-        return ResponseEntity.ok(dtoConverter.toTransactionDto(tx));
+    if (tx.getType() != TypeTransaction.RETRAIT) {
+        throw new IllegalArgumentException("Seule une transaction de type RETRAIT peut être validée");
     }
+    if (tx.getStatut() != StatutTransaction.EN_ATTENTE_VALIDATION) {
+        throw new IllegalStateException("Cette transaction n'est plus en attente");
+    }
+
+    // ON DÉBLOQUE L'ARGENT → il sort du wallet
+    tx.getWallet().validerRetrait(tx.getMontant()); // ou validerRetrait() si tu veux un nom plus clair
+
+    tx.setStatut(StatutTransaction.SUCCESS);
+    tx.setCompletedAt(LocalDateTime.now());
+
+    transactionRepository.save(tx);
+
+    return ResponseEntity.ok(dtoConverter.toTransactionDto(tx));
+}
 
     // ==================================================================
     // 4. Admin : Rejeter un retrait
