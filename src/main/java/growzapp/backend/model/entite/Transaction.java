@@ -8,6 +8,8 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.CreationTimestamp;
+
 @Entity
 @Table(name = "transactions")
 @Getter
@@ -37,8 +39,9 @@ public class Transaction {
     @Column(nullable = false, length = 30)
     private StatutTransaction statut = StatutTransaction.EN_COURS;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+   @Column(name = "created_at", nullable = false, updatable = false)
+    @CreationTimestamp  // AJOUTE CETTE ANNOTATION
+    private LocalDateTime createdAt;
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
