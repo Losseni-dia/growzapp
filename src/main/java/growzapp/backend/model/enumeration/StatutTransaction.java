@@ -5,5 +5,9 @@ public enum StatutTransaction {
     SUCCESS,
     FAILED,
     EN_ATTENTE_VALIDATION, // ex: retrait en attente d'approbation admin
-    REJETEE
+    REJETEE,
+
+    EN_ATTENTE_PAIEMENT,   // PayDunya en cours
+    PAYE,                  // Succès
+    ECHEC_PAIEMENT         // Échec
 }

@@ -3,8 +3,18 @@ package growzapp.backend.model.enumeration;
 public enum TypeTransaction {
     DEPOT,
     RETRAIT,
+    TRANSFER_OUT,
+    TRANSFER_IN,
     INVESTISSEMENT,
+    PAIEMENT_STRIPE,
+    PAIEMENT_OM,
+    PAIEMENT_MTN,
+    PAIEMENT_WAVE,
     REMBOURSEMENT,
-    TRANSFER_OUT, // Débit lors d'un transfert vers un autre user
-    TRANSFER_IN // Crédit lors d'un transfert reçu
+
+    // NOUVEAU : RETRAITS RÉELS
+    PAYOUT_OM,
+    PAYOUT_MTN,
+    PAYOUT_WAVE,
+    PAYOUT_STRIPE
 }

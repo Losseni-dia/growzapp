@@ -33,6 +33,11 @@ public class Wallet {
     @Builder.Default
     private BigDecimal soldeBloque = BigDecimal.ZERO;
 
+    // 3. ARGENT VALIDÉ PAR ADMIN → PRÊT À ÊTRE RETIRÉ (nouveau champ)
+    @Column(nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal soldeRetirable = BigDecimal.ZERO; // CELUI QUE TU VEUX !
+
     public BigDecimal getSoldeTotal() {
         return soldeDisponible.add(soldeBloque);
     }
@@ -80,11 +85,14 @@ public class Wallet {
         this.soldeBloque = this.soldeBloque.subtract(montant);
     }
 
+
+    // NOUVELLE MÉTHODE : quand admin valide un retrait
     public void validerRetrait(BigDecimal montant) {
-        if (montant.compareTo(soldeBloque) > 0) {
+        if (montant.compareTo(soldeBloque) > 0)
             throw new IllegalStateException("Fonds bloqués insuffisants");
-        }
         this.soldeBloque = this.soldeBloque.subtract(montant);
-        // L'argent est "sorti" du système → plus dans le wallet
+        this.soldeRetirable = this.soldeRetirable.add(montant); // L'ARGENT VA ICI
     }
+
+    
 }
