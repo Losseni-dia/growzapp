@@ -16,5 +16,8 @@ public enum TypeTransaction {
     PAYOUT_OM,
     PAYOUT_MTN,
     PAYOUT_WAVE,
-    PAYOUT_STRIPE
+    PAYOUT_OM_SN,
+    PAYOUT_WAVE_SN,
+    PAYOUT_STRIPE,
+    PAYOUT_BANK
 }

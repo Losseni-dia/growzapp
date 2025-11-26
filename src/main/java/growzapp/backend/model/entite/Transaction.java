@@ -32,12 +32,12 @@ public class Transaction {
     private BigDecimal montant;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(name = "type", nullable = false)
     private TypeTransaction type;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private StatutTransaction statut = StatutTransaction.EN_COURS;
+    @Column(name = "statut", nullable = false)
+    private StatutTransaction statut = StatutTransaction.EN_ATTENTE_PAIEMENT;
 
    @Column(name = "created_at", nullable = false, updatable = false)
     @CreationTimestamp  // AJOUTE CETTE ANNOTATION

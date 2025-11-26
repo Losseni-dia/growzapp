@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 import growzapp.backend.model.enumeration.StatutTransaction;
 import growzapp.backend.model.enumeration.TypeTransaction;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -26,7 +27,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Payout {
+public class PayoutModel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,6 +39,9 @@ public class Payout {
 
     private BigDecimal montant;
 
+    @Column(name = "external_payout_id")
+    private String externalPayoutId;
+    
     @Enumerated(EnumType.STRING)
     private TypeTransaction type; // PAYOUT_OM, PAYOUT_MTN, PAYOUT_WAVE
 

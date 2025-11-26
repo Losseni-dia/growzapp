@@ -7,10 +7,12 @@ import growzapp.backend.model.dto.walletDTOs.RejetRetraitRequest;
 import growzapp.backend.model.dto.walletDTOs.TransactionDTO;
 import growzapp.backend.model.entite.Transaction;
 import growzapp.backend.model.entite.User;
+import growzapp.backend.model.entite.Wallet;
 import growzapp.backend.model.enumeration.StatutTransaction;
 import growzapp.backend.model.enumeration.TypeTransaction;
 import growzapp.backend.repository.TransactionRepository;
 import growzapp.backend.repository.UserRepository;
+import growzapp.backend.repository.WalletRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,8 +21,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/transactions")
@@ -30,6 +34,7 @@ public class TransactionController {
     private final TransactionRepository transactionRepository;
     private final DtoConverter dtoConverter;
     private final UserRepository userRepository;
+    private final WalletRepository walletRepository;
 
     // ==================================================================
     // 1. Historique personnel (WalletPage)
@@ -69,31 +74,37 @@ public class TransactionController {
 
     // ==================================================================
     // 3. Admin : Valider un retrait
-    // ==================================================================
-   @PatchMapping("/{id}/valider-retrait")
-@PreAuthorize("hasRole('ADMIN')")
-@Transactional  // TRÈS IMPORTANT
-public ResponseEntity<TransactionDTO> validerRetrait(@PathVariable Long id) {
-    Transaction tx = transactionRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Transaction introuvable"));
+    @PatchMapping("/{id}/valider-retrait")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public ResponseEntity<?> validerRetrait(@PathVariable Long id) {
+        Transaction tx = transactionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de retrait introuvable"));
 
-    if (tx.getType() != TypeTransaction.RETRAIT) {
-        throw new IllegalArgumentException("Seule une transaction de type RETRAIT peut être validée");
+        if (tx.getType() != TypeTransaction.RETRAIT) {
+            throw new IllegalArgumentException("Seule une transaction de type RETRAIT peut être validée");
+        }
+        if (tx.getStatut() != StatutTransaction.EN_ATTENTE_VALIDATION) {
+            throw new IllegalStateException("Cette demande n'est plus en attente de validation");
+        }
+
+        Wallet wallet = tx.getWallet();
+        BigDecimal montant = tx.getMontant();
+
+        // CORRECT : bloqué → retirable (interne à l'app)
+        wallet.validerRetrait(montant); // ta méthode qui fait bloqué → retirable
+        walletRepository.save(wallet);
+
+        // Mise à jour de la transaction
+        tx.setStatut(StatutTransaction.SUCCESS);
+        tx.setCompletedAt(LocalDateTime.now());
+        tx.setDescription("Retrait validé par admin — fonds disponibles pour retrait externe");
+        transactionRepository.save(tx);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Retrait validé ! Les fonds sont maintenant retirables."));
     }
-    if (tx.getStatut() != StatutTransaction.EN_ATTENTE_VALIDATION) {
-        throw new IllegalStateException("Cette transaction n'est plus en attente");
-    }
-
-    // ON DÉBLOQUE L'ARGENT → il sort du wallet
-    tx.getWallet().validerRetrait(tx.getMontant()); // ou validerRetrait() si tu veux un nom plus clair
-
-    tx.setStatut(StatutTransaction.SUCCESS);
-    tx.setCompletedAt(LocalDateTime.now());
-
-    transactionRepository.save(tx);
-
-    return ResponseEntity.ok(dtoConverter.toTransactionDto(tx));
-}
 
     // ==================================================================
     // 4. Admin : Rejeter un retrait

@@ -126,6 +126,16 @@
 		</dependency>
 
 
+		<!-- https://mvnrepository.com/artifact/com.stripe/stripe-java -->
+		
+
+		<dependency>
+			<groupId>com.stripe</groupId>
+			<artifactId>stripe-java</artifactId>
+			<version>26.9.0</version>
+		</dependency>
+
+
 	</dependencies>
 
 	<build>
