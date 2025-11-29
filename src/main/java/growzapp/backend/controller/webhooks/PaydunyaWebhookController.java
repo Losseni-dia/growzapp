@@ -1,68 +1,65 @@
+// src/main/java/growzapp/backend/controller/webhooks/PaydunyaWebhookController.java
+
 package growzapp.backend.controller.webhooks;
 
-
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import growzapp.backend.model.entite.PayoutModel;
 import growzapp.backend.model.enumeration.StatutTransaction;
 import growzapp.backend.repository.PayoutModelRepository;
 import growzapp.backend.repository.TransactionRepository;
+import growzapp.backend.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
+// src/main/java/growzapp/backend/controller/webhooks/PaydunyaWebhookController.java
 @Slf4j
 @RestController
 @RequestMapping("/api/webhook/paydunya")
 @RequiredArgsConstructor
 public class PaydunyaWebhookController {
 
-    private final ObjectMapper mapper = new ObjectMapper();
-    private final TransactionRepository transactionRepository;
+    @Value("${paydunya.webhook-secret}")
+    private String webhookSecret;
+
     private final PayoutModelRepository payoutModelRepository;
-
     @PostMapping
-    public String handle(@RequestBody Map<String, Object> payload) {
-        log.info("Webhook PayDunya reçu : {}", payload);
-
+    public ResponseEntity<String> handle(@RequestBody Map<String, Object> payload) {
+        String token = (String) payload.get("token");
         String status = (String) payload.get("status");
-        String invoiceToken = (String) payload.get("invoice_token"); // pour les dépôts
-        String disburseToken = (String) payload.get("disburse_token"); // pour les retraits
 
-        // ==================== DÉPÔT PAYDUNYA ====================
-        if ("completed".equals(status) && invoiceToken != null) {
-            transactionRepository.findById(extractIdFromToken(invoiceToken))
-                    .ifPresent(tx -> {
-                        tx.setStatut(StatutTransaction.SUCCESS);
-                        tx.setCompletedAt(java.time.LocalDateTime.now());
-                        tx.getWallet().crediterDisponible(tx.getMontant());
-                        transactionRepository.save(tx);
-                        log.info("DÉPÔT PAYDUNYA VALIDÉ → transaction {}", tx.getId());
-                    });
+        if (token == null || status == null) {
+            return ResponseEntity.badRequest().body("Missing data");
         }
 
-        // ==================== RETRAIT PAYDUNYA ====================
-        if ("completed".equals(status) && disburseToken != null) {
-            payoutModelRepository.findByPaydunyaToken(disburseToken)
-                    .ifPresent(p -> {
+        payoutModelRepository.findByPaydunyaToken(token)
+                .ifPresent(p -> {
+                    if ("completed".equals(status) || "paid".equals(status)) {
                         p.setStatut(StatutTransaction.SUCCESS);
                         p.setPaydunyaStatus("completed");
-                        payoutModelRepository.save(p);
-                        log.info("RETRAIT PAYDUNYA PAYÉ → {}", disburseToken);
-                    });
-        }
+                        p.setCompletedAt(LocalDateTime.now());
+                        log.info("RETRAIT PAYDUNYA PAYÉ → {} €", p.getMontant());
+                    } else {
+                        p.setStatut(StatutTransaction.ECHEC_PAIEMENT);
+                        p.setPaydunyaStatus(status);
+                        log.warn("RETRAIT PAYDUNYA ÉCHOUÉ → {}", status);
+                    }
+                    payoutModelRepository.save(p);
+                });
 
-        return "OK";
+        return ResponseEntity.ok("OK");
     }
 
-    private Long extractIdFromToken(String token) {
-        // Si tu utilises l’ID de ta transaction comme token PayDunya → return
-        // Long.parseLong(token)
-        // Sinon adapte selon ton format
-        try {
-            return Long.parseLong(token);
-        } catch (Exception e) {
-            return null;
-        }
+    private boolean verifySignature(Map<String, Object> payload, String signature) {
+        // Logique de vérification HMAC (implémente selon la doc PayDunya)
+        // Pour le test : return true;
+        return true; // En prod, implémente la vérification
     }
 }

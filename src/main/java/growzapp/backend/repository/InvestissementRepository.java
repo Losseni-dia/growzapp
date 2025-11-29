@@ -1,15 +1,20 @@
+// src/main/java/growzapp/backend/repository/InvestissementRepository.java
+// AJOUT DE LA MÉTHODE MANQUANTE → tout compile maintenant
+
 package growzapp.backend.repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
+import growzapp.backend.model.entite.Investissement;
+import growzapp.backend.model.enumeration.StatutPartInvestissement;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.enumeration.StatutPartInvestissement;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface InvestissementRepository extends JpaRepository<Investissement, Long> {
@@ -19,10 +24,9 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
 
   @Query("SELECT i FROM Investissement i WHERE i.investisseur.id = :investisseurId")
   List<Investissement> findByInvestisseurId(@Param("investisseurId") Long investisseurId);
+
   long countByInvestisseurId(Long investisseurId);
 
-  // LA MÉTHODE MAGIQUE (celle que tu veux)
-  // Dans InvestissementRepository
   @Query("""
       SELECT DISTINCT i FROM Investissement i
       LEFT JOIN FETCH i.dividendes
@@ -31,18 +35,23 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
       """)
   List<Investissement> findByInvestisseurIdWithDividendes(@Param("investisseurId") Long investisseurId);
 
-  @Query("""
-      SELECT i FROM Investissement i
-      WHERE i.date >= :debut
-        AND i.date <= :fin
-        AND i.statutPartInvestissement = :statut
-      """)
-  List<Investissement> findByDateInvestissementBetweenAndStatutPartInvestissement(
-      @Param("debut") LocalDateTime debut,
-      @Param("fin") LocalDateTime fin,
-      @Param("statut") StatutPartInvestissement statut);
+  @Query("SELECT i FROM Investissement i WHERE i.projet.id = :projetId")
+  List<Investissement> findByProjetId(@Param("projetId") Long projetId);
 
-  // MÉTHODE PERSONNALISÉE AVEC NOM DIFFÉRENT
+  @Query("SELECT i FROM Investissement i " +
+      "LEFT JOIN i.investisseur u " +
+      "LEFT JOIN i.projet p " +
+      "WHERE LOWER(u.login) LIKE LOWER(:term) " +
+      "   OR LOWER(u.prenom) LIKE LOWER(:term) " +
+      "   OR LOWER(u.nom) LIKE LOWER(:term) " +
+      "   OR LOWER(p.libelle) LIKE LOWER(:term)")
+  List<Investissement> findBySearchTerm(@Param("term") String term);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT i FROM Investissement i WHERE i.id = :id")
+  Optional<Investissement> findByIdWithLock(@Param("id") Long id);
+
+  // MÉTHODE MANQUANTE → AJOUTÉE ICI
   @Query("""
       SELECT i FROM Investissement i
       WHERE i.date >= :debut
@@ -53,21 +62,4 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
       @Param("debut") LocalDateTime debut,
       @Param("fin") LocalDateTime fin,
       @Param("statut") StatutPartInvestissement statut);
-
-
-      @Query("SELECT i FROM Investissement i WHERE i.projet.id = :projetId")
-      List<Investissement> findByProjetId(@Param("projetId") Long projetId);
-     
-      
-
-      @Query("SELECT i FROM Investissement i " +
-              "LEFT JOIN i.investisseur u " +
-              "LEFT JOIN i.projet p " +
-              "WHERE LOWER(u.login) LIKE LOWER(:term) " +
-              "   OR LOWER(u.prenom) LIKE LOWER(:term) " +
-              "   OR LOWER(u.nom) LIKE LOWER(:term) " +
-              "   OR LOWER(p.libelle) LIKE LOWER(:term)")
-      List<Investissement> findBySearchTerm(@Param("term") String term);
 }
-
-

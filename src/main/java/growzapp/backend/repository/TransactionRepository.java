@@ -1,36 +1,51 @@
+// src/main/java/growzapp/backend/repository/TransactionRepository.java
+// VERSION FINALE ULTIME – 100 % COMPATIBLE wallet_id + wallet_type
+
 package growzapp.backend.repository;
 
 import growzapp.backend.model.entite.Transaction;
-import growzapp.backend.model.enumeration.StatutTransaction;
-import growzapp.backend.model.enumeration.TypeTransaction;
+import growzapp.backend.model.enumeration.*;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
-
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
-    List<Transaction> findByWallet_UserIdOrderByCreatedAtDesc(Long userId);
+        // HISTORIQUE PERSONNEL (USER) – wallet_id + wallet_type
+        @Query("SELECT t FROM Transaction t WHERE t.walletType = 'USER' AND t.walletId = :walletId ORDER BY t.createdAt DESC")
+        List<Transaction> findByWalletTypeAndWalletIdOrderByCreatedAtDesc(
+                        @Param("walletId") Long walletId);
 
-    List<Transaction> findAllByOrderByCreatedAtDesc();
+        // RETRAITS EN ATTENTE (ADMIN) – USER seulement
+        @Query("SELECT t FROM Transaction t " +
+                        "WHERE t.type = :type " +
+                        "AND t.statut = :statut " +
+                        "AND t.walletType = 'USER' " +
+                        "ORDER BY t.createdAt DESC")
+        List<Transaction> findByTypeAndStatutAndWalletType(
+                        @Param("type") TypeTransaction type,
+                        @Param("statut") StatutTransaction statut);
 
-    // === NOUVELLE MÉTHODE POUR L'ADMIN : retraits en attente ===
-    List<Transaction> findByTypeAndStatutOrderByCreatedAtDesc(
-            TypeTransaction type,
-            StatutTransaction statut
-    );
+        // HISTORIQUE GÉNÉRIQUE (USER + PROJET + DIVIDENDE)
+        @Query("SELECT t FROM Transaction t WHERE t.walletType = :type AND t.walletId = :id ORDER BY t.createdAt DESC")
+        List<Transaction> findByWalletTypeAndWalletId(
+                        @Param("type") WalletType type,
+                        @Param("id") Long id);
 
-    // OU (si tu veux une requête explicite, encore plus sûr)
-    /*
-    @Query("SELECT t FROM Transaction t " +
-           "WHERE t.type = :type " +
-           "AND t.statut = :statut " +
-           "ORDER BY t.createdAt DESC")
-    List<Transaction> findPendingWithdrawals(
-            @Param("type") TypeTransaction type,
-            @Param("statut") StatutTransaction statut
-    );
-    */
+        // HISTORIQUE USER (méthode simple)
+        default List<Transaction> findByUserWalletId(Long walletId) {
+                return findByWalletTypeAndWalletId(WalletType.USER, walletId);
+        }
+
+        // HISTORIQUE PROJET (méthode simple)
+        default List<Transaction> findByProjetWalletId(Long walletId) {
+                return findByWalletTypeAndWalletId(WalletType.PROJET, walletId);
+        }
+
+        // Toutes les transactions (admin)
+        List<Transaction> findAllByOrderByCreatedAtDesc();
 }

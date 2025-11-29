@@ -23,4 +23,8 @@ public interface DividendeRepository extends JpaRepository<Dividende, Long> {
     @Query("SELECT d FROM Dividende d WHERE d.investissement.id = :investissementId")
     List<Dividende> findByInvestissementId(@Param("investissementId") Long investissementId);
 
+
+    @Query("SELECT d FROM Dividende d WHERE d.investissement.projet.id = :projetId ORDER BY d.datePaiement DESC")
+    List<Dividende> findByInvestissement_Projet_Id(@Param("projetId") Long projetId);
+
 }

@@ -39,7 +39,11 @@ public record ProjetDTO(
         String siteNom,
         String secteurNom,
         List<DocumentDTO> documents,
-        List<InvestissementDTO> investissements) {
+        List<InvestissementDTO> investissements
+
+        // AJOUTÉ : SOLDE RÉEL DU WALLET (SEULEMENT ADMIN)
+         ) 
+ {
 
     // === MÉTHODE WITH PERSONNALISÉE POUR LE POSTER ===
     public ProjetDTO withPoster(String newPoster) {
@@ -72,7 +76,8 @@ public record ProjetDTO(
                 siteNom,
                 secteurNom,
                 documents,
-                investissements);
+                investissements
+            );
     }
 
     // Bonus : avec ID (utile pour update)

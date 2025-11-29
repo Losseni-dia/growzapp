@@ -90,6 +90,8 @@ public class Projet {
     @OneToMany(mappedBy = "projet", cascade = CascadeType.ALL)
     private List<Investissement> investissements = new ArrayList<>();
 
+    
+
 
     /*Note:Les%
     equity sont calculés logiquement:--Ex:Projet 1:50 parts×50 €=2500 €→2500/50000=5%

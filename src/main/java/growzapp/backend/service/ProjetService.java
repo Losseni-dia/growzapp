@@ -5,15 +5,21 @@ import growzapp.backend.model.dto.projetDTO.ProjetCreateDTO;
 import growzapp.backend.model.dto.projetDTO.ProjetDTO;
 import growzapp.backend.model.entite.*;
 import growzapp.backend.model.enumeration.StatutProjet;
+import growzapp.backend.model.enumeration.StatutTransaction;
+import growzapp.backend.model.enumeration.TypeTransaction;
+import growzapp.backend.model.enumeration.WalletType;
 import growzapp.backend.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -28,6 +34,9 @@ public class ProjetService {
     private final LocaliteRepository localiteRepository;
     private final SecteurRepository secteurRepository;
     private final DtoConverter converter;
+    private final WalletRepository walletRepository;
+    private final TransactionRepository transactionRepository;
+
 
     // ========================
     // GETTERS
@@ -158,6 +167,20 @@ public class ProjetService {
         // Tout est sauvegardé d’un coup grâce à @Transactional + cascade ou flush final
         Projet saved = projetRepository.save(projet);
 
+        // === CRÉATION AUTOMATIQUE DU WALLET PROJET (LE MANQUE CRITIQUE) ===
+        walletRepository.findByProjetId(saved.getId())
+                .orElseGet(() -> {
+                    Wallet walletProjet = Wallet.builder()
+                            .walletType(WalletType.PROJET)
+                            .projetId(saved.getId())
+                            .user(saved.getPorteur()) // le porteur est lié, mais n'a pas accès
+                            .soldeDisponible(BigDecimal.ZERO)
+                            .soldeBloque(BigDecimal.ZERO)
+                            .soldeRetirable(BigDecimal.ZERO)
+                            .build();
+                    return walletRepository.save(walletProjet);
+                });
+
         // On sauvegarde secteur & localité uniquement s’ils sont nouveaux
         if (secteur.getId() == null) {
             secteur = secteurRepository.save(secteur);
@@ -211,4 +234,20 @@ public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
         Projet saved = projetRepository.save(projet);
         return converter.toProjetDto(saved);
     }
+
+
+
+
+
+
+    @PreAuthorize("hasRole('ADMIN')")
+public Wallet getProjetWallet(Long projetId) {
+    return walletRepository.findByProjetId(projetId)
+            .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+}
+
+
+
+
+
 }

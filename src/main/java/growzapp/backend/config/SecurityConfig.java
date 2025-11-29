@@ -48,6 +48,8 @@ public class SecurityConfig {
                                                 // LIGNE AJOUTÉE → LIBÈRE LES IMAGES
                                                 .requestMatchers("/uploads/posters/**").permitAll()
 
+                                                .requestMatchers("/error").permitAll()
+
                                                 // Tu peux aussi libérer les assets React si besoin
                                                 .requestMatchers("/static/**", "/assets/**", "/favicon.ico").permitAll()
 

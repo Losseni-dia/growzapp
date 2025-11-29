@@ -6,7 +6,9 @@ public enum MoyenPaiement {
     MOBILE_MONEY("Mobile money"),
     ORANGE_MONEY("Orange money"),
     WAVE("Wave"),                        
-    CRYPTO("Crypto");
+    CRYPTO("Crypto"),
+
+    WALLET("Portefeuille growzapp");
 
     private String moyenPaiement;
 

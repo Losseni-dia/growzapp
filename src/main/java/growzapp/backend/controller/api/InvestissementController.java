@@ -4,18 +4,28 @@ import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.commonDTO.DtoConverter;
 import growzapp.backend.model.dto.investisementDTO.InvestissementCreateDTO; // ← Tu vas créer ce DTO
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
-import growzapp.backend.model.dto.investisementDTO.InvestissementRequestDto;
 import growzapp.backend.model.entite.Investissement;
+import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.InvestissementRepository;
+import growzapp.backend.repository.ProjetRepository;
+import growzapp.backend.repository.UserRepository;
 import growzapp.backend.service.InvestissementService;
+import growzapp.backend.service.StripeDepositService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/investissements")
 @RequiredArgsConstructor
@@ -23,9 +33,11 @@ import java.util.List;
 public class InvestissementController {
 
     private final InvestissementRepository investissementRepository;
-
     private final InvestissementService investissementService;
+    private final UserRepository userRepository;
     private final DtoConverter converter;
+    private final StripeDepositService stripeDepositService;
+    private final ProjetRepository projetRepository;
 
 
 
@@ -74,8 +86,11 @@ public class InvestissementController {
     // ──────────────────────────────────────────────────────
     @GetMapping("/mes-investissements")
     @PreAuthorize("isAuthenticated()")
-    public ApiResponseDTO<List<InvestissementDTO>> getMyInvestments(Authentication auth) {
-        User user = (User) auth.getPrincipal();
+    public ApiResponseDTO<List<InvestissementDTO>> getMyInvestments(
+            @AuthenticationPrincipal org.springframework.security.core.userdetails.User springUser) {
+        User user = userRepository.findByLogin(springUser.getUsername())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
         List<InvestissementDTO> mesInvestissements = investissementService.getByInvestisseurId(user.getId());
         return ApiResponseDTO.success(mesInvestissements);
     }
@@ -128,6 +143,10 @@ public class InvestissementController {
         investissementRepository.deleteById(id);
         return ApiResponseDTO.success("Investissement supprimé");
     }
+
+
+
+   
 
 
 

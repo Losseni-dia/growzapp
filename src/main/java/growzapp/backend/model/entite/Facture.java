@@ -17,8 +17,8 @@ public class Facture {
     @GeneratedValue(strategy = GenerationType.IDENTITY) // ← AUTO_INCREMENT
     private Long id;
 
-    @Column(name = "numero_facture", nullable = false, unique = true)
-    private String numeroFacture; // ex: FAC-2025-001
+    @Column(name = "numero_facture", nullable = false, unique = true, length = 100)
+    private String numeroFacture;
 
     @Column(name = "montant_ht")
     private double montantHT;

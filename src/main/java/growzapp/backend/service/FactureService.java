@@ -1,7 +1,6 @@
 package growzapp.backend.service;
 
-import com.lowagie.text.DocumentException; // ← IMPORTE ÇA !
-
+import com.lowagie.text.DocumentException;
 import growzapp.backend.model.dto.commonDTO.DtoConverter;
 import growzapp.backend.model.dto.factureDTO.FactureDTO;
 import growzapp.backend.model.entite.Dividende;
@@ -9,6 +8,7 @@ import growzapp.backend.model.entite.Facture;
 import growzapp.backend.model.enumeration.StatutFacture;
 import growzapp.backend.repository.FactureRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,19 +16,20 @@ import java.io.IOException;
 import java.time.Year;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor = @__(@Lazy)) // LIGNE MAGIQUE POUR EVITER LES PROBLEMES DE DEPENDANCE CIRCULAIRE
 @Transactional
 public class FactureService {
 
     private final FacturePdfService facturePdfService;
     private final FileStorageService fileStorageService;
-    private final DividendeService dividendeService;
     private final EmailService emailService;
     private final FactureRepository factureRepository;
-   
     private final DtoConverter converter;
 
-    @Transactional(rollbackFor = { IOException.class, DocumentException.class })
+    
+    private final DividendeService dividendeService;
+
+    @Transactional(rollbackFor =  IOException.class)
     public Facture genererEtSauvegarderFacture(Long dividendeId) throws IOException, DocumentException {
         Dividende dividende = dividendeService.findEntityById(dividendeId);
 
@@ -47,16 +48,15 @@ public class FactureService {
 
         facture = factureRepository.save(facture);
 
-        // ENVOI AUTOMATIQUE PAR EMAIL
         emailService.envoyerFactureParEmail(facture, pdfBytes);
 
         return facture;
     }
 
     public FactureDTO getById(Long id) {
-        Facture facture = factureRepository.findById(id)
+        return factureRepository.findById(id)
+                .map(converter::toFactureDto)
                 .orElseThrow(() -> new RuntimeException("Facture non trouvée : " + id));
-        return converter.toFactureDto(facture);
     }
 
     public FactureDTO toFactureDto(Facture facture) {

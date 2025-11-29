@@ -15,6 +15,7 @@ import growzapp.backend.model.entite.*;
 import growzapp.backend.model.enumeration.StatutDividende;
 import growzapp.backend.model.enumeration.StatutProjet;
 import growzapp.backend.model.enumeration.TypeTransaction;
+import growzapp.backend.model.enumeration.WalletType;
 import growzapp.backend.repository.LocalisationRepository;
 import growzapp.backend.repository.SecteurRepository;
 import growzapp.backend.repository.UserRepository;
@@ -32,6 +33,7 @@ public class DtoConverter {
         private final SecteurRepository secteurRepository;
         private final UserRepository userRepository;
         private final LocalisationRepository localisationRepository;
+      
 
         public UserDTO toUserDto(User user) {
                 UserDTO dto = new UserDTO();
@@ -228,6 +230,7 @@ public class DtoConverter {
             List<InvestissementDTO> investissementDtos = projet.getInvestissements().stream()
                             .map(this::toInvestissementDto)
                             .toList();
+           
 
             return new ProjetDTO(
                             projet.getId(),
@@ -260,7 +263,9 @@ public class DtoConverter {
                             secteurNom,
 
                             docDtos,
-                            investissementDtos);
+                            investissementDtos
+                        
+                                        );
     }
 
     public Projet toProjetEntity(ProjetDTO dto) {
@@ -350,6 +355,17 @@ public class DtoConverter {
             double prixUnePart = investissement.getProjet() != null
                             ? investissement.getProjet().getPrixUnePart()
                             : 0.0;
+                            // CALCUL DU MONTANT INVESTI – UNE FOIS POUR TOUTES
+            double montantInvesti = investissement.getNombrePartsPris() * prixUnePart;
+
+            String projetPoster = investissement.getProjet() != null
+                            ? investissement.getProjet().getPoster()
+                            : null;
+
+            String contratUrl = null;
+            if (investissement.getContrat() != null) {
+                    contratUrl = "http://localhost:8080/api/contrats/" + investissement.getContrat().getId() + "/pdf";
+            }
 
             // === Dividendes ===
             List<DividendeDTO> dividendes = investissement.getDividendes() != null
@@ -386,24 +402,30 @@ public class DtoConverter {
 
             // === RETOUR DTO — ORDRE EXACT ===
             return new InvestissementDTO(
-                            investissement.getId(), // 1
-                            investissement.getNombrePartsPris(), // 2
-                            investissement.getDate(), // 3
-                            investissement.getValeurPartsPrisEnPourcent(), // 4
-                            investissement.getFrais(), // 5
-                            investissement.getStatutPartInvestissement(), // 6
-                            investisseurId, // 7
-                            projetId, // 8
-                            investisseurNom, // 9
-                            projetLibelle, // 10
-                            prixUnePart, // 11
-                            dividendes, // 12
-                            montantPercu, // 13
-                            montantPlanifie, // 14
-                            roiRealise, // 15
-                            (int) payes, // 16
-                            (int) planifies, // 17
-                            statutGlobal // 18
+                            investissement.getId(), // 1. id
+                            investissement.getNombrePartsPris(), // 2. nombrePartsPris
+                            investissement.getDate(), // 3. date
+                            investissement.getValeurPartsPrisEnPourcent(), // 4. valeurPartsPrisEnPourcent
+                            investissement.getFrais(), // 5. frais
+                            investissement.getStatutPartInvestissement(), // 6. statutPartInvestissement
+
+                            investisseurId, // 7. investisseurId
+                            investisseurNom, // 8. investisseurNom
+                            projetId, // 9. projetId
+                            projetLibelle, // 10. projetLibelle
+                            prixUnePart, // 11. prixUnePart
+
+                            montantInvesti, // 12. montantInvesti ← NOUVEAU
+                            projetPoster, // 13. projetPoster ← NOUVEAU
+                            contratUrl, // 14. contratUrl ← NOUVEAU
+
+                            dividendes, // 15. dividendes
+                            montantPercu, // 16. montantTotalPercu
+                            montantPlanifie, // 17. montantTotalPlanifie
+                            roiRealise, // 18. roiRealise
+                            (int) payes, // 19. dividendesPayes
+                            (int) planifies, // 20. dividendesPlanifies
+                            statutGlobal // 21. statutGlobalDividendes
             );
     }
 
@@ -539,7 +561,11 @@ public class DtoConverter {
         public TransactionDTO toTransactionDto(Transaction transaction) {
                 // === Toujours : l'utilisateur propriétaire du wallet (expéditeur ou
                 // destinataire selon le type) ===
-                User owner = transaction.getWallet().getUser();
+               User owner = null;
+                if (transaction.getWalletType() == WalletType.USER) {
+                owner = userRepository.findById(transaction.getWalletId())
+                        .orElse(null);
+                }
 
                 // === Infos de base (toujours présentes) ===
                 Long userId = owner.getId();

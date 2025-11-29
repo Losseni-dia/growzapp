@@ -25,9 +25,10 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "image", columnDefinition = "TEXT")
     private String image;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false,unique = true,length = 50)
     private String login;
 
     @Column(nullable = false)
@@ -40,7 +41,7 @@ public class User {
     @Column(name = "sexe", nullable = false, length = 1)
     private Sexe sexe;
 
-    @Column(unique = true)
+    @Column(unique = true, length = 191)
     private String email;
 
     private String contact;
@@ -75,6 +76,9 @@ public class User {
 
    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonBackReference  // Empêche la boucle infinie
-    private Wallet wallet;
+   private Wallet wallet;
+    
+   @Column(name = "stripe_account_id", length = 100)
+   private String stripeAccountId;
    
 }

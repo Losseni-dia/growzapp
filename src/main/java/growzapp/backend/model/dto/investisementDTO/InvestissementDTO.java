@@ -1,3 +1,4 @@
+// src/main/java/growzapp/backend/model/dto/investisementDTO/InvestissementDTO.java
 package growzapp.backend.model.dto.investisementDTO;
 
 import growzapp.backend.model.dto.dividendeDTO.DividendeDTO;
@@ -9,29 +10,31 @@ import java.util.List;
 
 @Builder(toBuilder = true)
 public record InvestissementDTO(
-                Long id,
-                int nombrePartsPris,
-                LocalDateTime date,
-                double valeurPartsPrisEnPourcent, // % equity
-                double frais,
-                StatutPartInvestissement statutPartInvestissement,
+        Long id,
+        int nombrePartsPris,
+        LocalDateTime date,
+        double valeurPartsPrisEnPourcent,
+        double frais,
+        StatutPartInvestissement statutPartInvestissement,
 
-                // Relations (IDs)
-                Long investisseurId,
-                Long projetId,
+        // Relations
+        Long investisseurId,
+        String investisseurNom,
+        Long projetId,
+        String projetLibelle,
+        double prixUnePart,
 
-                // Relations (Noms pour affichage)
-                String investisseurNom,
-                String projetLibelle,
-                double prixUnePart,
+        // AJOUTÉS POUR LE FRONT – INDISPENSABLES
+        double montantInvesti, // nombrePartsPris × prixUnePart → CALCULÉ CÔTÉ BACK
+        String projetPoster,
+        String contratUrl,
 
-                // === ENRICHISSEMENTS ===
-                List<DividendeDTO> dividendes, // Tous les dividendes
-                double montantTotalPercu, // Somme des dividendes payés
-                double montantTotalPlanifie, // Somme des dividendes planifiés
-                double roiRealise, // (montantTotalPercu / valeur initiale) * 100
-                int dividendesPayes, // Nombre de dividendes PAYE
-                int dividendesPlanifies, // Nombre de dividendes PLANIFIE
-                String statutGlobalDividendes // "Tous payés", "En attente", "Partiel"
-) {
+        // Dividendes & ROI
+        List<DividendeDTO> dividendes,
+        double montantTotalPercu,
+        double montantTotalPlanifie,
+        double roiRealise,
+        int dividendesPayes,
+        int dividendesPlanifies,
+        String statutGlobalDividendes) {
 }

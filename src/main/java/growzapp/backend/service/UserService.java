@@ -43,6 +43,16 @@ public class UserService {
         return userRepository.findByLogin(auth.getName()).orElse(null);
     }
 
+    // NOUVELLE MÉTHODE — AVEC AUTHENTICATION (celle que tu veux)
+    public User getCurrentUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return null;
+        }
+        return userRepository.findByLogin(authentication.getName())
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé"));
+    }
+
     // ==================================================================
     // 2. Liste paginée + recherche (ADMIN)
     // ==================================================================

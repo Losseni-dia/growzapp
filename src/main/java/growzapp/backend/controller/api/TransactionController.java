@@ -1,4 +1,5 @@
 // src/main/java/growzapp/backend/controller/api/TransactionController.java
+// VERSION FINALE ULTIME – wallet_id + wallet_type (27 NOV 2025)
 
 package growzapp.backend.controller.api;
 
@@ -8,11 +9,8 @@ import growzapp.backend.model.dto.walletDTOs.TransactionDTO;
 import growzapp.backend.model.entite.Transaction;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.model.entite.Wallet;
-import growzapp.backend.model.enumeration.StatutTransaction;
-import growzapp.backend.model.enumeration.TypeTransaction;
-import growzapp.backend.repository.TransactionRepository;
-import growzapp.backend.repository.UserRepository;
-import growzapp.backend.repository.WalletRepository;
+import growzapp.backend.model.enumeration.*;
+import growzapp.backend.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -35,17 +33,20 @@ public class TransactionController {
     private final DtoConverter dtoConverter;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+   
 
     // ==================================================================
-    // 1. Historique personnel (WalletPage)
+    // 1. Historique personnel (WalletPage) – USER seulement
     // ==================================================================
+    // 1. Historique personnel
     @GetMapping("/mes-transactions")
     public ResponseEntity<List<TransactionDTO>> getMyTransactions(
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        Long userId = extractUserId(userDetails);
+        Long userWalletId = extractUserId(userDetails); // ← c’est l’ID du wallet user
+
         List<Transaction> transactions = transactionRepository
-                .findByWallet_UserIdOrderByCreatedAtDesc(userId);
+                .findByWalletTypeAndWalletIdOrderByCreatedAtDesc(userWalletId);
 
         List<TransactionDTO> dtos = transactions.stream()
                 .map(dtoConverter::toTransactionDto)
@@ -54,14 +55,12 @@ public class TransactionController {
         return ResponseEntity.ok(dtos);
     }
 
-    // ==================================================================
-    // 2. Retraits en attente (Admin)
-    // ==================================================================
+    // 2. Retraits en attente
     @GetMapping("/retraits-en-attente")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<TransactionDTO>> getPendingWithdrawals() {
         List<Transaction> transactions = transactionRepository
-                .findByTypeAndStatutOrderByCreatedAtDesc(
+                .findByTypeAndStatutAndWalletType(
                         TypeTransaction.RETRAIT,
                         StatutTransaction.EN_ATTENTE_VALIDATION);
 
@@ -73,7 +72,8 @@ public class TransactionController {
     }
 
     // ==================================================================
-    // 3. Admin : Valider un retrait
+    // 3. Admin : Valider un retrait (USER)
+    // ==================================================================
     @PatchMapping("/{id}/valider-retrait")
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
@@ -81,36 +81,38 @@ public class TransactionController {
         Transaction tx = transactionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Demande de retrait introuvable"));
 
-        if (tx.getType() != TypeTransaction.RETRAIT) {
-            throw new IllegalArgumentException("Seule une transaction de type RETRAIT peut être validée");
+        if (tx.getType() != TypeTransaction.RETRAIT || tx.getWalletType() != WalletType.USER) {
+            throw new IllegalArgumentException("Transaction invalide");
         }
         if (tx.getStatut() != StatutTransaction.EN_ATTENTE_VALIDATION) {
-            throw new IllegalStateException("Cette demande n'est plus en attente de validation");
+            throw new IllegalStateException("Transaction déjà traitée");
         }
 
-        Wallet wallet = tx.getWallet();
         BigDecimal montant = tx.getMontant();
 
-        // CORRECT : bloqué → retirable (interne à l'app)
-        wallet.validerRetrait(montant); // ta méthode qui fait bloqué → retirable
+        // RÉCUPÉRATION DU WALLET VIA wallet_id (nouvelle architecture)
+        Wallet wallet = walletRepository.findById(tx.getWalletId())
+                .orElseThrow(() -> new RuntimeException("Wallet introuvable"));
+
+        wallet.validerRetrait(montant);
         walletRepository.save(wallet);
 
-        // Mise à jour de la transaction
         tx.setStatut(StatutTransaction.SUCCESS);
         tx.setCompletedAt(LocalDateTime.now());
-        tx.setDescription("Retrait validé par admin — fonds disponibles pour retrait externe");
+        tx.setDescription("Retrait validé par admin — fonds retirables");
         transactionRepository.save(tx);
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Retrait validé ! Les fonds sont maintenant retirables."));
+                "message", "Retrait validé ! Fonds disponibles pour retrait externe"));
     }
 
     // ==================================================================
-    // 4. Admin : Rejeter un retrait
+    // 4. Admin : Rejeter un retrait (USER)
     // ==================================================================
     @PatchMapping("/{id}/rejeter-retrait")
     @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
     public ResponseEntity<TransactionDTO> rejeterRetrait(
             @PathVariable Long id,
             @RequestBody RejetRetraitRequest request) {
@@ -118,33 +120,35 @@ public class TransactionController {
         Transaction tx = transactionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Transaction introuvable"));
 
-        if (tx.getType() != TypeTransaction.RETRAIT) {
-            throw new IllegalArgumentException("Seule une transaction de type RETRAIT peut être rejetée");
+        if (tx.getType() != TypeTransaction.RETRAIT || tx.getWalletType() != WalletType.USER) {
+            throw new IllegalArgumentException("Transaction invalide");
         }
         if (tx.getStatut() != StatutTransaction.EN_ATTENTE_VALIDATION) {
-            throw new IllegalStateException("Cette transaction n'est plus en attente");
+            throw new IllegalStateException("Transaction déjà traitée");
         }
 
-        // CORRIGÉ : plus besoin de conversion → montant est déjà BigDecimal
-        tx.getWallet().debloquerFonds(tx.getMontant());
+        Wallet wallet = walletRepository.findById(tx.getWalletId())
+                .orElseThrow(() -> new RuntimeException("Wallet introuvable"));
+
+        wallet.debloquerFonds(tx.getMontant());
+        walletRepository.save(wallet);
 
         tx.setStatut(StatutTransaction.REJETEE);
         tx.setDescription("Rejeté : " + request.motif());
-
         transactionRepository.save(tx);
 
         return ResponseEntity.ok(dtoConverter.toTransactionDto(tx));
     }
 
-    // Helper propre, sûr, rapide
+    // ==================================================================
+    // Helper
+    // ==================================================================
     private Long extractUserId(UserDetails userDetails) {
-        if (userDetails == null) {
-            throw new IllegalStateException("Utilisateur non authentifié");
-        }
+        if (userDetails == null)
+            throw new IllegalStateException("Non authentifié");
         String login = userDetails.getUsername();
-
         return userRepository.findByLogin(login)
                 .map(User::getId)
-                .orElseThrow(() -> new IllegalStateException("Utilisateur introuvable avec le login: " + login));
+                .orElseThrow(() -> new IllegalStateException("Utilisateur introuvable: " + login));
     }
 }

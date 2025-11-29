@@ -15,6 +15,7 @@ import growzapp.backend.model.enumeration.TypeTransaction;
 import lombok.RequiredArgsConstructor;
 
 
+// src/main/java/growzapp/backend/service/PayDunyaDisburseService.java
 @Service
 @RequiredArgsConstructor
 public class PayDunyaDisburseService {
@@ -35,34 +36,39 @@ public class PayDunyaDisburseService {
 
         private String getBaseUrl() {
                 return "test".equalsIgnoreCase(mode)
-                                ? "https://app.paydunya.com/sandbox-api/v2"
-                                : "https://app.paydunya.com/api/v2";
+                                ? "https://app.paydunya.com/sandbox-api/v1"
+                                : "https://app.paydunya.com/api/v1";
         }
 
         public String initiatePayout(BigDecimal montant, String phone, TypeTransaction type) {
-                String url = getBaseUrl() + "/disburse/get-invoice";
+                String url = getBaseUrl() + "/checkout-invoice/create"; // ENDPOINT ACTUEL 2025
 
-                String cleanPhone = phone.replaceAll("[^0-9]", "");
-                if (cleanPhone.startsWith("225"))
-                        cleanPhone = "0" + cleanPhone.substring(3);
-                if (cleanPhone.startsWith("221"))
-                        cleanPhone = "0" + cleanPhone.substring(3);
+                // Format téléphone : +225XXXXXXXX ou 0XXXXXXXX
+                String cleanPhone = phone.replaceAll("\\D", "");
+                if (cleanPhone.startsWith("225") && cleanPhone.length() == 11) {
+                        cleanPhone = "0" + cleanPhone.substring(3); // 22507... → 007...
+                }
 
                 String withdrawMode = switch (type) {
                         case PAYOUT_OM -> "orange-money-ci";
                         case PAYOUT_MTN -> "mtn-momo-ci";
                         case PAYOUT_WAVE -> "wave-ci";
-                        case PAYOUT_OM_SN -> "orange-money-senegal";
-                        case PAYOUT_WAVE_SN -> "wave-sn";
+                        case PAYOUT_MOOV -> "moov-money-ci";
                         default -> throw new IllegalArgumentException("Opérateur non supporté: " + type);
                 };
 
                 Map<String, Object> payload = Map.of(
-                                "amount", montant.doubleValue(),
-                                "account_alias", cleanPhone,
-                                "withdraw_mode", withdrawMode,
-                                "callback_url", "https://growzapp.com/api/paydunya/callback" // même en local ça passe
-                );
+                                "invoice", Map.of(
+                                                "total_amount", montant.doubleValue(),
+                                                "description", "Retrait GrowzApp"),
+                                "store", Map.of(
+                                                "name", "GrowzApp",
+                                                "website_url", "https://growzapp.com"),
+                                "actions", Map.of(
+                                                "mobile_money", true),
+                                "custom_data", Map.of(
+                                                "phone_number", cleanPhone,
+                                                "withdraw_mode", withdrawMode));
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.set("PAYDUNYA-MASTER-KEY", masterKey);
@@ -75,16 +81,22 @@ public class PayDunyaDisburseService {
                                         url, new HttpEntity<>(payload, headers), Map.class);
 
                         Map<String, Object> body = response.getBody();
-                        if (body == null || !"success".equals(body.get("status"))) {
+                        if (body == null || !"success".equals(body.get("response_text"))) {
                                 String error = body != null ? body.toString() : "réponse vide";
                                 throw new RuntimeException("PayDunya refus: " + error);
                         }
 
-                        Map<String, Object> data = (Map<String, Object>) body.get("data");
-                        return (String) data.get("invoice_url");
+                        Map<String, Object> responseMap = (Map<String, Object>) body.get("response");
+                        String invoiceUrl = (String) responseMap.get("invoice_url");
+
+                        if (invoiceUrl == null || invoiceUrl.isBlank()) {
+                                throw new RuntimeException("URL de paiement manquante");
+                        }
+
+                        return invoiceUrl;
 
                 } catch (Exception e) {
-                        throw new RuntimeException("Erreur PayDunya Disburse: " + e.getMessage(), e);
+                        throw new RuntimeException("Erreur PayDunya: " + e.getMessage(), e);
                 }
         }
 }

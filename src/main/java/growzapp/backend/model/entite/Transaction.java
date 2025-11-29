@@ -3,6 +3,7 @@ package growzapp.backend.model.entite;
 
 import growzapp.backend.model.enumeration.StatutTransaction;
 import growzapp.backend.model.enumeration.TypeTransaction;
+import growzapp.backend.model.enumeration.WalletType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -23,9 +24,13 @@ public class Transaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    
     @JoinColumn(name = "wallet_id", nullable = false)
-    private Wallet wallet;
+    private Long walletId;
+
+    @Column(name = "wallet_type", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private WalletType walletType;
 
     // CHANGÉ : double → BigDecimal
     @Column(nullable = false, precision = 15, scale = 2)
@@ -52,6 +57,12 @@ public class Transaction {
 
     @Column(length = 500)
     private String description;
+
+    @Column(name = "reference_type", length = 50)
+    private String referenceType; // ex: "PROJET", "DIVIDENDE", "TRANSFERT", "DEPOT_STRIPE"
+
+    @Column(name = "reference_id")
+    private Long referenceId; // ID de l’objet lié (nullable)
 
     // Méthodes utilitaires
     public void markAsSuccess() {
