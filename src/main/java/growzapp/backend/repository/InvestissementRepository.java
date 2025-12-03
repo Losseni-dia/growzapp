@@ -62,4 +62,7 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
       @Param("debut") LocalDateTime debut,
       @Param("fin") LocalDateTime fin,
       @Param("statut") StatutPartInvestissement statut);
+      
+
+  boolean existsByInvestisseurIdAndProjetId(Long investisseurId, Long projetId);
 }

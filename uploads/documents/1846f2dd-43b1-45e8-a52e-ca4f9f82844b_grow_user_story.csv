@@ -1,0 +1,48 @@
+Epopée;Fonctionalité;US_id;En tant que...;Je veux...;Afin de...;MoSCoW;Critères d’Acceptation;Story_Points;Sprint;Responsable;Date_Livraison;Priorité;Statut
+Authentification & Profil;Inscription / Connexion;US-001;Visiteur;m’inscrire avec email, mot de passe, prénom, nom;créer un compte investisseur ou promoteur;obligatoire;"- Formulaire valide l’email
+- Mot de passe hashé
+- Email unique
+- Rôle UTILISATEUR par défaut";5;;;Haute;À faire
+Authentification & Profil;Inscription / Connexion;US-002;Visiteur;me connecter avec email/login + mot de passe;accéder à mon tableau de bord;obligatoire;"- JWT généré
+- Redirection dashboard";5;;;Haute;À faire
+Authentification & Profil;Gestion profil;US-003;Utilisateur connecté;modifier ma photo, coordonnées, langue, pays;mon profil soit à jour;important;"- Upload photo
+- Mise à jour en temps réel";3;;;Moyenne;À faire
+Authentification & Profil;Gestion profil;US-004;Utilisateur;voir mon profil complet;je vérifie mes infos;important;- Page /me avec tous les champs;2;;;Moyenne;À faire
+Gestion Projets;Créer projet;US-101;Promoteur;créer un projet avec libellé, description, valuation, ROI, secteur, site, documents;lancer une levée de fonds;obligatoire;"- Formulaire multi-étapes
+- Upload documents
+- Statut EN_PRÉPARATION auto
+- Lié à mon compte";13;;;Haute;À faire
+Gestion Projets;Créer projet;US-102;Promoteur;modifier mon projet (avant validation);je corrige des erreurs;important;- Édition si statut EN_PRÉPARATION;5;;;Moyenne;À faire
+Gestion Projets;Valider projet;US-103;Admin;valider ou rejeter un projet;seuls les projets sérieux sont publiés;obligatoire;"- Dashboard admin
+- Boutons Valider/Rejeter + commentaire";8;;;Haute;À faire
+Campagnes;Créer campagne;US-201;Promoteur;créer une campagne (objectif, prix part, dates, poster);fixer les modalités d’investissement;obligatoire;"- Une seule campagne par projet
+- Dates valides
+- Calcul auto % equity";8;;;Haute;À faire
+Campagnes;Créer campagne;US-202;Promoteur;modifier la campagne (avant ouverture);j’ajuste les paramètres;important;- Édition si statut EN_PRÉPARATION;5;;;Moyenne;À faire
+Campagnes;Statut auto;US-203;Système;changer automatiquement le statut de campagne;l’investisseur voit l’état réel;obligatoire;"- Tâche planifiée quotidienne
+- Si objectif atteint → SUCCES";5;;;Haute;À faire
+Investissement;Investir;US-301;Investisseur;choisir une campagne et prendre X parts;investir dans un projet;obligatoire;"- Vérification parts disponibles
+- Paiement Stripe/Mobile Money
+- Création Part auto";13;;;Haute;À faire
+Investissement;Découvrir campagnes;US-302;Investisseur;voir toutes les campagnes ouvertes (cartes avec % financé);je découvre les opportunités;obligatoire;"- Page accueil avec filtres
+- Carte visuelle + barre progrès";8;;;Haute;À faire
+Investissement;Annuler investissement;US-303;Investisseur;annuler mon investissement (avant fin campagne);je change d’avis;optionnel;"- Remboursement Stripe
+- Statut Part → ANNULEE";8;;;Basse;À faire
+Suivi & Dividendes;Suivre investissements;US-401;Investisseur;voir mes parts, dividendes, % equity;suivre mon portefeuille;obligatoire;"- Page mes-investissements
+- Tableau avec totaux
+- Export PDF";8;;;Haute;À faire
+Suivi & Dividendes;Distribuer dividendes;US-402;Promoteur;distribuer des dividendes (par campagne ou part);je rémunère les investisseurs;obligatoire;"- Formulaire montant/part
+- Paiement manuel/auto
+- Historique";13;;;Haute;À faire
+Suivi & Dividendes;Notifications dividendes;US-403;Investisseur;recevoir notification/email quand dividende versé;je suis informé;important;- Email + notif in-app;5;;;Moyenne;À faire
+Administration;Tableau de bord Admin;US-501;Admin;voir projets/campagnes en attente;je valide le contenu;obligatoire;"- Liste filtrable
+- Boutons Valider/Rejeter";8;;;Haute;À faire
+Administration;Stats globales;US-502;Admin;voir stats (montant levé, investisseurs, projets actifs);je monitore la plateforme;important;"- Graphiques
+- Export CSV";8;;;Moyenne;À faire
+Administration;Modération users;US-503;Admin;bloquer/débloquer un utilisateur;je modère;optionnel;- Liste users + action;5;;;Basse;À faire
+Paiements;Paiements réels;US-601;Investisseur;payer avec Stripe ou Mobile Money (OM, MTN, Wave);payer facilement selon mon pays;obligatoire;"- Redirection Stripe/PayDunya
+- Webhook auto-validation";21;;;Haute;À faire
+Paiements;Webhook sécurisé;US-602;Système;webhook Stripe sécurisé + idempotence;pas de doublons ni fraude;obligatoire;"- Vérification signature
+- Création Part seulement si completed";8;;;Haute;À faire
+Transverses;Notifications;US-701;Utilisateur;recevoir emails (confirmation, dividende, campagne réussie);je reste informé;important;- Spring Mail + templates;5;;;Moyenne;À faire
+Transverses;Notifications in-app;US-702;Utilisateur;voir notifications in-app;je ne rate rien;optionnel;- Cloche + liste;5;;;Basse;À faire

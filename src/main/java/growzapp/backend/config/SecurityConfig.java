@@ -40,8 +40,12 @@ public class SecurityConfig {
                                                 .permitAll()
 
                                                 // UPLOADS – Posters, contrats PDF, documents…
-                                                .requestMatchers("/uploads/**").permitAll() // TOUT le dossier uploads
-                                                                                            // est public
+                                                .requestMatchers("/uploads/posters/**").permitAll()
+                                                .requestMatchers("/uploads/avatars/**").permitAll() // si tu en as
+                                                .requestMatchers("/uploads/contrats/**").permitAll() // ou selon ton
+                                                                                                     // choix
+                                                .requestMatchers("/files/documents/**").denyAll() // ← BLOQUE TOUT ACCÈS
+                                                                                                  // DIRECT
 
                                                 // CONTRATS – QR code public + voir/télécharger le PDF (même sans être
                                                 // connecté)
