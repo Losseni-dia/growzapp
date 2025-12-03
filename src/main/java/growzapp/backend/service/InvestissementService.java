@@ -2,14 +2,10 @@
 package growzapp.backend.service;
 
 
-import com.google.zxing.WriterException;
-import com.lowagie.text.DocumentException;
 
 import growzapp.backend.model.dto.commonDTO.DtoConverter;
 import growzapp.backend.model.dto.investisementDTO.InvestissementCreateDTO;
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
-import growzapp.backend.model.dto.investisementDTO.InvestissementRequestDto;
-import growzapp.backend.model.entite.Contrat;
 import growzapp.backend.model.entite.Investissement;
 import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.entite.User;
@@ -29,7 +25,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,8 +35,6 @@ import java.util.List;
 public class InvestissementService {
 
     private final InvestissementRepository repository;
-    private final ContratService contratService;
-    private final EmailService emailService;
     private final InvestissementRepository investissementRepository;
     private final DtoConverter converter;
     private final ProjetRepository projetRepository;
@@ -179,6 +172,9 @@ public class InvestissementService {
             return converter.toInvestissementDto(investissement);
     }
 
+
+
+
     @Transactional
     public Investissement validerInvestissement(Long id) throws Exception {
             Investissement inv = repository.findByIdWithLock(id)
@@ -192,9 +188,11 @@ public class InvestissementService {
             User investisseur = inv.getInvestisseur();
             BigDecimal montant = BigDecimal.valueOf(inv.getMontantInvesti());
 
+            // WALLET UTILISATEUR
             Wallet walletUser = walletRepository.findByUserIdWithPessimisticLock(investisseur.getId())
                             .orElseThrow(() -> new IllegalStateException("Wallet investisseur non trouvé"));
 
+            // WALLET PROJET
             Wallet walletProjet = walletRepository
                             .findByProjetIdAndWalletTypeWithLock(projet.getId(), WalletType.PROJET)
                             .orElseGet(() -> {
@@ -209,26 +207,26 @@ public class InvestissementService {
                                     return walletRepository.save(w);
                             });
 
-            // LES DEUX LIGNES CORRIGÉES — POINT-VIRGULE À LA FIN
+            // TRANSFERT D'ARGENT
             walletUser.validerInvestissement(montant);
-            walletProjet.crediterDisponible(montant); // ← POINT-VIRGULE AJOUTÉ
+            walletProjet.crediterDisponible(montant);
 
+            // MISE À JOUR DU PROJET
             projet.setPartsPrises(projet.getPartsPrises() + inv.getNombrePartsPris());
             projet.setMontantCollecte(projet.getMontantCollecte() + inv.getMontantInvesti());
             projetRepository.save(projet);
 
-            Contrat contrat = contratService.genererEtSauvegarderContrat(inv);
-            inv.setContrat(contrat);
-            byte[] pdf = contratService.genererPdfDepuisContrat(contrat);
-            emailService.envoyerContratParEmail(inv, pdf);
+            // PAS DE CONTRAT ICI — C'EST FAIT DANS LE NOUVEL ENDPOINT
+            // PAS D'EMAIL ICI — C'EST FAIT DANS LE NOUVEL ENDPOINT
 
             inv.setStatutPartInvestissement(StatutPartInvestissement.VALIDE);
 
             walletRepository.save(walletUser);
             walletRepository.save(walletProjet);
-
             return repository.save(inv);
     }
+
+
 
     @Transactional
     public Investissement refuserInvestissement(Long id) {

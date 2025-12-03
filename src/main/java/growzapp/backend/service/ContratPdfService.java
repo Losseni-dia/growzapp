@@ -30,6 +30,9 @@ public class ContratPdfService {
         context.setVariable("user", investissement.getInvestisseur());
         context.setVariable("numeroContrat", numeroContrat);
 
+        // LÀ, C'EST LA LIGNE QUI MANQUAIT
+        context.setVariable("contrat", investissement.getContrat());
+
         // BASE64 DANS LE SERVICE (PAS DANS LE TEMPLATE)
         String qrCodeBase64 = Base64.getEncoder().encodeToString(qrCodePng);
         context.setVariable("qrCodeBase64", qrCodeBase64);

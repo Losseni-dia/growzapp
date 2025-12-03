@@ -54,6 +54,12 @@ public class Projet {
     private double prixUnePart;
 
 
+    // NOUVEAU CHAMP : Durée du projet en mois
+    @Column(name = "duree_mois", nullable = false)
+    @Min(1)
+    private Integer dureeMois = 36; // valeur par défaut : 36 mois
+    
+
     @Min(0)
     @Column(name = "objectif_financement")
     private double objectifFinancement;

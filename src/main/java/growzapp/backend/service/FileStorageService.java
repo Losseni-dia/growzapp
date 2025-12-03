@@ -7,10 +7,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 import java.util.UUID;
 
 @Service
@@ -30,9 +27,7 @@ public class FileStorageService {
         return path;
     }
 
-    /**
-     * Sauvegarde un fichier (byte[] ou MultipartFile)
-     */
+    // SAUVEGARDE (byte[] ou MultipartFile)
     public String save(byte[] content, String originalFilename, String contentType) throws IOException {
         String filename = UUID.randomUUID() + "_" + StringUtils.cleanPath(originalFilename);
         Path target = getUploadPath().resolve(filename);
@@ -47,9 +42,19 @@ public class FileStorageService {
         return "/files/download/" + filename;
     }
 
-    /**
-     * Récupère un fichier pour téléchargement
-     */
+    // CHARGE LE FICHIER EN byte[]
+    public byte[] loadAsBytes(String fileUrl) throws IOException {
+        String filename = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+        Path filePath = getUploadPath().resolve(filename).normalize();
+
+        if (!Files.exists(filePath)) {
+            throw new IOException("Fichier non trouvé : " + filename);
+        }
+
+        return Files.readAllBytes(filePath);
+    }
+
+    // Pour compatibilité avec les anciens appels
     public Path load(String filename) {
         return getUploadPath().resolve(filename).normalize();
     }

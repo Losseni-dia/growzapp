@@ -33,26 +33,41 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                                 .authorizeHttpRequests(auth -> auth
+                                                // PUBLIC – Auth, register, projets publics, etc.
                                                 .requestMatchers("/api/auth/**", "/api/auth/register").permitAll()
-                                                .requestMatchers("/api/projets").permitAll()
-                                                .requestMatchers("/api/projets/{id}").permitAll()
-                                                .requestMatchers("/api/localites", "/api/langues").permitAll()
-                                                .requestMatchers("/api/investissements").authenticated()
-                                                .requestMatchers("/api/investissements/mes-investissements")
+                                                .requestMatchers("/api/projets", "/api/projets/**").permitAll()
+                                                .requestMatchers("/api/localites", "/api/langues", "/api/secteurs")
+                                                .permitAll()
+
+                                                // UPLOADS – Posters, contrats PDF, documents…
+                                                .requestMatchers("/uploads/**").permitAll() // TOUT le dossier uploads
+                                                                                            // est public
+
+                                                // CONTRATS – QR code public + voir/télécharger le PDF (même sans être
+                                                // connecté)
+                                                .requestMatchers("/api/contrats/public/verifier/**").permitAll()
+                                                .requestMatchers("/api/contrats/{numero}").permitAll() // voir le PDF
+                                                                                                       // dans le
+                                                                                                       // navigateur
+                                                .requestMatchers("/api/contrats/{numero}/download").permitAll() // téléchargement
+                                                                                                                // direct
+
+                                                // Pages d’erreur + assets React
+                                                .requestMatchers("/error", "/static/**", "/assets/**", "/favicon.ico")
+                                                .permitAll()
+
+                                                // Endpoints protégés
+                                                .requestMatchers("/api/investissements", "/api/investissements/**")
                                                 .authenticated()
                                                 .requestMatchers("/api/projets/mes-projets").authenticated()
+                                                .requestMatchers("/api/wallets/**").authenticated()
+                                                .requestMatchers(HttpMethod.POST, "/api/wallets/demander-payout")
+                                                .authenticated()
+
+                                                // Admin
                                                 .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
 
-                                                .requestMatchers(HttpMethod.POST, "/api/wallets/demander-payout").authenticated()
-
-                                                // LIGNE AJOUTÉE → LIBÈRE LES IMAGES
-                                                .requestMatchers("/uploads/posters/**").permitAll()
-
-                                                .requestMatchers("/error").permitAll()
-
-                                                // Tu peux aussi libérer les assets React si besoin
-                                                .requestMatchers("/static/**", "/assets/**", "/favicon.ico").permitAll()
-
+                                                // Tout le reste → authentifié
                                                 .anyRequest().authenticated())
 
                                 .exceptionHandling(ex -> ex

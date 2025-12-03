@@ -3,147 +3,311 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <title>Contrat d'investissement</title>
+    <title>Contrat d'Investissement - GrowzApp</title>
     <style>
+        @page {
+            size: A4;
+            margin: 15mm 12mm 20mm 12mm;
+        }
+
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 40px;
-            background: #f5f7fa;
-            color: #2d3436;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            font-size: 11.5pt;
             line-height: 1.6;
+            color: #1B5E20;
         }
 
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            width: 100%;
         }
 
-        h1 {
-            text-align: center;
+        .header {
+            background: linear-gradient(135deg, #1B5E20, #2E7D32);
             color: white;
-            background: #27ae60;
-            font-size: 2.8em;
-            margin: 0 0 50px 0;
-            padding: 20px;
-            border-radius: 16px;
-            font-weight: 700;
-            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
-        }
-
-        h2 {
-            color: #27ae60;
-            font-size: 1.8em;
-            margin: 30px 0 20px;
-            padding-bottom: 10px;
-            border-bottom: 3px solid #27ae60;
-        }
-
-        .info-card {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-            margin-bottom: 40px;
-        }
-
-        .info-card p {
-            margin: 12px 0;
-            font-size: 1.1em;
-        }
-
-        .info-card strong {
-            color: #27ae60;
-        }
-
-        .qr {
             text-align: center;
-            padding: 25px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-            margin: 40px 0;
+            padding: 30px 20px;
         }
 
-        .qr img {
-            width: 180px;
-            height: 180px;
+        .header h1 {
+            font-size: 32pt;
+            font-weight: 900;
+            margin: 0 0 10px 0;
+        }
+
+        .numero {
+            font-size: 24pt;
+            font-weight: 800;
             margin: 15px 0;
         }
 
-        .signature {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 80px;
-            font-size: 1.1em;
+        .date {
+            font-size: 14pt;
+            opacity: 0.95;
         }
 
-        .signature div {
-            width: 45%;
+        .content {
+            padding: 30px 40px;
+        }
+
+        .recap {
+            background: #f8fff9;
+            border: 3px solid #E8F5E9;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 35px;
+        }
+
+        .recapTitle {
+            text-align: center;
+            font-size: 22pt;
+            font-weight: 900;
+            color: #1B5E20;
+            margin: 0 0 20px 0;
+            padding-bottom: 12px;
+            border-bottom: 4px double #1B5E20;
+        }
+
+        .recapGrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            font-size: 12pt;
+        }
+
+        .recapItem {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            border-left: 6px solid #4CAF50;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .recapItem strong {
+            color: #1B5E20;
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 800;
+        }
+
+        .montant {
+            font-size: 24pt !important;
+            font-weight: 900 !important;
+            color: #1B5E20 !important;
+        }
+
+        .pourcentage {
+            font-size: 26pt !important;
+            font-weight: 900 !important;
+            color: #FFC107 !important;
+        }
+
+        .articles {
+            margin: 35px 0;
+        }
+
+        .articles h2 {
+            font-size: 22pt;
+            font-weight: 900;
+            text-align: center;
+            color: #1B5E20;
+            margin: 0 0 25px 0;
+            padding-bottom: 12px;
+            border-bottom: 4px double #1B5E20;
+        }
+
+        .articles ol {
+            counter-reset: article;
+            padding-left: 0;
+            list-style: none;
+            margin: 0;
+        }
+
+        .articles li {
+            counter-increment: article;
+            margin: 18px 0;
+            padding-left: 70px;
+            position: relative;
+            text-align: justify;
+            font-size: 12pt;
+        }
+
+        .articles li::before {
+            content: counter(article) ".";
+            position: absolute;
+            left: 0;
+            font-weight: 900;
+            color: #1B5E20;
+            font-size: 18pt;
+            width: 60px;
+            text-align: right;
+            padding-right: 10px;
+        }
+
+        .qrSection {
+            text-align: center;
+            margin: 40px 0;
+            page-break-inside: avoid;
+        }
+
+        .qrTitle {
+            font-size: 20pt;
+            font-weight: 900;
+            color: #1B5E20;
+            margin-bottom: 20px;
+        }
+
+        .qrWrapper {
+            display: inline-block;
             padding: 20px;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            text-align: center;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border: 4px solid #E8F5E9;
         }
 
-        .signature p {
-            margin: 8px 0;
+        .signatures {
+            display: flex;
+            justify-content: space-between;
+            margin: 60px 0 40px;
+            gap: 50px;
+            page-break-inside: avoid;
+        }
+
+        .signatureBox {
+            flex: 1;
+            text-align: center;
+            padding: 25px;
+            background: white;
+            border: 3px solid #E8F5E9;
+            border-radius: 16px;
+        }
+
+        .signatureLabel {
+            font-size: 16pt;
+            color: #1B5E20;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+
+        .signatureLine {
+            border-top: 4px dashed #1B5E20;
+            margin: 30px 0;
+            height: 80px;
+        }
+
+        .signatureName {
+            font-size: 18pt;
+            font-weight: 900;
+            color: #1B5E20;
+            margin: 10px 0;
+        }
+
+        .signatureStatus {
+            font-size: 11pt;
+            color: #4CAF50;
+            font-weight: 700;
         }
 
         .footer {
             text-align: center;
-            margin-top: 60px;
-            color: #636e72;
-            font-size: 0.95em;
-            padding: 20px;
+            padding: 25px;
+            background: #1B5E20;
+            color: white;
+            margin-top: 40px;
+        }
+
+        .footer strong {
+            color: #FFC107;
+            font-size: 18pt;
+            font-weight: 900;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>CONTRAT D'INVESTISSEMENT</h1>
-        <h2 style="text-align:center; border:none; font-size:1.6em; margin-bottom:30px;">
-            Numéro : <span th:text="${numeroContrat}">CTR-2025-000127</span>
-        </h2>
-
-        <div class="info-card">
-            <p><strong>Investisseur :</strong> <span th:text="${user.prenom + ' ' + user.nom}">Jean Dupont</span></p>
-            <p><strong>Email :</strong> <span th:text="${user.email}">jean@example.com</span></p>
-            <p><strong>Projet :</strong> <span th:text="${projet.libelle}">Ferme Solaire Dakar</span></p>
-            <p><strong>Montant investi :</strong>
-                <span
-                    th:text="${#numbers.formatCurrency(investissement.nombrePartsPris * projet.prixUnePart)}">€7,750.00</span>
-            </p>
-            <p><strong>Parts acquises :</strong>
-                <span th:text="${investissement.nombrePartsPris}">50</span> ×
-                <span th:text="${#numbers.formatCurrency(projet.prixUnePart)}">€155.00</span>
-            </p>
-            <p><strong>Équité :</strong> <span th:text="${investissement.valeurPartsPrisEnPourcent + '%'}">5%</span></p>
+        <div class="header">
+            <h1>CONTRAT D'INVESTISSEMENT</h1>
+            <div class="numero">N° <span th:text="${numeroContrat}">CTR-2025-000044</span></div>
+            <div class="date">Émis le <span th:text="${#temporals.format(contrat.dateGeneration, 'dd MMMM yyyy')}">30
+                    novembre 2025</span></div>
         </div>
 
-        <div class="qr">
-            <h3 style="color:#27ae60; margin-bottom:15px;">Vérification d'authenticité</h3>
-            <img th:src="@{'data:image/png;base64,' + ${qrCodeBase64}}" alt="QR Code" />
-            <p><strong>Scannez pour vérifier</strong></p>
-        </div>
-
-        <div class="signature">
-            <div>
-                <p>L'investisseur</p>
-                <br /><br />
-                <p th:text="${user.prenom + ' ' + user.nom}">Jean Dupont</p>
+        <div class="content">
+            <div class="recap">
+                <div class="recapTitle">RÉCAPITULATIF DE VOTRE INVESTISSEMENT</div>
+                <div class="recapGrid">
+                    <div class="recapItem"><strong>Investisseur :</strong><span
+                            th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">Losseni
+                            Dia</span></div>
+                    <div class="recapItem"><strong>Projet :</strong><span
+                            th:text="${investissement.projet.libelle}">Ferme Solaire Dakar</span></div>
+                    <div class="recapItem"><strong>Localisation :</strong>
+                        <span th:text="${(investissement.projet.siteProjet?.localite?.nom != null) 
+                            ? investissement.projet.siteProjet.localite.nom 
+                              + (investissement.projet.siteProjet.localite.pays?.nom != null 
+                                 ? ', ' + investissement.projet.siteProjet.localite.pays.nom 
+                                 : '') 
+                            : 'Non précisée'}">
+                            Dakar, Sénégal
+                        </span>
+                    </div>
+                    <div class="recapItem"><strong>Parts acquises :</strong><span
+                            th:text="${investissement.nombrePartsPris} + ' × ' + ${investissement.projet.prixUnePart} + ' FCFA'">1
+                            × 50.0 FCFA</span></div>
+                    <div class="recapItem"><strong>Montant investi :</strong><span class="montant"
+                            th:text="${investissement.montantInvesti} + ' FCFA'">50.0 FCFA</span></div>
+                    <div class="recapItem"><strong>Équité détenue :</strong><span class="pourcentage"
+                            th:text="${investissement.valeurPartsPrisEnPourcent} + '%'">0.1%</span></div>
+                </div>
             </div>
-            <div>
-                <p>GrowzApp</p>
-                <br /><br />
-                <p>Le Porteur de projet</p>
+
+            <div class="articles">
+                <h2>CONDITIONS CONTRACTUELLES</h2>
+                <ol>
+                    <li>L’investisseur acquiert <strong th:text="${investissement.nombrePartsPris}"></strong> parts
+                        sociales du projet <strong th:text="${investissement.projet.libelle}"></strong>.</li>
+                    <li>Le montant total de <strong th:text="${investissement.montantInvesti} + ' FCFA'"></strong> a été
+                        bloqué avec succès sur le portefeuille GrowzApp.</li>
+                    <li>Durée de l’investissement : <strong th:text="${investissement.projet.dureeMois} ?: 36"></strong>
+                        mois à compter de la validation définitive.</li>
+                    <li>Rémunération : dividendes annuels + plus-value à la sortie.</li>
+                    <li>Droits protégés : préemption, tag-along, non-dilution, transparence trimestrielle.</li>
+                    <li>Droit applicable : Acte Uniforme OHADA relatif aux sociétés commerciales.</li>
+                </ol>
+            </div>
+
+            <div class="qrSection">
+                <div class="qrTitle">VÉRIFICATION OFFICIELLE DU CONTRAT</div>
+                <div class="qrWrapper">
+                    <img th:src="@{'data:image/png;base64,' + ${qrCodeBase64}}" width="240" height="240"
+                        alt="QR Code" />
+                </div>
+            </div>
+
+            <div class="signatures">
+                <div class="signatureBox">
+                    <div class="signatureLabel">L'Investisseur</div>
+                    <div class="signatureLine"></div>
+                    <div class="signatureName"
+                        th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">Losseni
+                        Dia</div>
+                    <div class="signatureStatus">Signature électronique validée</div>
+                </div>
+                <div class="signatureBox">
+                    <div class="signatureLabel">GrowzApp</div>
+                    <div class="signatureLine"></div>
+                    <div class="signatureName">GrowzApp</div>
+                    <div class="signatureStatus">Représentant légal</div>
+                </div>
             </div>
         </div>
 
         <div class="footer">
-            <p><strong>GrowzApp</strong> – Investissement agricole durable</p>
+            <strong>GrowzApp</strong> • Investissement agricole durable<br />
+            Abidjan, Côte d’Ivoire • contact@growzapp.com • +225 07 00 00 00 00
         </div>
     </div>
 </body>

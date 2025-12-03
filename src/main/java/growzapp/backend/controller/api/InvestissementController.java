@@ -5,25 +5,19 @@ import growzapp.backend.model.dto.commonDTO.DtoConverter;
 import growzapp.backend.model.dto.investisementDTO.InvestissementCreateDTO; // ← Tu vas créer ce DTO
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
 import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.InvestissementRepository;
-import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.repository.UserRepository;
 import growzapp.backend.service.InvestissementService;
-import growzapp.backend.service.StripeDepositService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -36,8 +30,6 @@ public class InvestissementController {
     private final InvestissementService investissementService;
     private final UserRepository userRepository;
     private final DtoConverter converter;
-    private final StripeDepositService stripeDepositService;
-    private final ProjetRepository projetRepository;
 
 
 
