@@ -13,6 +13,7 @@ import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -41,10 +42,15 @@ public class RapportService {
         List<Investissement> investissements = investissementRepository
                 .findValidInvestmentsByDateRange(debutDateTime, finDateTime, StatutPartInvestissement.VALIDE);
 
-        // 3. Calculs
-        double totalCollecte = investissements.stream()
-                .mapToDouble(inv -> inv.getNombrePartsPris() * inv.getProjet().getPrixUnePart())
-                .sum();
+      // On utilise stream().map() au lieu de mapToDouble()
+BigDecimal totalCollecte = investissements.stream()
+    .map(inv -> {
+        BigDecimal prixPart = inv.getProjet().getPrixUnePart();
+        // Correction : multiplier le BigDecimal par le nombre de parts (converti en BigDecimal)
+        return prixPart.multiply(BigDecimal.valueOf(inv.getNombrePartsPris()));
+    })
+    // Correction : Additionner les BigDecimal entre eux
+    .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         long projetsDistincts = investissements.stream()
                 .map(inv -> inv.getProjet().getId())

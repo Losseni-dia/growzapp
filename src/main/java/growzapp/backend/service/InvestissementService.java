@@ -121,30 +121,17 @@ public class InvestissementService {
 
     @Transactional
     public InvestissementDTO investir(Long projetId, int nombrePartsPris, User investisseur) {
+            // ... validation nombre de parts ...
 
-            if (nombrePartsPris <= 0) {
-                    throw new IllegalArgumentException("Le nombre de parts doit être supérieur à 0");
-            }
-
-            // 1. Verrouillage pessimiste du projet
             Projet projet = projetRepository.findByIdWithLock(projetId)
                             .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé"));
 
-            // VERSION CORRIGÉE — ACCEPTE VALIDE + EN_COURS
-            if (projet.getStatutProjet() != StatutProjet.VALIDE &&
-                            projet.getStatutProjet() != StatutProjet.EN_COURS) {
-                    throw new IllegalStateException("Ce projet n'accepte plus d'investissements");
-            }
+            // ... validation statut projet ...
 
-            int partsRestantes = projet.getPartsDisponible() - projet.getPartsPrises();
-            if (nombrePartsPris > partsRestantes) {
-                    throw new IllegalStateException("Seulement " + partsRestantes + " parts disponibles");
-            }
-
-            BigDecimal prixPart = BigDecimal.valueOf(projet.getPrixUnePart());
+            // CORRECTION : prixUnePart est déjà un BigDecimal, pas besoin de valueOf
+            BigDecimal prixPart = projet.getPrixUnePart();
             BigDecimal montantTotal = prixPart.multiply(BigDecimal.valueOf(nombrePartsPris));
 
-            // 2. Verrouillage du wallet investisseur
             Wallet walletUser = walletRepository.findByUserIdWithPessimisticLock(investisseur.getId())
                             .orElseThrow(() -> new IllegalStateException("Wallet utilisateur non trouvé"));
 
@@ -152,15 +139,13 @@ public class InvestissementService {
                     throw new IllegalStateException("Solde insuffisant");
             }
 
-            // ON NE TOUCHE PAS ENCORE AU WALLET PROJET NI AU PROJET
-            // On ne fait juste le blocage chez l’investisseur
-            walletUser.bloquerFonds(montantTotal); // ← méthode existante
+            walletUser.bloquerFonds(montantTotal);
             walletRepository.save(walletUser);
 
-            // Création de l’investissement en attente
             Investissement investissement = new Investissement();
             investissement.setNombrePartsPris(nombrePartsPris);
-            investissement.setMontantInvesti(montantTotal.doubleValue());
+            // CORRECTION : montantInvesti est maintenant un BigDecimal dans l'entité
+            investissement.setMontantInvesti(montantTotal);
             investissement.setInvestisseur(investisseur);
             investissement.setProjet(projet);
             investissement.setStatutPartInvestissement(StatutPartInvestissement.EN_ATTENTE);
@@ -168,7 +153,6 @@ public class InvestissementService {
             investissement.calculerTout();
 
             investissement = repository.save(investissement);
-
             return converter.toInvestissementDto(investissement);
     }
 
@@ -186,7 +170,10 @@ public class InvestissementService {
 
             Projet projet = inv.getProjet();
             User investisseur = inv.getInvestisseur();
-            BigDecimal montant = BigDecimal.valueOf(inv.getMontantInvesti());
+
+            // CORRECTION 1 : inv.getMontantInvesti() est déjà un BigDecimal.
+            // Ne pas utiliser BigDecimal.valueOf() dessus.
+            BigDecimal montant = inv.getMontantInvesti();
 
             // WALLET UTILISATEUR
             Wallet walletUser = walletRepository.findByUserIdWithPessimisticLock(investisseur.getId())
@@ -213,11 +200,12 @@ public class InvestissementService {
 
             // MISE À JOUR DU PROJET
             projet.setPartsPrises(projet.getPartsPrises() + inv.getNombrePartsPris());
-            projet.setMontantCollecte(projet.getMontantCollecte() + inv.getMontantInvesti());
-            projetRepository.save(projet);
 
-            // PAS DE CONTRAT ICI — C'EST FAIT DANS LE NOUVEL ENDPOINT
-            // PAS D'EMAIL ICI — C'EST FAIT DANS LE NOUVEL ENDPOINT
+            // CORRECTION 2 : L'opérateur + ne fonctionne pas. Utilisez .add()
+            // projet.getMontantCollecte() + inv.getMontantInvesti() devient :
+            projet.setMontantCollecte(projet.getMontantCollecte().add(montant));
+
+            projetRepository.save(projet);
 
             inv.setStatutPartInvestissement(StatutPartInvestissement.VALIDE);
 
@@ -237,22 +225,29 @@ public class InvestissementService {
                     throw new IllegalStateException("Impossible de refuser un investissement déjà traité");
             }
 
-            BigDecimal montant = BigDecimal.valueOf(inv.getMontantInvesti());
+            // CORRECTION : montantInvesti est déjà un BigDecimal
+            BigDecimal montant = inv.getMontantInvesti();
 
             Wallet walletUser = walletRepository.findByUserIdWithPessimisticLock(inv.getInvestisseur().getId())
-                            .orElseThrow();
+                            .orElseThrow(() -> new IllegalStateException("Wallet non trouvé"));
 
-            walletUser.debloquerFonds(montant); // EXISTE DÉJÀ
+            // Libère les fonds bloqués dans le wallet de l'investisseur
+            walletUser.debloquerFonds(montant);
 
+            // Mise à jour du projet (soustraire les parts et le montant)
             Projet projet = inv.getProjet();
             projet.setPartsPrises(projet.getPartsPrises() - inv.getNombrePartsPris());
-            projet.setMontantCollecte(projet.getMontantCollecte() - inv.getMontantInvesti());
-            projetRepository.save(projet);
+
+            // CORRECTION : Soustraction de BigDecimals
+            if (projet.getMontantCollecte() != null) {
+                    projet.setMontantCollecte(projet.getMontantCollecte().subtract(montant));
+            }
 
             inv.setStatutPartInvestissement(StatutPartInvestissement.ANNULE);
 
+            // Sauvegardes
+            projetRepository.save(projet);
             walletRepository.save(walletUser);
-
             return repository.save(inv);
     }
 

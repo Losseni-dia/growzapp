@@ -14,6 +14,7 @@ import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 @Table(name = "users")
 @Data
@@ -23,9 +24,10 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
-    @Column(name = "image", columnDefinition = "TEXT")
+    @Column(name = "image", length = 255)
     private String image;
 
     @Column(nullable = false,unique = true,length = 50)
@@ -69,10 +71,10 @@ public class User {
     private Set<Role> roles = new HashSet<>();
 
     @OneToMany(mappedBy = "porteur", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<Projet> projets = new ArrayList<>();
+    private Set<Projet> projets = new HashSet<>();
 
     @OneToMany(mappedBy = "investisseur", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<Investissement> investissements = new ArrayList<>();
+    private Set<Investissement> investissements = new HashSet<>();
 
    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonBackReference  // Empêche la boucle infinie
@@ -80,5 +82,8 @@ public class User {
     
    @Column(name = "stripe_account_id", length = 100)
    private String stripeAccountId;
+
+   @Column(name = "interface_language", length = 5)
+   private String interfaceLanguage = "fr";
    
 }

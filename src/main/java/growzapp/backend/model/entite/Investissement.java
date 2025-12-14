@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,7 @@ public class Investissement {
     private int nombrePartsPris;
 
     @Column(name = "montant_investi", nullable = false)
-    private double montantInvesti; // = nombrePartsPris × prixUnePart (persisté pour historique)
+    private BigDecimal montantInvesti; // = nombrePartsPris × prixUnePart (persisté pour historique)
 
     @Column(name = "pourcent_equity", nullable = false)
     private double valeurPartsPrisEnPourcent; // % d'equity acquis
@@ -61,17 +62,27 @@ public class Investissement {
 
     /** Calcul automatique du % d'equity basé sur la valorisation du projet */
     public void calculerPourcentageEquity() {
-        if (projet == null || projet.getValuation() <= 0) {
+        // On compare avec BigDecimal.ZERO en utilisant compareTo
+        // compareTo renvoie : -1 (inférieur), 0 (égal), 1 (supérieur)
+        if (projet == null || projet.getValuation() == null || projet.getValuation().compareTo(BigDecimal.ZERO) <= 0) {
             this.valeurPartsPrisEnPourcent = 0.0;
             return;
         }
-        this.valeurPartsPrisEnPourcent = (this.montantInvesti / projet.getValuation()) * 100;
+
+        // Formule : (montantInvesti / valuation) * 100
+        // On utilise MathContext pour définir la précision de la division
+        this.valeurPartsPrisEnPourcent = this.montantInvesti
+                .divide(projet.getValuation(), java.math.MathContext.DECIMAL128)
+                .multiply(new BigDecimal("100"))
+                .doubleValue(); // On peut garder double ici car c'est un pourcentage
     }
 
     /** Calcul automatique du montant investi */
     public void calculerMontantInvesti() {
-        if (projet != null && projet.getPrixUnePart() > 0) {
-            this.montantInvesti = this.nombrePartsPris * projet.getPrixUnePart();
+        if (projet != null && projet.getPrixUnePart() != null
+                && projet.getPrixUnePart().compareTo(BigDecimal.ZERO) > 0) {
+            // Formule : nombrePartsPris * prixUnePart
+            this.montantInvesti = projet.getPrixUnePart().multiply(new BigDecimal(this.nombrePartsPris));
         }
     }
 

@@ -91,11 +91,11 @@ public class StripeDepositService {
             Long projetId,
             int nombreParts,
             String projetLibelle,
-            double prixUnePart) {
+            BigDecimal prixUnePart) {
 
         try {
-            double montantTotal = nombreParts * prixUnePart;
-            long amountInCents = BigDecimal.valueOf(montantTotal).multiply(BigDecimal.valueOf(100)).longValueExact();
+            BigDecimal montantTotal = BigDecimal.valueOf(nombreParts).multiply(prixUnePart);
+            long amountInCents = montantTotal.multiply(BigDecimal.valueOf(100)).longValueExact();
 
             SessionCreateParams params = SessionCreateParams.builder()
                     .setMode(SessionCreateParams.Mode.PAYMENT)

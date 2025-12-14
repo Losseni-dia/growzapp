@@ -3,313 +3,375 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Contrat d'Investissement - GrowzApp</title>
+    <title>GrowzApp Contract</title>
     <style>
         @page {
             size: A4;
-            margin: 15mm 12mm 20mm 12mm;
+            margin: 0;
         }
 
         body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 10pt;
+            color: #333;
+            line-height: 1.3;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
-            font-size: 11.5pt;
-            line-height: 1.6;
-            color: #1B5E20;
         }
 
-        .container {
+        .header-bg {
+            background-color: #1B5E20;
+            height: 32mm;
             width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: -1;
         }
 
-        .header {
-            background: linear-gradient(135deg, #1B5E20, #2E7D32);
+        .main-container {
+            padding: 10mm 12mm 5mm 12mm;
+        }
+
+        table.layout {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td {
+            vertical-align: top;
+        }
+
+        .header-title {
+            color: #ffffff;
+            font-size: 22pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding-top: 5mm;
+        }
+
+        .header-subtitle {
+            color: #FFC107;
+            font-size: 11pt;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
+        .ref-box {
+            background-color: rgba(255, 255, 255, 0.1);
             color: white;
-            text-align: center;
-            padding: 30px 20px;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: right;
+            font-size: 8pt;
         }
 
-        .header h1 {
-            font-size: 32pt;
-            font-weight: 900;
-            margin: 0 0 10px 0;
+        h2 {
+            color: #1B5E20;
+            border-bottom: 2px solid #1B5E20;
+            padding-bottom: 2px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-size: 13pt;
+            text-transform: uppercase;
         }
 
-        .numero {
+        h3 {
+            color: #2E7D32;
+            font-size: 10pt;
+            margin-bottom: 5px;
+            margin-top: 5px;
+        }
+
+        .summary-box {
+            background-color: #f1f8e9;
+            border: 1px solid #c5e1a5;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .summary-table td {
+            padding: 3px 5px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 9pt;
+        }
+
+        .summary-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #558b2f;
+            width: 40%;
+        }
+
+        .value {
+            font-weight: bold;
+            color: #333;
+            text-align: right;
+        }
+
+        .highlight-value {
+            color: #1B5E20;
             font-size: 24pt;
-            font-weight: 800;
-            margin: 15px 0;
-        }
-
-        .date {
-            font-size: 14pt;
-            opacity: 0.95;
-        }
-
-        .content {
-            padding: 30px 40px;
-        }
-
-        .recap {
-            background: #f8fff9;
-            border: 3px solid #E8F5E9;
-            border-radius: 16px;
-            padding: 25px;
-            margin-bottom: 35px;
-        }
-
-        .recapTitle {
-            text-align: center;
-            font-size: 22pt;
             font-weight: 900;
-            color: #1B5E20;
-            margin: 0 0 20px 0;
-            padding-bottom: 12px;
-            border-bottom: 4px double #1B5E20;
         }
 
-        .recapGrid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 18px;
-            font-size: 12pt;
-        }
-
-        .recapItem {
-            background: white;
-            padding: 16px;
-            border-radius: 12px;
-            border-left: 6px solid #4CAF50;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-
-        .recapItem strong {
-            color: #1B5E20;
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 800;
-        }
-
-        .montant {
-            font-size: 24pt !important;
-            font-weight: 900 !important;
-            color: #1B5E20 !important;
-        }
-
-        .pourcentage {
-            font-size: 26pt !important;
-            font-weight: 900 !important;
-            color: #FFC107 !important;
-        }
-
-        .articles {
-            margin: 35px 0;
-        }
-
-        .articles h2 {
-            font-size: 22pt;
-            font-weight: 900;
-            text-align: center;
-            color: #1B5E20;
-            margin: 0 0 25px 0;
-            padding-bottom: 12px;
-            border-bottom: 4px double #1B5E20;
-        }
-
-        .articles ol {
-            counter-reset: article;
+        .terms ul {
+            list-style-type: none;
             padding-left: 0;
-            list-style: none;
             margin: 0;
         }
 
-        .articles li {
-            counter-increment: article;
-            margin: 18px 0;
-            padding-left: 70px;
+        .terms li {
+            margin-bottom: 6px;
+            padding-left: 18px;
             position: relative;
             text-align: justify;
-            font-size: 12pt;
+            font-size: 9pt;
         }
 
-        .articles li::before {
-            content: counter(article) ".";
+        .terms li::before {
+            content: "\2714";
+            color: #FFC107;
             position: absolute;
             left: 0;
-            font-weight: 900;
-            color: #1B5E20;
-            font-size: 18pt;
-            width: 60px;
-            text-align: right;
-            padding-right: 10px;
+            font-weight: bold;
         }
 
-        .qrSection {
+        .signature-area {
+            margin-top: 20px;
+            background-color: #fff;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .signature-box {
             text-align: center;
-            margin: 40px 0;
-            page-break-inside: avoid;
+            padding: 5px;
         }
 
-        .qrTitle {
-            font-size: 20pt;
-            font-weight: 900;
+        .sign-title {
+            font-weight: bold;
             color: #1B5E20;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            font-size: 9pt;
         }
 
-        .qrWrapper {
-            display: inline-block;
-            padding: 20px;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-            border: 4px solid #E8F5E9;
+        .sign-line {
+            border-top: 1px solid #ccc;
+            width: 80%;
+            margin: 0 auto 5px auto;
         }
 
-        .signatures {
-            display: flex;
-            justify-content: space-between;
-            margin: 60px 0 40px;
-            gap: 50px;
-            page-break-inside: avoid;
-        }
-
-        .signatureBox {
-            flex: 1;
-            text-align: center;
-            padding: 25px;
-            background: white;
-            border: 3px solid #E8F5E9;
-            border-radius: 16px;
-        }
-
-        .signatureLabel {
-            font-size: 16pt;
-            color: #1B5E20;
-            font-weight: 800;
-            margin-bottom: 20px;
-        }
-
-        .signatureLine {
-            border-top: 4px dashed #1B5E20;
-            margin: 30px 0;
-            height: 80px;
-        }
-
-        .signatureName {
-            font-size: 18pt;
-            font-weight: 900;
-            color: #1B5E20;
-            margin: 10px 0;
-        }
-
-        .signatureStatus {
-            font-size: 11pt;
+        .digital-stamp {
+            border: 2px solid #4CAF50;
             color: #4CAF50;
-            font-weight: 700;
+            border-radius: 4px;
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 7pt;
+            font-weight: bold;
+            transform: rotate(-5deg);
+            margin-top: -20px;
+            background: #ffffff;
         }
 
         .footer {
+            position: fixed;
+            bottom: 5mm;
+            left: 0;
+            width: 100%;
             text-align: center;
-            padding: 25px;
-            background: #1B5E20;
-            color: white;
-            margin-top: 40px;
+            font-size: 7pt;
+            color: #777;
+            border-top: 1px solid #eee;
+            padding-top: 5px;
         }
 
-        .footer strong {
-            color: #FFC107;
-            font-size: 18pt;
-            font-weight: 900;
+        .qr-container {
+            text-align: center;
+            margin-top: 5px;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>CONTRAT D'INVESTISSEMENT</h1>
-            <div class="numero">N° <span th:text="${numeroContrat}">CTR-2025-000044</span></div>
-            <div class="date">Émis le <span th:text="${#temporals.format(contrat.dateGeneration, 'dd MMMM yyyy')}">30
-                    novembre 2025</span></div>
-        </div>
 
-        <div class="content">
-            <div class="recap">
-                <div class="recapTitle">RÉCAPITULATIF DE VOTRE INVESTISSEMENT</div>
-                <div class="recapGrid">
-                    <div class="recapItem"><strong>Investisseur :</strong><span
-                            th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">Losseni
-                            Dia</span></div>
-                    <div class="recapItem"><strong>Projet :</strong><span
-                            th:text="${investissement.projet.libelle}">Ferme Solaire Dakar</span></div>
-                    <div class="recapItem"><strong>Localisation :</strong>
-                        <span th:text="${(investissement.projet.siteProjet?.localite?.nom != null) 
-                            ? investissement.projet.siteProjet.localite.nom 
-                              + (investissement.projet.siteProjet.localite.pays?.nom != null 
-                                 ? ', ' + investissement.projet.siteProjet.localite.pays.nom 
-                                 : '') 
-                            : 'Non précisée'}">
-                            Dakar, Sénégal
-                        </span>
+    <div class="header-bg"></div>
+
+    <div class="main-container">
+
+        <table class="layout">
+            <tr>
+                <td style="width: 65%;">
+                    <div class="header-title" th:utext="#{pdf.header.title}">CONTRAT<br />D'INVESTISSEMENT</div>
+                    <div class="header-subtitle" th:text="#{pdf.header.subtitle}">PARTICIPATION AGRICOLE DURABLE</div>
+                </td>
+                <td style="width: 35%; padding-top: 10mm;">
+                    <div class="ref-box">
+                        <strong th:text="#{pdf.ref.label} + ' :'">RÉFÉRENCE :</strong> <span
+                            th:text="${numeroContrat}">CTR-001</span><br />
+                        <strong th:text="#{pdf.date.label} + ' :'">DATE :</strong> <span
+                            th:text="${contrat != null ? #temporals.format(contrat.dateGeneration, 'dd/MM/yyyy') : #temporals.format(#temporals.createNow(), 'dd/MM/yyyy')}">12/12/2025</span>
                     </div>
-                    <div class="recapItem"><strong>Parts acquises :</strong><span
-                            th:text="${investissement.nombrePartsPris} + ' × ' + ${investissement.projet.prixUnePart} + ' FCFA'">1
-                            × 50.0 FCFA</span></div>
-                    <div class="recapItem"><strong>Montant investi :</strong><span class="montant"
-                            th:text="${investissement.montantInvesti} + ' FCFA'">50.0 FCFA</span></div>
-                    <div class="recapItem"><strong>Équité détenue :</strong><span class="pourcentage"
-                            th:text="${investissement.valeurPartsPrisEnPourcent} + '%'">0.1%</span></div>
-                </div>
-            </div>
+                </td>
+            </tr>
+        </table>
 
-            <div class="articles">
-                <h2>CONDITIONS CONTRACTUELLES</h2>
-                <ol>
-                    <li>L’investisseur acquiert <strong th:text="${investissement.nombrePartsPris}"></strong> parts
-                        sociales du projet <strong th:text="${investissement.projet.libelle}"></strong>.</li>
-                    <li>Le montant total de <strong th:text="${investissement.montantInvesti} + ' FCFA'"></strong> a été
-                        bloqué avec succès sur le portefeuille GrowzApp.</li>
-                    <li>Durée de l’investissement : <strong th:text="${investissement.projet.dureeMois} ?: 36"></strong>
-                        mois à compter de la validation définitive.</li>
-                    <li>Rémunération : dividendes annuels + plus-value à la sortie.</li>
-                    <li>Droits protégés : préemption, tag-along, non-dilution, transparence trimestrielle.</li>
-                    <li>Droit applicable : Acte Uniforme OHADA relatif aux sociétés commerciales.</li>
-                </ol>
-            </div>
+        <div style="height: 15px;"></div>
 
-            <div class="qrSection">
-                <div class="qrTitle">VÉRIFICATION OFFICIELLE DU CONTRAT</div>
-                <div class="qrWrapper">
-                    <img th:src="@{'data:image/png;base64,' + ${qrCodeBase64}}" width="240" height="240"
-                        alt="QR Code" />
-                </div>
-            </div>
+        <p style="margin-bottom: 10px;" th:text="#{pdf.intro.text}">
+            Le présent contrat formalise l'accord...
+        </p>
 
-            <div class="signatures">
-                <div class="signatureBox">
-                    <div class="signatureLabel">L'Investisseur</div>
-                    <div class="signatureLine"></div>
-                    <div class="signatureName"
-                        th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">Losseni
-                        Dia</div>
-                    <div class="signatureStatus">Signature électronique validée</div>
-                </div>
-                <div class="signatureBox">
-                    <div class="signatureLabel">GrowzApp</div>
-                    <div class="signatureLine"></div>
-                    <div class="signatureName">GrowzApp</div>
-                    <div class="signatureStatus">Représentant légal</div>
-                </div>
-            </div>
+        <table class="layout">
+            <tr>
+                <td style="width: 48%; padding-right: 1%;">
+                    <div class="summary-box">
+                        <h3 th:text="'👤 ' + #{pdf.section.investor}">👤 L'INVESTISSEUR</h3>
+                        <table class="layout summary-table">
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.fullname}">Nom complet</td>
+                                <td class="value"
+                                    th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">
+                                    Jean Dupont</td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.email}">Email</td>
+                                <td class="value" th:text="${investissement.investisseur.email}">jean@mail.com</td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.account_id}">ID Compte</td>
+                                <td class="value" th:text="${'USR-' + investissement.investisseur.id}">USR-123</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="summary-box">
+                        <h3 th:text="'🌱 ' + #{pdf.section.project}">🌱 LE PROJET</h3>
+                        <table class="layout summary-table">
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.project_name}">Libellé</td>
+                                <td class="value" th:text="${investissement.projet.libelle}">Ferme Solaire</td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.duration}">Durée</td>
+                                <td class="value"><span th:text="${investissement.projet.dureeMois}">36</span> <span
+                                        th:text="#{pdf.unit.months}">mois</span></td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.location}">Localisation</td>
+                                <td class="value">
+                                    <span
+                                        th:text="${investissement.projet.siteProjet?.localite?.nom ?: #messages.msg('pdf.value.unspecified')}">Abidjan</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+
+                <td style="width: 48%; padding-left: 1%;">
+                    <div class="summary-box" style="background-color: #fffde7; border-color: #ffe082; height: 100%;">
+                        <h3 style="color: #f57f17; text-align: center; margin-top:0;"
+                            th:text="#{pdf.section.financial}">DÉTAILS FINANCIERS</h3>
+
+                        <div style="text-align: center; margin: 10px 0;">
+                            <div style="font-size: 8pt; color: #666; text-transform: uppercase; letter-spacing: 1px;"
+                                th:text="#{pdf.label.invested_amount}">
+                                Montant Investi</div>
+                            <div class="highlight-value">
+                                <span
+                                    th:text="${#numbers.formatDecimal(investissement.montantInvesti, 0, 'DEFAULT', 0, 'DEFAULT')}">500
+                                    000</span>
+                                <span style="font-size: 14pt;">FCFA</span>
+                            </div>
+                        </div>
+
+                        <table class="layout summary-table">
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.shares_count}">Nombre de parts</td>
+                                <td class="value" th:text="${investissement.nombrePartsPris}">100</td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.unit_price}">Prix unitaire</td>
+                                <td class="value"
+                                    th:text="${#numbers.formatDecimal(investissement.projet.prixUnePart, 0, 'DEFAULT', 0, 'DEFAULT') + ' FCFA'}">
+                                    5000 FCFA</td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.equity}">Équité acquise</td>
+                                <td class="value" th:text="${investissement.valeurPartsPrisEnPourcent + ' %'}">2.5 %
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.status}">Statut</td>
+                                <td class="value" style="color: #2E7D32; text-transform: uppercase;"
+                                    th:text="#{pdf.status.paid}">VALIDÉ &amp; PAYÉ</td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <h2 th:text="#{pdf.terms.title}">CONDITIONS GÉNÉRALES</h2>
+        <div class="terms">
+            <ul>
+                <li th:utext="#{pdf.term.1}"><strong>Propriété...</strong></li>
+                <li th:utext="#{pdf.term.2}"><strong>Blocage...</strong></li>
+                <li th:utext="#{pdf.term.3}"><strong>Dividendes...</strong></li>
+                <li th:utext="#{pdf.term.4}"><strong>Liquidité...</strong></li>
+                <li th:utext="#{pdf.term.5}"><strong>Loi...</strong></li>
+            </ul>
         </div>
 
-        <div class="footer">
-            <strong>GrowzApp</strong> • Investissement agricole durable<br />
-            Abidjan, Côte d’Ivoire • contact@growzapp.com • +225 07 00 00 00 00
+        <div class="signature-area">
+            <table class="layout">
+                <tr>
+                    <td class="signature-box" style="width: 33%;">
+                        <div class="sign-title" th:text="#{pdf.sign.investor}">L'INVESTISSEUR</div>
+                        <div style="height: 30px;"></div>
+                        <div class="digital-stamp" th:text="#{pdf.sign.stamp_digital}">SIGNÉ NUMÉRIQUEMENT</div>
+                        <div class="sign-line"></div>
+                        <div style="font-size: 8pt;"
+                            th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">Nom
+                        </div>
+                    </td>
+
+                    <td style="width: 33%; text-align: center; vertical-align: middle;">
+                        <div class="qr-container">
+                            <img th:if="${qrCodeBase64 != null}" th:src="@{'data:image/png;base64,' + ${qrCodeBase64}}"
+                                width="90" height="90" alt="QR Code" />
+                            <div style="font-size: 6pt; color: #999; margin-top: 2px;" th:text="#{pdf.qr.scan}">Scannez
+                                pour vérifier</div>
+                        </div>
+                    </td>
+
+                    <td class="signature-box" style="width: 33%;">
+                        <div class="sign-title" th:text="#{pdf.sign.company}">POUR GROWZAPP</div>
+                        <div style="height: 30px;"></div>
+                        <div class="digital-stamp" style="border-color: #1B5E20; color: #1B5E20;"
+                            th:text="#{pdf.sign.stamp_certified}">CERTIFIÉ CONFORME</div>
+                        <div class="sign-line"></div>
+                        <div style="font-size: 8pt;" th:text="#{pdf.sign.management}">La Direction</div>
+                    </td>
+                </tr>
+            </table>
         </div>
+
     </div>
+
+    <div class="footer">
+        GrowzApp S.A.R.L - Abidjan, Côte d'Ivoire - RC: CI-ABJ-2025-B-12345<br />
+        <span th:text="#{pdf.footer.notice}">Ce document est une preuve...</span>
+        <span th:text="#{pdf.footer.page}">Page</span> <span style="font-weight: bold;">1/1</span>
+    </div>
+
 </body>
 
 </html>

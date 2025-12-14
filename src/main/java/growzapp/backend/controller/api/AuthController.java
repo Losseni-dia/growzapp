@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -46,74 +48,52 @@ public class AuthController {
     private final UserRepository userRepository;
     private final DtoConverter dtoConverter; // ← INJECTÉ AUTOMATIQUEMENT GRÂCE À @RequiredArgsConstructor
 
-    @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-        System.out.println("Tentative de login avec : " + request.getLogin());
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getLogin(), request.getPassword()));
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-            System.out.println("AUTHENTIFICATION RÉUSSIE !");
-        } catch (Exception e) {
-            System.out.println("ÉCHEC AUTH : " + e.getMessage());
-            throw e;
-        }
-            
+ @PostMapping("/login")
+public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+    System.out.println("Tentative de login avec : " + request.getLogin());
 
-        User userEntity = userRepository.findByLogin(request.getLogin())
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+    // Authentification Spring Security
+    Authentication authentication = authenticationManager.authenticate(
+        new UsernamePasswordAuthenticationToken(request.getLogin(), request.getPassword())
+    );
+    SecurityContextHolder.getContext().setAuthentication(authentication);
+    System.out.println("AUTHENTIFICATION RÉUSSIE !");
 
-        UserDTO userDTO = dtoConverter.toUserDto(userEntity);
+    // On recharge l'utilisateur avec les rôles déjà chargés (grâce à l'EntityGraph)
+    User userEntity = userRepository.findByLoginForAuth(request.getLogin())
+            .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé"));
 
-        // ← JUSTE CETTE LIGNE CORRIGÉE
-        String token = jwtService.generateToken(userEntity);
+    UserDTO userDTO = dtoConverter.toUserDto(userEntity);
 
-        return ResponseEntity.ok(new LoginResponse(token, userDTO));
-    }
+    String token = jwtService.generateToken(userEntity);
+
+    return ResponseEntity.ok(new LoginResponse(token, userDTO));
+}
 
 
-    // INSCRIPTION PUBLIQUE
-  @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+ @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 @PermitAll
 public ResponseEntity<ApiResponseDTO<UserDTO>> register(
-    @RequestPart("user") String userJson,
-    @RequestPart(value = "image", required = false) MultipartFile image
-) {
+        @RequestPart("user") String userJson,
+        @RequestPart(value = "image", required = false) MultipartFile image) {
     try {
-        // 1. Convertir le JSON string → DTO
         ObjectMapper mapper = new ObjectMapper();
+        // === LIGNE IMPORTANTE : Ignore les champs qui ne correspondent pas parfaitement ===
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        
         UserCreateDTO dto = mapper.readValue(userJson, UserCreateDTO.class);
 
-        // 2. Image → base64 (avec limite 5 Mo + gestion propre)
-        if (image != null && !image.isEmpty()) {
-            if (image.getSize() > 5 * 1024 * 1024) { // 5 Mo max
-                return ResponseEntity.badRequest()
-                    .body(ApiResponseDTO.error("Image trop volumineuse (max 5 Mo)"));
-            }
-            byte[] bytes = image.getBytes();
-            String base64 = "data:" + image.getContentType() + ";base64,"
-                + java.util.Base64.getEncoder().encodeToString(bytes);
-            dto.setImage(base64);
-        }
+        // Appel du service (on lui passe le fichier Multipart)
+        UserDTO created = userService.registerUser(dto, image);
 
-        // 3. Inscription
-        UserDTO created = userService.registerUser(dto);
+        return ResponseEntity.ok(ApiResponseDTO.success(created)
+                .message("Inscription réussie !"));
 
-        return ResponseEntity.ok(
-            ApiResponseDTO.success(created)
-                .message("Inscription réussie ! Bienvenue sur GrowzApp")
-        );
-
-    } catch (JsonProcessingException e) {
-        return ResponseEntity.badRequest()
-            .body(ApiResponseDTO.error("Données utilisateur invalides"));
-    } catch (IOException e) {
-        return ResponseEntity.badRequest()
-            .body(ApiResponseDTO.error("Erreur lors du traitement de l'image"));
     } catch (Exception e) {
-        e.printStackTrace();
+        // Log l'erreur exacte dans ta console Java pour debug
+        e.printStackTrace(); 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(ApiResponseDTO.error("Erreur serveur"));
+                .body(ApiResponseDTO.error("Erreur serveur : " + e.getMessage()));
     }
 }
 
@@ -135,18 +115,9 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
             ObjectMapper mapper = new ObjectMapper();
             UserUpdateDTO dto = mapper.readValue(userJson, UserUpdateDTO.class);
 
-            if (image != null && !image.isEmpty()) {
-                if (image.getSize() > 5 * 1024 * 1024) {
-                    return ResponseEntity.badRequest()
-                            .body(ApiResponseDTO.error("Image trop volumineuse (max 5 Mo)"));
-                }
-                byte[] bytes = image.getBytes();
-                String base64 = "data:" + image.getContentType() + ";base64,"
-                        + java.util.Base64.getEncoder().encodeToString(bytes);
-                dto.setImage(base64);
-            }
+            // On appelle le service en passant le fichier MultipartFile directement
+            UserDTO updated = userService.updateMyProfile(dto, image);
 
-            UserDTO updated = userService.updateMyProfile(dto);
             return ResponseEntity.ok(ApiResponseDTO.success(updated)
                     .message("Profil mis à jour avec succès"));
 
@@ -155,7 +126,6 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
                     .body(ApiResponseDTO.error("Erreur : " + e.getMessage()));
         }
     }
-
 
 
    // Dans ton AuthController.java → ajoute cette méthode n’importe où dans la classe
@@ -186,6 +156,32 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
                .toList();
 
        return ResponseEntity.ok(result);
+   }
+
+
+   // === AJOUTE CECI À LA FIN DE TA CLASSE AuthController ===
+
+   @PatchMapping("/me/language")
+   @PreAuthorize("isAuthenticated()")
+   public ResponseEntity<ApiResponseDTO<String>> updateLanguage(@RequestParam("lang") String lang) {
+
+       // 1. On récupère le login de l'utilisateur connecté
+       String currentLogin = SecurityContextHolder.getContext().getAuthentication().getName();
+
+       // 2. On cherche l'utilisateur en base
+       // Note: J'utilise findByLoginForAuth car je sais qu'elle existe dans ton code
+       // plus haut,
+       // mais l'idéal serait un simple findByLogin.
+       User user = userRepository.findByLoginForAuth(currentLogin)
+               .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
+
+       // 3. On met à jour la langue
+       user.setInterfaceLanguage(lang);
+       userRepository.save(user);
+
+       System.out.println("Langue mise à jour pour " + currentLogin + " : " + lang);
+
+       return ResponseEntity.ok(ApiResponseDTO.success("Langue mise à jour avec succès"));
    }
 
 

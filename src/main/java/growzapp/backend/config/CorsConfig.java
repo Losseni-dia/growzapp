@@ -14,14 +14,22 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000")); // Front React/Vite
+
+        // OPTION 1 : Autoriser uniquement ton frontend (Recommandé)
+        config.setAllowedOrigins(List.of("http://localhost:3000"));
+
+        // OPTION 2 (Si tu veux être large) : Utiliser Pattern au lieu de Origins
+        // config.setAllowedOriginPatterns(List.of("*"));
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("Authorization"));
-        config.setAllowCredentials(true); // INDISPENSABLE pour les cookies / credentials: "include"
+        config.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
+
+        // C'est cette ligne qui interdit le "*" dans allowedOrigins simple
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
+        source.registerCorsConfiguration("/**", config);
         return source;
     }
 }

@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -40,19 +41,25 @@ public class TransactionController {
     // ==================================================================
     // 1. Historique personnel
     @GetMapping("/mes-transactions")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<TransactionDTO>> getMyTransactions(
-            @AuthenticationPrincipal UserDetails userDetails) {
+                    @AuthenticationPrincipal UserDetails userDetails) {
 
-        Long userWalletId = extractUserId(userDetails); // ← c’est l’ID du wallet user
+            Long userId = extractUserId(userDetails);
 
-        List<Transaction> transactions = transactionRepository
-                .findByWalletTypeAndWalletIdOrderByCreatedAtDesc(userWalletId);
+            // Récupère le wallet de l'utilisateur
+            Wallet wallet = walletRepository.findByUserId(userId)
+                            .orElseThrow(() -> new IllegalStateException("Wallet non trouvé"));
 
-        List<TransactionDTO> dtos = transactions.stream()
-                .map(dtoConverter::toTransactionDto)
-                .toList();
+            // Utilise la nouvelle méthode avec EntityGraph
+            List<Transaction> transactions = transactionRepository
+                            .findByWalletTypeAndWalletIdOrderByCreatedAtDesc(wallet.getId());
 
-        return ResponseEntity.ok(dtos);
+            List<TransactionDTO> dtos = transactions.stream()
+                            .map(dtoConverter::toTransactionDto)
+                            .toList();
+
+            return ResponseEntity.ok(dtos);
     }
 
     // 2. Retraits en attente
@@ -143,12 +150,15 @@ public class TransactionController {
     // ==================================================================
     // Helper
     // ==================================================================
-    private Long extractUserId(UserDetails userDetails) {
-        if (userDetails == null)
-            throw new IllegalStateException("Non authentifié");
-        String login = userDetails.getUsername();
-        return userRepository.findByLogin(login)
-                .map(User::getId)
-                .orElseThrow(() -> new IllegalStateException("Utilisateur introuvable: " + login));
+  private Long extractUserId(UserDetails userDetails) {
+    if (userDetails == null) {
+        throw new IllegalStateException("Utilisateur non authentifié");
     }
+
+    String login = userDetails.getUsername();
+
+    return userRepository.findByLoginForAuth(login)  // CHARGE LES RÔLES → plus jamais LazyException
+            .map(User::getId)
+            .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable : " + login));
+}
 }

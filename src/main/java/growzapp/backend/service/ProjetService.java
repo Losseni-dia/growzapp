@@ -102,7 +102,8 @@ public class ProjetService {
         projet.setCreatedAt(LocalDateTime.now());
         projet.setStatutProjet(StatutProjet.SOUMIS);
         projet.setPartsPrises(0);
-        projet.setMontantCollecte(0.0);
+        // Au lieu de : projet.setMontantCollecte(0.0);
+        projet.setMontantCollecte(BigDecimal.ZERO);
 
         Projet saved = projetRepository.save(projet);
 

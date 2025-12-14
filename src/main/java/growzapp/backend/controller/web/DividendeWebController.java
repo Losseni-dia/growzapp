@@ -8,6 +8,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 
@@ -30,14 +31,30 @@ public class DividendeWebController {
         return "dividende/show";
     }
 
-    @GetMapping("/create")
-    public String createForm(Model model) {
-        model.addAttribute("dividende", new DividendeDTO(
-                null, 0.0, null, null, null, null, "", 0.0, null));
-        model.addAttribute("investissements", investissementRepository.findAll());
-        model.addAttribute("title", "Créer un dividende");
-        return "dividende/form";
-    }
+   @GetMapping("/create")
+public String createForm(Model model) {
+    // Création d'un DTO vide avec les valeurs par défaut compatibles BigDecimal
+    DividendeDTO emptyDividende = new DividendeDTO(
+            null,                          // id
+            BigDecimal.ZERO,               // montantParPart (BigDecimal, pas double)
+            null,                          // statutDividende
+            null,                          // moyenPaiement
+            null,                          // datePaiement
+            null,                          // investissementId
+            "",                            // investissementInfo
+            BigDecimal.ZERO,               // montantTotal (BigDecimal)
+            null,                          // fileName
+            null ,                          // factureUrl
+            null  ,                         // facture
+            null                           // motif
+    );
+
+    model.addAttribute("dividende", emptyDividende);
+    model.addAttribute("investissements", investissementRepository.findAll());
+    model.addAttribute("title", "Créer un dividende");
+
+    return "dividende/form";
+}
 
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {
@@ -66,7 +83,10 @@ public class DividendeWebController {
                     dividendeForm.investissementId(),
                     dividendeForm.investissementInfo(),
                     dividendeForm.montantTotal(),
-                    existing.fileName() // Conserve le fichier
+                    existing.fileName(), // Conserve le fichier
+                    existing.factureUrl(), // Conserve l'URL de la facture
+                    existing.facture(),
+                    dividendeForm.motif()
             );
         }
 

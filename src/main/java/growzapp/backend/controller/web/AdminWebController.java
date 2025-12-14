@@ -29,6 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Objects;
 import java.util.Set;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.function.ToDoubleFunction;
@@ -60,16 +62,25 @@ public class AdminWebController {
                 long totalProjets = projets.size();
                 long enCours = countByStatut(projets, StatutProjet.EN_COURS);
                 long termines = countByStatut(projets, StatutProjet.TERMINE);
-                double montantCollecteTotal = sum(projets, ProjetDTO::montantCollecte);
-                double objectifTotal = sum(projets, ProjetDTO::objectifFinancement);
-                double tauxRemplissage = objectifTotal > 0 ? (montantCollecteTotal / objectifTotal) * 100 : 0;
+                // Somme des montants collectés
+                BigDecimal montantCollecteTotal = projets.stream()
+                        .map(ProjetDTO::montantCollecte)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                // Somme des objectifs de financement
+                BigDecimal objectifTotal = projets.stream()
+                        .map(ProjetDTO::objectifFinancement)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                double tauxRemplissage = objectifTotal.compareTo(BigDecimal.ZERO) > 0 ? (montantCollecteTotal.divide(objectifTotal, 2, RoundingMode.HALF_UP).doubleValue()) * 100 : 0;
 
                 // === INVESTISSEMENTS ===
                 List<InvestissementDTO> investissements = investissementService.getAllInvestissements();
                 long totalInvestissements = investissements.size();
-                double montantInvestiTotal = investissements.stream()
-                                .mapToDouble(inv -> (double) inv.nombrePartsPris() * inv.prixUnePart())
-                                .sum();
+                BigDecimal montantInvestiTotal = investissements.stream()
+                                .map(inv -> BigDecimal.valueOf(inv.nombrePartsPris()).multiply(inv.prixUnePart()))
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
                 long totalPartsVendues = sumLong(investissements, InvestissementDTO::nombrePartsPris);
 
                 double roiMoyen = projets.stream()
@@ -104,49 +115,60 @@ public class AdminWebController {
                                 .collect(Collectors.groupingBy(
                                                 LocalisationDTO::paysNom,
                                                 Collectors.counting()));
+        // === DIVIDENDES ===
+        List<DividendeDTO> dividendes = dividendeService.getAll();
+        long totalDividendes = dividendes.size();
+        long verses = countByStatut(dividendes, StatutDividende.PAYE);
+        long planifies = countByStatut(dividendes, StatutDividende.PLANIFIE);
 
-                // === DIVIDENDES ===
-                List<DividendeDTO> dividendes = dividendeService.getAll();
-                long totalDividendes = dividendes.size();
-                long verses = countByStatut(dividendes, StatutDividende.PAYE);
-                long planifies = countByStatut(dividendes, StatutDividende.PLANIFIE);
-                double montantVerseTotal = sum(dividendes.stream()
-                                .filter(d -> d.statutDividende() == StatutDividende.PAYE)
-                                .toList(), DividendeDTO::montantTotal);
-                double tauxDistribution = montantInvestiTotal > 0 ? (montantVerseTotal / montantInvestiTotal) * 100 : 0;
+        // Somme des montants versés (seulement les dividendes PAYE)
+        BigDecimal montantVerseTotal = dividendes.stream()
+                .filter(d -> d.statutDividende() == StatutDividende.PAYE)
+                .map(DividendeDTO::montantTotal)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                // === AJOUT AU MODÈLE ===
-                model.addAttribute("totalProjets", totalProjets);
-                model.addAttribute("enCours", enCours);
-                model.addAttribute("termines", termines);
-                model.addAttribute("montantCollecteTotal", montantCollecteTotal);
-                model.addAttribute("objectifTotal", objectifTotal);
-                model.addAttribute("tauxRemplissage", Math.round(tauxRemplissage * 100.0) / 100.0); // 2 décimales
+        // Taux de distribution : (montant versé / montant investi total) * 100, arrondi à 2 décimales
+        BigDecimal tauxDistribution = BigDecimal.ZERO;
 
-                model.addAttribute("totalInvestissements", totalInvestissements);
-                model.addAttribute("montantInvestiTotal", montantInvestiTotal);
-                model.addAttribute("totalPartsVendues", totalPartsVendues);
-                model.addAttribute("roiMoyen", String.format("%.1f", roiMoyen));
+        if (montantInvestiTotal.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal montantInvestiBig = montantInvestiTotal;
+            BigDecimal ratio = montantVerseTotal.divide(montantInvestiBig, 10, RoundingMode.HALF_UP);
+            tauxDistribution = ratio.multiply(BigDecimal.valueOf(100)); // en pourcentage
+            tauxDistribution = tauxDistribution.setScale(2, RoundingMode.HALF_UP); // 2 décimales
+        }
 
-               // model.addAttribute("totalUsers", totalUsers);
-               // model.addAttribute("investisseurs", investisseurs);
-               // model.addAttribute("porteurs", porteurs);
-                model.addAttribute("totalEmployes", totalEmployes);
+        // === AJOUT AU MODÈLE ===
+        model.addAttribute("totalProjets", totalProjets);
+        model.addAttribute("enCours", enCours);
+        model.addAttribute("termines", termines);
+        model.addAttribute("montantCollecteTotal", montantCollecteTotal);
+        model.addAttribute("objectifTotal", objectifTotal);
+        model.addAttribute("tauxRemplissage", Math.round(tauxRemplissage * 100.0) / 100.0); // 2 décimales
 
-                model.addAttribute("totalLocalites", totalLocalites);
-                model.addAttribute("localitesParPays", localitesParPays);
-                model.addAttribute("totalSites", totalSites);
-                model.addAttribute("sitesParPays", sitesParPays);
+        model.addAttribute("totalInvestissements", totalInvestissements);
+        model.addAttribute("montantInvestiTotal", montantInvestiTotal);
+        model.addAttribute("totalPartsVendues", totalPartsVendues);
+        model.addAttribute("roiMoyen", String.format("%.1f", roiMoyen));
 
-                model.addAttribute("totalDividendes", totalDividendes);
-                model.addAttribute("verses", verses);
-                model.addAttribute("planifies", planifies);
-                model.addAttribute("montantVerseTotal", montantVerseTotal);
-                model.addAttribute("tauxDistribution", Math.round(tauxDistribution * 100.0) / 100.0);
+        model.addAttribute("totalEmployes", totalEmployes);
 
-                model.addAttribute("title", "Tableau de bord Admin");
+        model.addAttribute("totalLocalites", totalLocalites);
+        model.addAttribute("localitesParPays", localitesParPays);
+        model.addAttribute("totalSites", totalSites);
+        model.addAttribute("sitesParPays", sitesParPays);
 
-                return "admin/dashboard";
+        model.addAttribute("totalDividendes", totalDividendes);
+        model.addAttribute("verses", verses);
+        model.addAttribute("planifies", planifies);
+        model.addAttribute("montantVerseTotal", montantVerseTotal);
+
+        // Affichage du taux en pourcentage avec 2 décimales (ex: 45.67)
+        model.addAttribute("tauxDistribution", tauxDistribution.doubleValue());
+
+        model.addAttribute("title", "Tableau de bord Admin");
+
+        return "admin/dashboard";
         }
 
         // === LISTE DES UTILISATEURS ===

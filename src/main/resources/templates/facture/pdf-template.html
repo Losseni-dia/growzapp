@@ -2,163 +2,355 @@
 <html xmlns:th="http://www.thymeleaf.org">
 
 <head>
-    <meta charset="UTF-8">
-    <title>Rapport Mensuel – GrowzApp</title>
+    <meta charset="UTF-8" />
+    <title>Facture GrowzApp</title>
     <style>
+        @page {
+            size: A4;
+            margin-top: 0;
+            margin-left: 0;
+            margin-right: 0;
+            margin-bottom: 25mm;
+            /* Espace pour le footer */
+        }
+
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 40px;
-            background: #f5f7fa;
-            color: #2d3436;
-            line-height: 1.6;
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #1e293b;
+            background-color: #ffffff;
+            font-size: 10pt;
+            line-height: 1.4;
         }
 
+        /* --- HEADER --- */
+        .header-bg {
+            background-color: #064e3b;
+            /* Vert émeraude */
+            height: 160px;
+            /* Agrandit le fond vert pour tout contenir */
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        .header-content {
+            padding: 40px 50px 0 50px;
+            color: #ffffff;
+            width: 100%;
+            border-spacing: 0;
+        }
+
+        .logo {
+            font-size: 24pt;
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: #fff;
+            line-height: 1;
+            display: block;
+            /* Force le bloc */
+        }
+
+        .logo span {
+            color: #fbbf24;
+        }
+
+        /* NOUVEAU STYLE POUR LE TITRE */
+        .invoice-title-block {
+            font-size: 20pt;
+            /* Taille ajustée pour éviter les retours à la ligne */
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.25);
+            /* Blanc transparent */
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 15px;
+            /* ESPACE FORCÉ SOUS LE LOGO */
+            display: block;
+            /* Force le passage à la ligne */
+        }
+
+        .company-details {
+            font-size: 8pt;
+            color: #a7f3d0;
+            text-align: right;
+            line-height: 1.4;
+            vertical-align: top;
+        }
+
+        /* --- CORPS --- */
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            padding: 20px 50px;
+            margin-top: 20px;
+            /* Espace après le header vert */
         }
 
-        h1 {
-            text-align: center;
-            color: white;
-            background: #27ae60;
-            font-size: 2.8em;
-            margin: 0 0 50px 0;
-            padding: 20px;
-            border-radius: 16px;
-            font-weight: 700;
-            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
-        }
-
-        h2 {
-            color: #27ae60;
-            font-size: 1.8em;
-            margin: 30px 0 20px;
-            padding-bottom: 10px;
-            border-bottom: 3px solid #27ae60;
-            text-align: center;
-        }
-
-        .info-card {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        /* GRID CLIENT */
+        .meta-table {
+            width: 100%;
             margin-bottom: 40px;
+            border-spacing: 0;
         }
 
-        .info-card p {
-            margin: 12px 0;
-            font-size: 1.1em;
+        .meta-table td {
+            vertical-align: top;
+            padding: 0;
         }
 
-        .info-card strong {
-            color: #27ae60;
+        .section-title {
+            font-size: 8pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
         }
 
-        table {
+        .client-box {
+            background: #f8fafc;
+            border-left: 4px solid #fbbf24;
+            padding: 15px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .client-name {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .client-email {
+            font-size: 9pt;
+            color: #475569;
+        }
+
+        .details-box table {
+            width: 100%;
+        }
+
+        .details-label {
+            color: #64748b;
+            font-size: 9pt;
+            padding-bottom: 5px;
+        }
+
+        .details-value {
+            font-weight: bold;
+            color: #0f172a;
+            font-size: 10pt;
+            text-align: right;
+            padding-bottom: 5px;
+        }
+
+        /* TABLEAU */
+        .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 25px 0;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
         }
 
-        th {
-            background: #27ae60;
-            color: white;
-            padding: 16px;
+        .items-table th {
             text-align: left;
-            font-weight: 600;
-        }
-
-        td {
-            padding: 14px 16px;
-            border-bottom: 1px solid #eee;
-        }
-
-        tr:last-child td {
-            border-bottom: none;
-        }
-
-        tr:hover {
-            background: #f8fff9;
-        }
-
-        .total {
-            font-size: 1.4em;
+            padding: 12px 0;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 8pt;
+            text-transform: uppercase;
+            color: #64748b;
             font-weight: bold;
-            text-align: right;
-            margin: 30px 0;
-            color: #27ae60;
         }
 
-        .footer {
-            text-align: center;
-            margin-top: 60px;
-            color: #636e72;
-            font-size: 0.95em;
+        .items-table td {
+            padding: 15px 0;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+        }
+
+        .amount-col {
+            text-align: right;
+            font-weight: bold;
+            font-size: 11pt;
+            color: #0f172a;
+        }
+
+        /* TOTAL */
+        .total-container {
+            width: 100%;
+        }
+
+        .total-card {
+            float: right;
+            width: 200px;
+            background-color: #064e3b;
+            color: #ffffff;
             padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .total-label {
+            font-size: 9pt;
+            text-transform: uppercase;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .total-amount {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #fbbf24;
+        }
+
+        /* STAMP */
+        .stamp {
+            position: absolute;
+            top: 38%;
+            right: 50px;
+            color: #10b981;
+            border: 3px solid #10b981;
+            padding: 10px 20px;
+            font-size: 16pt;
+            font-weight: 900;
+            text-transform: uppercase;
+            transform: rotate(-15deg);
+            opacity: 0.3;
+            letter-spacing: 4px;
+            border-radius: 10px;
+        }
+
+        /* --- FOOTER FIXE --- */
+        .footer {
+            position: fixed;
+            bottom: -20mm;
+            left: 0;
+            right: 0;
+            height: 20mm;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+            font-size: 8pt;
+            color: #94a3b8;
+            padding-top: 10px;
+            background-color: #ffffff;
         }
     </style>
 </head>
 
 <body>
+
+    <div class="header-bg"></div>
+
+    <table class="header-content">
+        <tr>
+            <td width="60%" style="vertical-align: top;">
+                <div class="logo">Growz<span>app</span></div>
+                <div class="invoice-title-block" th:text="#{invoice.title}">INVOICE</div>
+            </td>
+
+            <td width="40%" class="company-details">
+                <strong>Growzapp International</strong><br />
+                Abidjan, Côte d'Ivoire<br />
+                contact@growzapp.com<br />
+                N° SIRET: 123 456 789
+            </td>
+        </tr>
+    </table>
+
     <div class="container">
-        <h1>Rapport Mensuel des Investissements</h1>
-        <h2 th:text="${#temporals.format(mois, 'MMMM yyyy', T(java.util.Locale).FRENCH)}">Octobre 2025</h2>
 
-        <div class="info-card">
-            <p><strong>Total collecté ce mois :</strong> <span
-                    th:text="${#numbers.formatCurrency(totalCollecte)}">€12,450.00</span></p>
-            <p><strong>Nombre d'investissements :</strong> <span th:text="${investissements.size()}">8</span></p>
-            <p><strong>Nombre de projets financés :</strong> <span th:text="${projetsDistincts}">3</span></p>
-        </div>
+        <div style="height: 10px;"></div>
 
-        <table>
+        <table class="meta-table">
+            <tr>
+                <td width="55%" style="padding-right: 40px;">
+                    <div class="section-title" th:text="#{invoice.billed_to}">PAYÉ À</div>
+                    <div class="client-box">
+                        <div class="client-name" th:text="${investisseur.prenom + ' ' + investisseur.nom}">Jean Dupont
+                        </div>
+                        <div class="client-email" th:text="${investisseur.email}">jean@email.com</div>
+                        <div class="client-email" th:if="${investisseur.localite != null}"
+                            th:text="${investisseur.localite.nom}">Abidjan</div>
+                    </div>
+                </td>
+                <td width="45%">
+                    <div class="section-title">DÉTAILS</div>
+                    <div class="details-box">
+                        <table>
+                            <tr>
+                                <td class="details-label" th:text="#{invoice.ref}">N° FACTURE</td>
+                                <td class="details-value" th:text="${facture.numeroFacture}">FAC-001</td>
+                            </tr>
+                            <tr>
+                                <td class="details-label" th:text="#{invoice.date_payment}">DATE</td>
+                                <td class="details-value"
+                                    th:text="${#temporals.format(facture.datePaiement, 'dd MMM yyyy')}">12 Dec</td>
+                            </tr>
+                            <tr>
+                                <td class="details-label" th:text="#{invoice.project}">PROJET</td>
+                                <td class="details-value" style="color: #059669;"
+                                    th:text="${investissement.projet.libelle}">Solaire</td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="stamp">PAYÉ</div>
+
+        <table class="items-table">
             <thead>
                 <tr>
-                    <th>Date</th>
-                    <th>Investisseur</th>
-                    <th>Projet</th>
-                    <th>Montant</th>
-                    <th>Parts</th>
-                    <th>Contrat</th>
+                    <th width="70%" th:text="#{invoice.table.desc}">DESCRIPTION</th>
+                    <th width="30%" class="amount-col" th:text="#{invoice.table.amount}">MONTANT</th>
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="inv : ${investissements}">
-                    <td th:text="${#temporals.format(inv.date, 'dd/MM/yyyy HH:mm', T(java.util.Locale).FRENCH)}">
-                        15/10/2025 14:30</td>
-                    <td th:text="${inv.investisseur.prenom + ' ' + inv.investisseur.nom}">Jean Dupont</td>
-                    <td th:text="${inv.projet.libelle}">Ferme Bio du Nord</td>
-                    <td th:text="${#numbers.formatCurrency(inv.nombrePartsPris * inv.projet.prixUnePart)}">€1,500.00
-                    </td>
-                    <td th:text="${inv.nombrePartsPris}">10</td>
+                <tr>
                     <td>
-                        <a th:href="${inv.contrat.lienVerification}" th:text="${inv.contrat.numeroContrat}"
-                            style="color:#27ae60; font-weight:bold; text-decoration:none;">
-                            CTR-2025-000127
-                        </a>
+                        <span style="font-weight: 600; font-size: 10pt;"
+                            th:text="#{invoice.desc.dividend}">Versement</span>
+                        <br />
+                        <span style="font-size: 9pt; color: #64748b;">
+                            <span th:text="${investissement.nombrePartsPris}">10</span> parts ×
+                            <span th:text="${#numbers.formatDecimal(dividende.montantParPart, 1, 2, 'POINT')} + ' €'">15
+                                €</span>
+                        </span>
+                        <br />
+                        <span style="font-style: italic; color: #94a3b8; font-size: 8pt;"
+                            th:text="'Ref: ' + ${dividende.motif}">Ref: Q4</span>
+                    </td>
+                    <td class="amount-col">
+                        <span th:text="${#numbers.formatDecimal(facture.montantHT, 1, 2, 'POINT')} + ' €'">150 €</span>
                     </td>
                 </tr>
             </tbody>
         </table>
 
-        <div class="total">
-            Total : <span th:text="${#numbers.formatCurrency(totalCollecte)}">€12,450.00</span>
+        <div class="total-container">
+            <div class="total-card">
+                <div class="total-label" th:text="#{invoice.total}">TOTAL PAYÉ</div>
+                <div class="total-amount" th:text="${#numbers.formatDecimal(facture.montantTTC, 1, 2, 'POINT')} + ' €'">
+                    150 €</div>
+            </div>
         </div>
 
-        <div class="footer">
-            <p><strong>GrowzApp</strong> – Rapport généré le
-                <span
-                    th:text="${#temporals.format(#temporals.createNow(), 'dd MMMM yyyy à HH:mm', T(java.util.Locale).FRENCH))}">14
-                    novembre 2025 à 17:00</span>
+        <div style="clear: both;"></div>
+
+        <div style="margin-top: 60px; font-size: 8pt; color: #64748b; line-height: 1.5;">
+            <p><strong>Note :</strong> <span th:text="#{invoice.footer.notice}">Document généré électroniquement.</span>
             </p>
+            <p>Aucun taux de TVA n'est applicable (Art. 261-C du CGI).</p>
         </div>
+
     </div>
+
+    <div class="footer">
+        GrowzApp SAS • Capital de 10.000.000 FCFA • Abidjan, Cocody • www.growzapp.com
+    </div>
+
 </body>
 
 </html>

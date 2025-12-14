@@ -1,5 +1,6 @@
 package growzapp.backend.model.entite;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +37,7 @@ public class Projet {
     private Integer reference;
     private String libelle;
     private String description;
-    private double valuation;
+    private BigDecimal valuation;
     private double roiProjete;
 
     @Min(0)
@@ -51,7 +52,7 @@ public class Projet {
 
     @Min(0)
     @Column(name = "prix_une_part")
-    private double prixUnePart;
+    private BigDecimal prixUnePart;
 
 
     // NOUVEAU CHAMP : Durée du projet en mois
@@ -62,10 +63,10 @@ public class Projet {
 
     @Min(0)
     @Column(name = "objectif_financement")
-    private double objectifFinancement;
+    private BigDecimal objectifFinancement;
 
     @Column(name = "montant_collecte")
-    private double montantCollecte = 0.0;
+    private BigDecimal montantCollecte = BigDecimal.ZERO;
 
     @Column(name = "financement_debut")
     private LocalDateTime dateDebut;

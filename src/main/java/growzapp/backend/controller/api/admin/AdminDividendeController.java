@@ -47,7 +47,7 @@ public class AdminDividendeController {
     public ApiResponseDTO<DividendeDTO> update(@PathVariable Long id, @Valid @RequestBody DividendeDTO dto) {
         dto = new DividendeDTO(id, dto.montantParPart(), dto.statutDividende(), dto.moyenPaiement(),
                 dto.datePaiement(), dto.investissementId(), dto.investissementInfo(),
-                dto.montantTotal(), dto.fileName());
+                dto.montantTotal(), dto.fileName(), dto.factureUrl(), dto.facture(), dto.motif());
         return ApiResponseDTO.success(dividendeService.save(dto))
                 .message("Dividende mis à jour");
     }

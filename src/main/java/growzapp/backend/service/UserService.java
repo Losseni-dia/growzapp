@@ -17,7 +17,13 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -30,28 +36,134 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final DtoConverter converter;
     private final EntityManager entityManager;
-   // private final LangueRepository langueRepository; // Optionnel, si tu veux gérer les langues
 
-    // ==================================================================
-    // 1. Utilisateur connecté
-    // ==================================================================
-    public User getCurrentUser() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+    // Utilisation du même chemin que ta config de ressources statiques
+    private final String AVATAR_DIR = System.getProperty("user.dir") + "/uploads/avatars/";
+
+    private String saveImageLocally(MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty())
             return null;
+
+        // Le dossier est déjà créé par StaticResourceConfig, mais on garde une sécurité
+        Path uploadPath = Paths.get(AVATAR_DIR);
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
         }
-        return userRepository.findByLogin(auth.getName()).orElse(null);
+
+        // Nom unique pour éviter les conflits
+        String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+        Path filePath = uploadPath.resolve(fileName);
+
+        // Sauvegarde physique
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+        return fileName;
     }
 
-    // NOUVELLE MÉTHODE — AVEC AUTHENTICATION (celle que tu veux)
-    public User getCurrentUser(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()
-                || "anonymousUser".equals(authentication.getPrincipal())) {
-            return null;
+    @Transactional
+    public UserDTO updateMyProfile(UserUpdateDTO dto, MultipartFile imageFile) throws IOException {
+        User current = getCurrentUser();
+
+        // 1. Unicité Login/Email
+        if (dto.getLogin() != null && !dto.getLogin().equals(current.getLogin())
+                && userRepository.existsByLogin(dto.getLogin())) {
+            throw new IllegalArgumentException("Ce login est déjà utilisé");
         }
-        return userRepository.findByLogin(authentication.getName())
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé"));
+        if (dto.getEmail() != null && !dto.getEmail().equals(current.getEmail())
+                && userRepository.existsByEmail(dto.getEmail())) {
+            throw new IllegalArgumentException("Cet email est déjà utilisé");
+        }
+
+        // 2. Champs simples
+        if (dto.getPrenom() != null)
+            current.setPrenom(dto.getPrenom());
+        if (dto.getNom() != null)
+            current.setNom(dto.getNom());
+        if (dto.getEmail() != null)
+            current.setEmail(dto.getEmail());
+        if (dto.getContact() != null)
+            current.setContact(dto.getContact());
+        if (dto.getSexe() != null)
+            current.setSexe(dto.getSexe());
+
+        // 3. Password
+        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
+            current.setPassword(passwordEncoder.encode(dto.getPassword()));
+        }
+
+        // 4. GESTION DE L'IMAGE (Optimisée)
+        if (imageFile != null && !imageFile.isEmpty()) {
+            // Supprimer l'ancienne si ce n'est pas une URL DiceBear
+            if (current.getImage() != null && !current.getImage().startsWith("http")) {
+                try {
+                    Files.deleteIfExists(Paths.get(AVATAR_DIR + current.getImage()));
+                } catch (IOException e) {
+                    System.err.println("Erreur suppression ancien avatar: " + e.getMessage());
+                }
+            }
+            // Enregistrer le nom du fichier
+            current.setImage(saveImageLocally(imageFile));
+        }
+
+        // 5. Relations
+        if (dto.getLocalite() != null && dto.getLocalite().id() != null) {
+            current.setLocalite(entityManager.getReference(Localite.class, dto.getLocalite().id()));
+        }
+
+        if (dto.getLangues() != null) {
+            List<Langue> nouvelles = dto.getLangues().stream()
+                    .map(l -> entityManager.getReference(Langue.class, l.getId()))
+                    .toList();
+            current.getLangues().clear();
+            current.getLangues().addAll(nouvelles);
+        }
+
+        return converter.toUserDto(userRepository.save(current));
     }
+
+  
+
+
+
+
+   public User getCurrentUser() {
+       Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+       if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+           throw new UsernameNotFoundException("Utilisateur non authentifié");
+       }
+
+       return userRepository.findByLoginForAuth(auth.getName())
+               .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable : " + auth.getName()));
+   }
+
+   /**
+    * Version avec Authentication en paramètre (pour les contrôleurs qui reçoivent
+    * déjà l'objet)
+    * → même comportement : exception si non trouvé
+    */
+   public User getCurrentUser(Authentication authentication) {
+       if (authentication == null || !authentication.isAuthenticated()
+               || "anonymousUser".equals(authentication.getPrincipal())) {
+           throw new UsernameNotFoundException("Utilisateur non authentifié");
+       }
+
+       return userRepository.findByLoginForAuth(authentication.getName())
+               .orElseThrow(
+                       () -> new UsernameNotFoundException("Utilisateur introuvable : " + authentication.getName()));
+   }
+
+   /**
+    * Version soft qui retourne null si pas connecté (rarement utile, par ex. dans
+    * les filtres ou logs)
+    */
+   public User getCurrentUserOrNull() {
+       try {
+           return getCurrentUser(); // réutilise la version stricte, on attrape juste l'exception
+       } catch (UsernameNotFoundException e) {
+           return null;
+       }
+   }
 
     // ==================================================================
     // 2. Liste paginée + recherche (ADMIN)
@@ -224,20 +336,17 @@ public class UserService {
     }
 
 
-    // === INSCRIPTION PUBLIQUE (rôle USER par défaut) ===
     @Transactional
-    public UserDTO registerUser(UserCreateDTO dto) {
-        // === Vérifications (inchangées) ===
+    public UserDTO registerUser(UserCreateDTO dto, MultipartFile imageFile) throws IOException {
+        // 1. Vérifications d'unicité
         if (userRepository.existsByLogin(dto.getLogin())) {
             throw new IllegalArgumentException("Ce login est déjà utilisé");
         }
         if (userRepository.existsByEmail(dto.getEmail())) {
             throw new IllegalArgumentException("Cet email est déjà utilisé");
         }
-        if (!dto.getPassword().equals(dto.getConfirmPassword())) {
-            throw new IllegalArgumentException("Les mots de passe ne correspondent pas");
-        }
 
+        // 2. Création de l'entité User
         User user = new User();
         user.setLogin(dto.getLogin());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
@@ -247,34 +356,46 @@ public class UserService {
         user.setEmail(dto.getEmail());
         user.setContact(dto.getContact());
         user.setEnabled(true);
+        user.setInterfaceLanguage("fr");
 
-        // Photo
-        if (dto.getImage() != null && !dto.getImage().isBlank()) {
-            user.setImage(dto.getImage());
-        } else {
-            handleAvatar(user);
+        // 3. Image
+        if (imageFile != null && !imageFile.isEmpty()) {
+            user.setImage(saveImageLocally(imageFile));
         }
 
-        // LOCALITÉ – ON UTILISE entityManager.getReference() → ÇA MARCHE À 100%
+        // 4. CRÉATION DU WALLET (Obligatoire à l'inscription)
+        // On utilise le Builder de ta classe Wallet
+        Wallet wallet = Wallet.builder()
+                .user(user) // Liaison bidirectionnelle
+                .soldeDisponible(java.math.BigDecimal.ZERO)
+                .soldeBloque(java.math.BigDecimal.ZERO)
+                .soldeRetirable(java.math.BigDecimal.ZERO)
+                .walletType(growzapp.backend.model.enumeration.WalletType.USER)
+                .build();
+
+        // On lie le wallet à l'utilisateur
+        user.setWallet(wallet);
+
+        // 5. Relations (Localité et Langues)
         if (dto.getLocalite() != null && dto.getLocalite().id() != null) {
-            Localite localite = entityManager.getReference(Localite.class, dto.getLocalite().id());
-            user.setLocalite(localite);
+            user.setLocalite(entityManager.getReference(Localite.class, dto.getLocalite().id()));
         }
 
-        // LANGUES – ON UTILISE getReference() POUR CHAQUE ID
         if (dto.getLangues() != null && !dto.getLangues().isEmpty()) {
             List<Langue> langues = dto.getLangues().stream()
-                    .filter(l -> l.getId() != null)
                     .map(l -> entityManager.getReference(Langue.class, l.getId()))
                     .toList();
             user.setLangues(langues);
         }
 
-        // Rôles
+        // 6. Rôles
         user.setRoles(resolveRoles(List.of("USER")));
 
-        user = userRepository.save(user);
-        return toDto(user);
+        // 7. SAUVEGARDE UNIQUE
+        // Grâce au CascadeType.ALL dans User.java, le Wallet est sauvé automatiquement
+        User savedUser = userRepository.save(user);
+
+        return converter.toUserDto(savedUser);
     }
 
 
@@ -282,11 +403,18 @@ public class UserService {
 // === Récupérer le DTO de l'utilisateur connecté ===
 @Transactional(readOnly = true)
 public UserDTO getCurrentUserDto() {
-    String login = SecurityContextHolder.getContext().getAuthentication().getName();
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-    return converter.toUserDto(
-            userRepository.findByLogin(login)
-                    .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé")));
+    if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+        throw new UsernameNotFoundException("Utilisateur non authentifié");
+    }
+
+    String login = auth.getName();
+
+    User user = userRepository.findByLoginForAuth(login) // LA SEULE CHOSE QUI COMPTE
+            .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable : " + login));
+
+    return converter.toUserDto(user);
 }
 
 // === Mise à jour du profil par l'utilisateur (pas de rôles) ===

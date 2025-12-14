@@ -5,6 +5,8 @@ package growzapp.backend.repository;
 
 import growzapp.backend.model.entite.Wallet;
 import growzapp.backend.model.enumeration.WalletType;
+
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -17,7 +19,7 @@ import java.util.Optional;
 
 public interface WalletRepository extends JpaRepository<Wallet, Long> {
 
-    Optional<Wallet> findByUserId(Long userId);
+    
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT w FROM Wallet w WHERE w.id = :id")
@@ -58,4 +60,7 @@ public interface WalletRepository extends JpaRepository<Wallet, Long> {
     // Bonus ultra-utile pour le dashboard admin
     @Query("SELECT COALESCE(SUM(w.soldeDisponible), 0) FROM Wallet w WHERE w.walletType = :type")
     BigDecimal sumSoldeDisponibleByWalletType(@Param("type") WalletType type);
+
+    @EntityGraph(attributePaths = "user")
+    Optional<Wallet> findByUserId(Long userId);
 }

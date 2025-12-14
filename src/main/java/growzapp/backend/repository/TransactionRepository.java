@@ -5,6 +5,8 @@ package growzapp.backend.repository;
 
 import growzapp.backend.model.entite.Transaction;
 import growzapp.backend.model.enumeration.*;
+
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,9 +18,9 @@ import java.util.List;
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
         // HISTORIQUE PERSONNEL (USER) – wallet_id + wallet_type
+        @EntityGraph(attributePaths = { "destinataireWallet.user" })
         @Query("SELECT t FROM Transaction t WHERE t.walletType = 'USER' AND t.walletId = :walletId ORDER BY t.createdAt DESC")
-        List<Transaction> findByWalletTypeAndWalletIdOrderByCreatedAtDesc(
-                        @Param("walletId") Long walletId);
+        List<Transaction> findByWalletTypeAndWalletIdOrderByCreatedAtDesc(@Param("walletId") Long walletId);
 
         // RETRAITS EN ATTENTE (ADMIN) – USER seulement
         @Query("SELECT t FROM Transaction t " +
@@ -35,6 +37,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         List<Transaction> findByWalletTypeAndWalletId(
                         @Param("type") WalletType type,
                         @Param("id") Long id);
+                      
+
+
+                        
 
         // HISTORIQUE USER (méthode simple)
         default List<Transaction> findByUserWalletId(Long walletId) {

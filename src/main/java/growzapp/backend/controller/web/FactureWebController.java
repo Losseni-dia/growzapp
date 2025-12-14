@@ -20,20 +20,18 @@ public class FactureWebController {
     @GetMapping("/factures/dividende/{dividendeId}/generer")
     public String genererFacture(
             @PathVariable Long dividendeId,
-            RedirectAttributes redirectAttributes) {
+            RedirectAttributes redirectAttributes) throws Exception {
 
         try {
-            Facture facture = factureService.genererEtSauvegarderFacture(dividendeId);
+            factureService.genererFactureEtEnvoyerEmailAsync(dividendeId);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "Facture générée avec succès ! Numéro : " + facture.getNumeroFacture());
+                    "Facture générée avec succès !" +
+                            " Vous recevrez un email sous peu."  );
 
-        } catch (IOException | DocumentException e) {
-            redirectAttributes.addFlashAttribute("errorMessage",
-                    "Erreur lors de la génération de la facture : " + e.getMessage());
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "Une erreur inattendue est survenue.");
+                    "Erreur lors de la génération de la facture : " + e.getMessage());
         }
 
         return "redirect:/dividendes/" + dividendeId;

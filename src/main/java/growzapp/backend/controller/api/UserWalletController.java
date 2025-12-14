@@ -32,6 +32,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import com.stripe.exception.StripeException;
@@ -249,16 +250,17 @@ public class UserWalletController {
     // ==================================================================
     // ===================== MÉTHODE SÉCURISÉE COMMUNE ==================
     // ==================================================================
-    private Long getCurrentUserId(UserDetails userDetails) {
-        if (userDetails == null) {
-            throw new IllegalStateException("Utilisateur non authentifié");
-        }
-        String login = userDetails.getUsername();
-
-        return userRepository.findByLogin(login)
-                .map(User::getId)
-                .orElseThrow(() -> new IllegalStateException("Utilisateur introuvable : " + login));
+   private Long getCurrentUserId(UserDetails userDetails) {
+    if (userDetails == null) {
+        throw new IllegalStateException("Utilisateur non authentifié");
     }
+
+    String login = userDetails.getUsername();
+
+    return userRepository.findByLoginForAuth(login)  // C'EST LA SEULE CHOSE À CHANGER
+            .map(User::getId)
+            .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable : " + login));
+}
 
 
 

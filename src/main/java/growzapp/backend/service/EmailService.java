@@ -7,6 +7,7 @@ import growzapp.backend.model.entite.Investissement;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.YearMonth;
 
@@ -16,16 +17,24 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailService {
 
     private final JavaMailSender mailSender;
 
     // === FACTURE (déjà existante) ===
-    @Async
-    public void envoyerFactureParEmail(Facture facture, byte[] pdfBytes) {
+    // Dans EmailService.java – SUPPRIME @Async pour les factures
+    public void envoyerFactureParEmail(Facture facture, byte[] pdfBytes) { // ← PLUS @Async
         Dividende dividende = facture.getDividende();
+        if (dividende == null || dividende.getInvestissement() == null
+                || dividende.getInvestissement().getInvestisseur() == null) {
+            log.error("Impossible d'envoyer l'email : données manquantes sur la facture {}", facture.getId());
+            return;
+        }
+
         String emailInvestisseur = dividende.getInvestissement().getInvestisseur().getEmail();
         String nomInvestisseur = dividende.getInvestissement().getInvestisseur().getPrenom() + " " +
                 dividende.getInvestissement().getInvestisseur().getNom();
@@ -51,9 +60,10 @@ public class EmailService {
                     new ByteArrayResource(pdfBytes));
 
             mailSender.send(message);
+            log.info("Email facture envoyé à {}", emailInvestisseur);
 
         } catch (MessagingException e) {
-            e.printStackTrace();
+            log.error("Échec envoi email facture {} : {}", facture.getId(), e.getMessage(), e);
         }
     }
 

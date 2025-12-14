@@ -10,6 +10,9 @@ import lombok.Data;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 @Data
 public class UserDTO {
 
@@ -27,6 +30,8 @@ public class UserDTO {
     private String contact;
 
     private LocaliteDTO localite;
+
+    private String interfaceLanguage;
 
     private List<String> roles = new ArrayList<>();
     private List<String> langues = new ArrayList<>();

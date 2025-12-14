@@ -121,23 +121,7 @@ public ApiResponseDTO<ProjetDTO> update(
 
 
 
-    @PostMapping("/{projetId}/payer-dividendes")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Transactional
-    public ResponseEntity<ApiResponseDTO<String>> payerDividendesProrata(
-            @PathVariable Long projetId,
-            @Valid @RequestBody PayerDividendeGlobalRequest request) {
-
-        dividendeService.payerDividendesProjetProrata(
-            request.projetId(),
-            request.montantTotal(),
-            request.motif(),
-            request.periode()
-        );
-
-        return ResponseEntity.ok(ApiResponseDTO.success("Dividendes distribués")
-            .message("Montant total de " + request.montantTotal() + " FCFA distribué au prorata"));
-    }
+   
 
      
 

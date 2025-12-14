@@ -1,25 +1,16 @@
 package growzapp.backend.model.entite;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import growzapp.backend.model.enumeration.MoyenPaiement;
 import growzapp.backend.model.enumeration.StatutDividende;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "dividendes")
@@ -31,8 +22,8 @@ public class Dividende {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "montant_par_part")
-    private double montantParPart;
+    @Column(name = "montant_par_part", precision = 15, scale = 2)
+    private BigDecimal montantParPart;
 
     @Enumerated(EnumType.STRING)
     private StatutDividende statutDividende = StatutDividende.PLANIFIE;
@@ -43,17 +34,29 @@ public class Dividende {
     @Column(name = "date_paiement")
     private LocalDateTime datePaiement;
 
+    @Column(name = "motif")
+    private String motif;
+    // ==================
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investissement_id", nullable = false)
+    @JsonIgnoreProperties({ "dividendes", "investisseur" }) // Évite de recharger trop de données parents
+    @ToString.Exclude
     private Investissement investissement;
 
-    @OneToOne(mappedBy = "dividende", cascade = CascadeType.ALL, orphanRemoval = true)
+    // === RELATION OneToOne Inverse ===
+    @OneToOne(mappedBy = "dividende")
+
+    // STOP BOUCLE JSON : On affiche la facture, mais PAS le dividende à l'intérieur
+    // de la facture
+    @JsonIgnoreProperties("dividende")
+    @ToString.Exclude
     private Facture facture;
 
+    // Méthodes calculées
     public double getMontantTotal() {
-        Investissement investissement = this.getInvestissement();
-        double montant = this.montantParPart * investissement.getNombrePartsPris();
-
-        return montant;
+        if (investissement == null || this.montantParPart == null)
+            return 0.0;
+        return this.montantParPart.multiply(BigDecimal.valueOf(investissement.getNombrePartsPris())).doubleValue();
     }
 }

@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import growzapp.backend.model.enumeration.WalletType;
 
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 @Table(name = "wallets")
 @Data
@@ -19,6 +20,7 @@ public class Wallet {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)

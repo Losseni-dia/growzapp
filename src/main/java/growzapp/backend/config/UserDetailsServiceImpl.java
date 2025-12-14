@@ -11,7 +11,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,7 +20,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
         @Override
         public UserDetails loadUserByUsername(String login) throws UsernameNotFoundException {
-                User user = userRepository.findByLogin(login)
+                User user = userRepository.findByLoginForAuth(login)
                                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + login));
 
                 return org.springframework.security.core.userdetails.User
@@ -29,7 +28,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                                 .password(user.getPassword())
                                 .authorities(user.getRoles().stream()
                                                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getRole()))
-                                                .collect(Collectors.toList()))
+                                                .toList())
                                 .accountExpired(false)
                                 .accountLocked(false)
                                 .credentialsExpired(false)

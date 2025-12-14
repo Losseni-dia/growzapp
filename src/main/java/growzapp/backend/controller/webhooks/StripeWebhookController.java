@@ -130,7 +130,7 @@ public class StripeWebhookController {
         try {
             Long projetId = Long.parseLong(session.getMetadata().get("projet_id"));
             int nombreParts = Integer.parseInt(session.getMetadata().get("nombre_parts"));
-            double montantTotal = Double.parseDouble(session.getMetadata().get("montant"));
+            BigDecimal montantTotal = BigDecimal.valueOf(Double.parseDouble(session.getMetadata().get("montant")));
 
             User investisseur = userRepository.findById(userId).orElse(null);
             Projet projet = projetRepository.findById(projetId).orElse(null);
@@ -158,7 +158,7 @@ public class StripeWebhookController {
 
             // Bloquer les fonds dans le wallet
             Wallet wallet = walletRepository.findByUserId(userId).orElseThrow();
-            wallet.setSoldeBloque(wallet.getSoldeBloque().add(BigDecimal.valueOf(montantTotal)));
+            wallet.setSoldeBloque(wallet.getSoldeBloque().add(montantTotal));
             walletRepository.save(wallet);
 
             log.info("INVESTISSEMENT STRIPE CONFIRMÉ → user {} → {} parts → projet {}",

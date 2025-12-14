@@ -9,6 +9,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -73,51 +74,132 @@ public class FileStorageService {
     // =============== CHARGEMENT ===============
 
     public byte[] loadDocumentAsBytes(String filenameOnly) throws IOException {
-        Path filePath = getUploadPath("documents").resolve(filenameOnly).normalize();
-        if (!Files.exists(filePath)) {
-            throw new IOException("Document non trouvé : " + filenameOnly);
+        if (filenameOnly == null || filenameOnly.isBlank()) {
+            throw new IOException("Nom de fichier vide");
         }
-        return Files.readAllBytes(filePath);
+
+        // Nettoie les chemins d'URL genre "/files/documents/monfichier.pdf" →
+        // "monfichier.pdf"
+        String cleanFilename = filenameOnly
+                .substring(filenameOnly.lastIndexOf("/") + 1) // enlève tout avant le dernier /
+                .substring(filenameOnly.lastIndexOf("\\") + 1) // au cas où y'aurait des \
+                .trim();
+
+        if (cleanFilename.isBlank() || cleanFilename.contains("..") || cleanFilename.contains("/")
+                || cleanFilename.contains("\\")) {
+            throw new IOException("Nom de fichier invalide après nettoyage : " + cleanFilename);
+        }
+
+        Path root = getUploadPath("documents");
+        Path filePath = root.resolve(cleanFilename).normalize();
+
+        // Sécurité anti-traversal
+        if (!filePath.startsWith(root)) {
+            throw new IOException("Tentative d'accès hors du dossier documents : " + cleanFilename);
+        }
+
+        if (!Files.exists(filePath)) {
+            throw new IOException("Fichier introuvable sur le disque : " + cleanFilename);
+        }
+
+        if (!Files.isReadable(filePath)) {
+            throw new IOException("Fichier non lisible (ouvert dans un autre programme ?) : " + filePath);
+        }
+
+        try {
+            return Files.readAllBytes(filePath);
+        } catch (AccessDeniedException e) {
+            throw new IOException("Fichier verrouillé – ferme-le dans Acrobat/Excel !", e);
+        }
     }
 
-    public byte[] loadAsBytes(String subfolder, String filename) throws IOException {
-        Path filePath = getUploadPath(subfolder).resolve(filename).normalize();
+    // SUPPRIME ÇA (l’ancienne) :
+    // public byte[] loadAsBytes(String subfolder, String filename) throws
+    // IOException { ... }
+
+    // GARDE UNIQUEMENT ÇA (la nouvelle, qui remplace tout) :
+    public byte[] loadAsBytes(String pathOrFilename) throws IOException {
+        if (pathOrFilename == null || pathOrFilename.isBlank()) {
+            throw new IOException("Chemin vide");
+        }
+
+        String filename = pathOrFilename
+                .substring(pathOrFilename.lastIndexOf("/") + 1)
+                .substring(pathOrFilename.lastIndexOf("\\") + 1)
+                .trim();
+
+        if (filename.isBlank() || filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
+            throw new IOException("Nom invalide : " + filename);
+        }
+
+        Path filePath;
+
+        // 1. URL complète → on détecte le dossier
+        if (pathOrFilename.contains("/uploads/contrats/")) {
+            filePath = getUploadPath("contrats").resolve(filename);
+        } else if (pathOrFilename.contains("/uploads/posters/")) {
+            filePath = getUploadPath("posters").resolve(filename);
+        } else if (pathOrFilename.contains("/files/documents/")) {
+            filePath = getUploadPath("documents").resolve(filename);
+        }
+        // 2. Sinon → c’est un filename pur → on suppose contrat (cas le plus courant
+        // maintenant)
+        else {
+            filePath = getUploadPath("contrats").resolve(filename);
+        }
+
+        filePath = filePath.normalize();
+
+        // Sécurité anti-traversal
+        if (!filePath.startsWith(getRootPath())) {
+            throw new IOException("Accès refusé hors du dossier uploads : " + filename);
+        }
+
         if (!Files.exists(filePath)) {
-            throw new IOException("Fichier non trouvé : " + filename);
+            throw new IOException("Fichier non trouvé : " + filePath);
         }
+
         return Files.readAllBytes(filePath);
-    }
-
-    // AJOUTE CETTE MÉTHODE (compatible avec tous tes anciens appels)
-    public byte[] loadAsBytes(String fullUrl) throws IOException {
-        // fullUrl = "/uploads/contrats/uuid_123.pdf" ou
-        // "/files/documents/uuid_bilan.pdf"
-        String filename = fullUrl.substring(fullUrl.lastIndexOf("/") + 1);
-
-        // On détecte automatiquement le sous-dossier
-        if (fullUrl.contains("/uploads/posters/") || fullUrl.contains("/uploads/contrats/")
-                || fullUrl.contains("/uploads/avatars/")) {
-            String subfolder = fullUrl.contains("/posters/") ? "posters"
-                    : fullUrl.contains("/contrats/") ? "contrats" : "avatars";
-            return loadAsBytes(subfolder, filename);
-        }
-
-        if (fullUrl.contains("/files/documents/")) {
-            return loadDocumentAsBytes(filename);
-        }
-
-        throw new IOException("URL de fichier non reconnue : " + fullUrl);
     }
 
 
     // ===================================================================
     // COMPATIBILITÉ ASCENDANTE – POUR LES CONTRATS (et tout ancien code)
     // ===================================================================
-    public String save(byte[] content, String originalFilename, String contentType) throws IOException {
-        String filename = UUID.randomUUID() + "_" + StringUtils.cleanPath(originalFilename);
-        Path target = getUploadPath("contrats").resolve(filename);
+    // ==================================================================================
+    // ✅ MÉTHODE SPÉCIALE POUR SAUVEGARDER LES CONTRATS PDF GÉNÉRÉS (Investissement)
+    // ==================================================================================
+    public String saveContrat(byte[] content, String originalFilename) {
+        try {
+            // 1. Nettoyage du nom de fichier par sécurité
+            String filename = StringUtils.cleanPath(originalFilename);
+
+            // 2. Récupération du chemin physique : .../uploads/contrats/
+            // La méthode getUploadPath("contrats") crée le dossier s'il n'existe pas
+            Path target = getUploadPath("contrats").resolve(filename);
+
+            // 3. Écriture physique du fichier (écrase si existe déjà avec le même nom)
+            Files.write(target, content);
+
+            // 4. RETOUR DE L'URL WEB (C'est la clé pour que le front puisse télécharger)
+            // On ne retourne PAS le chemin C:\Users..., mais le chemin relatif /uploads/...
+            return "/uploads/contrats/" + filename;
+
+        } catch (IOException e) {
+            // On lance une RuntimeException pour que la transaction @Transactional rollbak
+            // si besoin
+            throw new RuntimeException("Erreur critique lors de la sauvegarde du fichier contrat : " + originalFilename,
+                    e);
+        }
+    }
+
+
+    // Ajoute cette méthode dans FileStorageService.java
+    public String saveFacture(byte[] content, String originalFilename) throws IOException {
+        String filename = "facture-dividende-" + System.currentTimeMillis() + ".pdf"; // ou garde ton format
+        Path target = getUploadPath("factures").resolve(filename); // ← nouveau dossier "factures"
         Files.write(target, content);
-        return "/uploads/contrats/" + filename;
+        return "/uploads/factures/" + filename; // ← URL cohérente
     }
 
 
@@ -142,5 +224,10 @@ public class FileStorageService {
 
         // Si rien trouvé → on retourne posters par défaut (comme avant)
         return getUploadPath("posters").resolve(filename).normalize();
+    }
+
+    // Ajoute cette méthode dans FileStorageService.java
+    public String getUploadDir() {
+        return uploadDir;
     }
 }

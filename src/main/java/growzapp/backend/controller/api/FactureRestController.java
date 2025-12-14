@@ -5,11 +5,21 @@ import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.factureDTO.FactureDTO;
 import growzapp.backend.model.entite.Facture;
 import growzapp.backend.service.FactureService;
+import growzapp.backend.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @RestController
 @RequestMapping("/api/factures")
@@ -17,41 +27,35 @@ import java.io.IOException;
 public class FactureRestController {
 
     private final FactureService factureService;
-
-    /**
-     * Récupère une facture par ID
-     */
-    @GetMapping("/{id}")
+    private final FileStorageService fileStorageService;
+@GetMapping("/{id}")
     public ApiResponseDTO<FactureDTO> getById(@PathVariable Long id) {
         return ApiResponseDTO.success(factureService.getById(id));
     }
 
-    /**
-     * Génère automatiquement une facture PDF pour un dividende donné
-     * Utilise ton FactureService actuel (PDF + stockage + base)
-     */
-    @PostMapping("/dividende/{dividendeId}/generer")
-    public ResponseEntity<ApiResponseDTO<FactureDTO>> genererFacturePourDividende(
-            @PathVariable Long dividendeId) {
-
+    // ========================================================================
+    // TÉLÉCHARGEMENT INTELLIGENT (Stockage + Régénération + Traduction)
+    // ========================================================================
+    @GetMapping("/{factureId}/download")
+    public ResponseEntity<Resource> downloadFacture(
+            @PathVariable Long factureId,
+            @RequestParam(name = "lang", defaultValue = "fr") String lang // Support langue
+    ) {
         try {
-            Facture facture = factureService.genererEtSauvegarderFacture(dividendeId);
-            FactureDTO dto = factureService.toFactureDto(facture); // ou via DtoConverter
+            // Appel à la méthode du service qui gère : 
+            // 1. La récupération du fichier disque (si dispo et langue FR)
+            // 2. OU la régénération dynamique (si fichier perdu ou langue étrangère)
+            byte[] pdfBytes = factureService.genererPdf(factureId, lang);
 
-            return ResponseEntity.ok(
-                    ApiResponseDTO.success(dto)
-                            .message("Facture générée avec succès !") // ← message() après success()
-            );
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"facture-" + factureId + "_" + lang + ".pdf\"")
+                    .body(new ByteArrayResource(pdfBytes));
 
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().body(
-                    ApiResponseDTO.error("Erreur d'entrée/sortie lors de la génération du PDF : " + e.getMessage()));
-        } catch (DocumentException e) {
-            return ResponseEntity.internalServerError().body(
-                    ApiResponseDTO.error("Erreur lors de la création du PDF : " + e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(
-                    ApiResponseDTO.error("Erreur inattendue : " + e.getMessage()));
+            e.printStackTrace();
+            return ResponseEntity.notFound().build();
         }
     }
 }

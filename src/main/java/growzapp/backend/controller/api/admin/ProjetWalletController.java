@@ -6,6 +6,7 @@ package growzapp.backend.controller.api.admin;
 
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.dividendeDTO.DividendeDTO;
+import growzapp.backend.model.dto.dividendeDTO.DividendeHistoriqueAdminDTO;
 import growzapp.backend.model.dto.dividendeDTO.PayerDividendeGlobalRequest;
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
 import growzapp.backend.model.dto.walletDTOs.RetraitProjetRequest;
@@ -25,6 +26,7 @@ import growzapp.backend.service.WalletService;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -36,11 +38,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/admin/projet-wallet")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
-public class ProjetWalletControler {
+public class ProjetWalletController {
 
     private final WalletRepository walletRepository;
     private final ProjetRepository projetRepository;
@@ -63,14 +66,16 @@ public class ProjetWalletControler {
     // 2. Montant total affiché publiquement (somme des montantCollecte des projets)
     @GetMapping("/montant-total-collecte")
     public ResponseEntity<BigDecimal> getMontantTotalCollecteGlobal() {
-        BigDecimal total = projetRepository.findAll()
-                .stream()
-                .map(Projet::getMontantCollecte)
-                .filter(Objects::nonNull)
-                .map(BigDecimal::valueOf)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal total = projetRepository.findAll()
+                            .stream()
+                            // On s'assure que le stream sait qu'il manipule des Projet
+                            .map(projet -> projet.getMontantCollecte())
+                            // On filtre les valeurs nulles pour éviter le NullPointerException
+                            .filter(Objects::nonNull)
+                            // On réduit (additionne) tout
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        return ResponseEntity.ok(total);
+            return ResponseEntity.ok(total);
     }
 
     // 3. Liste complète des wallets projet (pour la page admin de gestion)
@@ -174,26 +179,44 @@ public class ProjetWalletControler {
                 return ResponseEntity.ok(investissements);
         }
         
-        @PostMapping("/{projetId}/payer-dividendes")
-        @PreAuthorize("hasRole('ADMIN')")
-        @Transactional
+        @PostMapping("/{projetId}/payer-dividende")
         public ResponseEntity<ApiResponseDTO<String>> payerDividendesProrata(
-                @PathVariable Long projetId,
+                        @PathVariable Long projetId,
                         @Valid @RequestBody PayerDividendeGlobalRequest request) {
 
-                {
+                log.info("=== REQUÊTE DISTRIBUTION REÇUE === projetId={}, montantTotal={}, motif={}, periode={}",
+                                projetId, request.montantTotal(), request.motif(), request.periode());
 
+                try {
                         dividendeService.payerDividendesProjetProrata(
                                         projetId,
-                                        request.montantTotal(),
+                                        BigDecimal.valueOf(request.montantTotal()), // ← Conversion Double → BigDecimal
                                         request.motif(),
                                         request.periode());
 
-                        return ResponseEntity.ok(ApiResponseDTO.success("Dividendes distribués avec succès"));
+                        log.info("=== DISTRIBUTION TERMINÉE AVEC SUCCÈS === projetId={}, montant distribué={} €",
+                                        projetId, request.montantTotal());
+
+                        return ResponseEntity.ok(
+                                        ApiResponseDTO.success("Dividendes distribués avec succès")
+                                                        .message(String.format(
+                                                                        "Montant de %.2f € distribué au prorata des parts",
+                                                                        request.montantTotal())));
+
+                } catch (IllegalStateException e) {
+                        log.warn("Erreur métier lors de la distribution pour le projet {} : {}", projetId,
+                                        e.getMessage());
+                        return ResponseEntity.badRequest()
+                                        .body(ApiResponseDTO.error(e.getMessage()));
+
+                } catch (Exception e) {
+                        log.error("Erreur inattendue lors de la distribution des dividendes pour le projet {}",
+                                        projetId, e);
+                        return ResponseEntity.status(500)
+                                        .body(ApiResponseDTO.error(
+                                                        "Erreur serveur lors du paiement des dividendes. Veuillez réessayer."));
                 }
-
         }
-
 
         /**
          * Historique complet des dividendes payés sur un projet
@@ -201,9 +224,9 @@ public class ProjetWalletControler {
          */
         @GetMapping("/{projetId}/dividendes")
         @PreAuthorize("hasRole('ADMIN')")
-        public ResponseEntity<List<DividendeDTO>> getHistoriqueDividendes(@PathVariable Long projetId) {
-                List<DividendeDTO> dividendes = dividendeService.getDividendesByProjetId(projetId);
-                return ResponseEntity.ok(dividendes);
+        public ResponseEntity<List<DividendeHistoriqueAdminDTO>> getHistoriqueDividendes(@PathVariable Long projetId) {
+        List<DividendeHistoriqueAdminDTO> historique = dividendeService.getHistoriqueDividendesAvecDetails(projetId);
+        return ResponseEntity.ok(historique);
         }
         
 

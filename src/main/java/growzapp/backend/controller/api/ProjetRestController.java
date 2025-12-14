@@ -1,6 +1,5 @@
 // src/main/java/growzapp/backend/controller/api/ProjetRestController.java
 // VERSION FINALE 2025 – UNIQUEMENT LES ENDPOINTS PUBLICS & UTILISATEURS
-// AUCUN ENDPOINT ADMIN ICI
 
 package growzapp.backend.controller.api;
 
@@ -14,20 +13,14 @@ import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.repository.UserRepository;
-import growzapp.backend.service.FileUploadService;
-import growzapp.backend.service.InvestissementService;
-import growzapp.backend.service.ProjetService;
-import growzapp.backend.service.StripeDepositService;
+import growzapp.backend.service.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -70,8 +63,7 @@ public class ProjetRestController {
             @RequestPart("projet") String projetJson,
             @RequestPart(value = "poster", required = false) MultipartFile poster) {
 
-        User currentUser = userRepository.findByLogin(authentication.getName())
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé"));
+        User currentUser = getCurrentUser(authentication);
 
         try {
             ProjetCreateDTO dto = objectMapper.readValue(projetJson, ProjetCreateDTO.class);
@@ -92,6 +84,7 @@ public class ProjetRestController {
                     .message("Projet soumis avec succès ! En attente de validation.");
 
         } catch (Exception e) {
+            log.error("Erreur création projet", e);
             return ApiResponseDTO.error("Erreur lors de la création : " + e.getMessage());
         }
     }
@@ -100,12 +93,11 @@ public class ProjetRestController {
     @GetMapping("/mes-projets")
     @PreAuthorize("isAuthenticated()")
     public ApiResponseDTO<List<ProjetDTO>> getMyProjects(Authentication auth) {
-        User user = userRepository.findByLogin(auth.getName())
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé"));
+        User user = getCurrentUser(auth);
         return ApiResponseDTO.success(projetService.getByPorteurId(user.getId()));
     }
 
-    // INVESTIR DANS UN PROJET
+    // INVESTIR DANS UN PROJET (classique)
     @PostMapping("/{projetId}/investir")
     @PreAuthorize("isAuthenticated()")
     public ApiResponseDTO<InvestissementDTO> investir(
@@ -113,8 +105,7 @@ public class ProjetRestController {
             @RequestBody InvestissementRequestDto dto,
             Authentication auth) {
 
-        User user = userRepository.findByLogin(auth.getName())
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé"));
+        User user = getCurrentUser(auth);
 
         InvestissementDTO result = investissementService.investir(projetId, dto.nombrePartsPris(), user);
 
@@ -122,14 +113,15 @@ public class ProjetRestController {
                 .message("Investissement enregistré ! En attente de validation admin.");
     }
 
-     @PostMapping("/{projetId}/investir-carte")
+    // INVESTIR PAR CARTE (Stripe)
+    @PostMapping("/{projetId}/investir-carte")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> investirParCarte(
             @PathVariable Long projetId,
-            @AuthenticationPrincipal UserDetails userDetails,
+            Authentication authentication,
             @RequestBody Map<String, Integer> body) {
 
-        Long userId = getCurrentUserId(userDetails);
+        User user = getCurrentUser(authentication);
         Integer nombreParts = body.get("nombreParts");
 
         if (nombreParts == null || nombreParts < 1) {
@@ -137,49 +129,37 @@ public class ProjetRestController {
                     .body(Map.of("error", "Nombre de parts invalide"));
         }
 
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        int partsDisponibles = projet.getPartsDisponible() - projet.getPartsPrises();
+        if (nombreParts > partsDisponibles) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Plus assez de parts disponibles (reste : " + partsDisponibles + ")"));
+        }
+
         try {
-            Projet projet = projetRepository.findById(projetId)
-                    .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
-
-            // Vérification des parts disponibles
-            int partsDisponibles = projet.getPartsDisponible() - projet.getPartsPrises();
-            if (nombreParts > partsDisponibles) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Plus assez de parts disponibles (reste : " + partsDisponibles + ")"));
-            }
-
-            // Génération de la session Stripe avec TA méthode existante
             String redirectUrl = stripeDepositService.createInvestissementSession(
-                    userId,
+                    user.getId(),
                     projetId,
                     nombreParts,
                     projet.getLibelle(),
-                    projet.getPrixUnePart() // Tu passes bien le prix une part ici
-            );
+                    projet.getPrixUnePart());
 
-            log.info("Redirection investissement Stripe générée pour user {} → projet {} → {} parts",
-                    userId, projetId, nombreParts);
-
+            log.info("Redirection Stripe → user {} → projet {} → {} parts", user.getId(), projetId, nombreParts);
             return ResponseEntity.ok(Map.of("redirectUrl", redirectUrl));
 
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("Erreur création session investissement Stripe", e);
-            return ResponseEntity.status(500)
+            log.error("Erreur session Stripe", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Impossible de créer le paiement"));
         }
     }
 
-
-// Utility method to get current user ID
-    private Long getCurrentUserId(UserDetails userDetails) {
-        User user = userRepository.findByLogin(userDetails.getUsername())
+    // MÉTHODE PRIVÉE RÉUTILISABLE → évite la duplication + charge les rôles en
+    // sécurité
+    private User getCurrentUser(Authentication authentication) {
+        return userRepository.findByLoginForAuth(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-        return user.getId();
     }
-
-    // SUPPRIMÉ DÉLIBÉRÉMENT :
-    // @GetMapping("/admin/{projetId}/wallet/solde")
-    // → DÉPLACÉ DANS PwrojetWalletControler.java
 }

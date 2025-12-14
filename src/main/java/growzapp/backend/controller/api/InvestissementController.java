@@ -79,11 +79,14 @@ public class InvestissementController {
     @GetMapping("/mes-investissements")
     @PreAuthorize("isAuthenticated()")
     public ApiResponseDTO<List<InvestissementDTO>> getMyInvestments(
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User springUser) {
-        User user = userRepository.findByLogin(springUser.getUsername())
+            Authentication authentication) { // ← plus simple et plus sûr que @AuthenticationPrincipal
+
+        // On utilise la méthode qui charge les rôles → zéro risque de LazyException
+        User user = userRepository.findByLoginForAuth(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
         List<InvestissementDTO> mesInvestissements = investissementService.getByInvestisseurId(user.getId());
+
         return ApiResponseDTO.success(mesInvestissements);
     }
 

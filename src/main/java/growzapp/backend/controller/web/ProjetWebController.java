@@ -10,6 +10,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Controller
@@ -40,18 +41,31 @@ public class ProjetWebController {
     // === FORMULAIRE CRÉATION ===
     @GetMapping("/create")
     public String createForm(Model model) {
-        ProjetDTO dto = new ProjetDTO(null, null, null,
-                null, null, 0, 0,
-                0, 0, 0, 0, 0, null, null, 0, null, null,
-                null, null, null, null,
-                 null, null, null, null, null, null, null, null);
+        ProjetDTO dto = new ProjetDTO(
+                null, null, null, null, null,
+                BigDecimal.ZERO, // valuation
+                0.0, // roiProjete (double)
+                0, 0, // parts
+                BigDecimal.ZERO, // prixUnePart
+                BigDecimal.ZERO, // objectifFinancement
+                BigDecimal.ZERO, // montantCollecte
+                "XOF", // <--- ARGUMENT MANQUANT AJOUTÉ ICI (currencyCode)
+                null, // dateDebut
+                null, // dateFin
+                0.0, // valeurTotalePartsEnPourcent
+                null, // statutProjet
+                null, // createdAt
+                null, null, null, null, null, null, null, null, null, null,
+                List.of(), // documents
+                List.of() // investissements
+        );
+
         model.addAttribute("projet", dto);
         model.addAttribute("localites", localiteService.getAll());
         model.addAttribute("sites", localisationService.getAll());
         model.addAttribute("title", "Créer un projet");
         return "projet/form";
     }
-
     // === SAUVEGARDE (create + edit) ===
     @PostMapping(value = { "/create", "/{id}/edit" })
     public String save(
@@ -76,6 +90,7 @@ public class ProjetWebController {
                     projetForm.prixUnePart(),
                     projetForm.objectifFinancement(),
                     projetForm.montantCollecte(),
+                    projetForm.currencyCode(),
                     projetForm.dateDebut(),
                     projetForm.dateFin(),
                     projetForm.valeurTotalePartsEnPourcent(),

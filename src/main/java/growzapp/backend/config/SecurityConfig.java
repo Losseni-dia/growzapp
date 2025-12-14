@@ -33,45 +33,50 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                                 .authorizeHttpRequests(auth -> auth
-                                                // PUBLIC – Auth, register, projets publics, etc.
+
+                                                // PUBLIC
                                                 .requestMatchers("/api/auth/**", "/api/auth/register").permitAll()
                                                 .requestMatchers("/api/projets", "/api/projets/**").permitAll()
                                                 .requestMatchers("/api/localites", "/api/langues", "/api/secteurs")
                                                 .permitAll()
+                                                .requestMatchers("/api/currencies/**").permitAll() // Autorise l'accès
+                                                                                                   // public
 
-                                                // UPLOADS – Posters, contrats PDF, documents…
+                                                // FICHIERS PUBLICS
                                                 .requestMatchers("/uploads/posters/**").permitAll()
-                                                .requestMatchers("/uploads/avatars/**").permitAll() // si tu en as
-                                                .requestMatchers("/uploads/contrats/**").permitAll() // ou selon ton
-                                                                                                     // choix
-                                                .requestMatchers("/files/documents/**").denyAll() // ← BLOQUE TOUT ACCÈS
-                                                                                                  // DIRECT
+                                                .requestMatchers("/uploads/avatars/**").permitAll()
+                                                .requestMatchers("/uploads/contrats/**").permitAll()
 
-                                                // CONTRATS – QR code public + voir/télécharger le PDF (même sans être
-                                                // connecté)
+                                                // BLOQUE TOUT ACCÈS DIRECT AUX DOCUMENTS PRIVÉS
+                                                .requestMatchers("/files/documents/**").denyAll()
+
+                                                // CONTRATS PUBLICS
                                                 .requestMatchers("/api/contrats/public/verifier/**").permitAll()
-                                                .requestMatchers("/api/contrats/{numero}").permitAll() // voir le PDF
-                                                                                                       // dans le
-                                                                                                       // navigateur
-                                                .requestMatchers("/api/contrats/{numero}/download").permitAll() // téléchargement
-                                                                                                                // direct
+                                                .requestMatchers("/api/contrats/{numero}").permitAll()
+                                                .requestMatchers("/api/contrats/{numero}/download").permitAll()
 
-                                                // Pages d’erreur + assets React
-                                                .requestMatchers("/error", "/static/**", "/assets/**", "/favicon.ico")
-                                                .permitAll()
+                                                // API DOCUMENTS : authentifié + logique fine dans le controller
+                                                .requestMatchers("/api/documents/projet/**").authenticated() // ← liste
+                                                .requestMatchers(HttpMethod.GET, "/api/documents/*/download")
+                                                .authenticated() // ← download
+                                                .requestMatchers(HttpMethod.POST, "/api/documents/projet/**")
+                                                .hasAuthority("ROLE_ADMIN") // ← upload
 
-                                                // Endpoints protégés
-                                                .requestMatchers("/api/investissements", "/api/investissements/**")
-                                                .authenticated()
+                                                // ENDPOINTS PROTÉGÉS
+                                                .requestMatchers("/api/investissements/**").authenticated()
                                                 .requestMatchers("/api/projets/mes-projets").authenticated()
                                                 .requestMatchers("/api/wallets/**").authenticated()
                                                 .requestMatchers(HttpMethod.POST, "/api/wallets/demander-payout")
                                                 .authenticated()
 
-                                                // Admin
+                                                // ADMIN
                                                 .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
 
-                                                // Tout le reste → authentifié
+                                                // ASSETS + ERREUR
+                                                .requestMatchers("/error", "/static/**", "/assets/**", "/favicon.ico")
+                                                .permitAll()
+
+                                                // TOUT LE RESTE → authentifié
                                                 .anyRequest().authenticated())
 
                                 .exceptionHandling(ex -> ex
