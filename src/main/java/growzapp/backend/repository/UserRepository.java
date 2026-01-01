@@ -1,6 +1,8 @@
 package growzapp.backend.repository;
 
 import growzapp.backend.model.entite.User;
+import growzapp.backend.model.enumeration.KycStatus;
+
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -69,4 +71,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "roles"
     })
     Optional<User> findWithProfileById(Long id);
+
+
+    List<User> findByKycStatus(KycStatus status);
 }

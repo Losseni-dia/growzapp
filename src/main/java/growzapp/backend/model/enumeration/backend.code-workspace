@@ -8,6 +8,9 @@
     }
   ],
   "settings": {
-    "java.project.sourcePaths": [""]
+    "java.project.sourcePaths": [
+      ""
+    ],
+    "java.configuration.updateBuildConfiguration": "automatic"
   }
 }

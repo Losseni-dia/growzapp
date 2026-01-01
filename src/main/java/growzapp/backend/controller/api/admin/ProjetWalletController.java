@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -253,6 +254,67 @@ public class ProjetWalletController {
         }
 
 
+        // Dans ProjetWalletController.java
+
+        // Dans ProjetWalletController.java
+
+        @GetMapping("/{projetId}/transactions")
+        @PreAuthorize("hasRole('ADMIN')")
+        public ResponseEntity<List<Transaction>> getProjectTransactions(@PathVariable Long projetId) {
+                // 1. On récupère le wallet pour avoir son ID
+                Wallet wallet = walletRepository.findByProjetIdAndWalletType(projetId, WalletType.PROJET)
+                                .orElseThrow(() -> new IllegalStateException("Wallet introuvable"));
+
+                // 2. CORRECTION ICI : On utilise la méthode de ton repository qui filtre par
+                // TYPE et ID
+                // Tu peux utiliser soit la méthode par défaut findByProjetWalletId, soit
+                // findByWalletTypeAndWalletId
+                List<Transaction> transactions = transactionRepository.findByWalletTypeAndWalletId(
+                                WalletType.PROJET,
+                                wallet.getId());
+
+                return ResponseEntity.ok(transactions);
+        }
+
         
+
+      @GetMapping("/{projetId}/rapport-complet")
+      public ResponseEntity<Map<String, Object>> getFullFinanceReport(@PathVariable Long projetId) {
+              Projet projet = projetRepository.findById(projetId)
+                              .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+              Wallet wallet = walletRepository.findByProjetIdAndWalletType(projetId, WalletType.PROJET)
+                              .orElseThrow(() -> new IllegalStateException("Wallet introuvable"));
+
+              // Utilisation de HashMap au lieu de Map.of pour supporter les valeurs nulles
+              Map<String, Object> report = new HashMap<>();
+
+              report.put("projetLibelle", projet.getLibelle());
+
+              // Sécurisation des montants (si null, on met 0)
+              report.put("montantCollectePublic",
+                              projet.getMontantCollecte() != null ? projet.getMontantCollecte() : BigDecimal.ZERO);
+              report.put("tresorerieReelle",
+                              wallet.getSoldeDisponible() != null ? wallet.getSoldeDisponible() : BigDecimal.ZERO);
+              report.put("soldeBloque", wallet.getSoldeBloque() != null ? wallet.getSoldeBloque() : BigDecimal.ZERO);
+
+              // Sécurisation du porteur
+              String nomComplet = "Non renseigné";
+              String contact = "Pas de contact";
+
+              if (projet.getPorteur() != null) {
+                      nomComplet = (projet.getPorteur().getPrenom() != null ? projet.getPorteur().getPrenom() : "")
+                                      + " " +
+                                      (projet.getPorteur().getNom() != null ? projet.getPorteur().getNom() : "");
+                      contact = projet.getPorteur().getContact() != null ? projet.getPorteur().getContact() : contact;
+              }
+
+              report.put("porteurNom", nomComplet.trim());
+              report.put("porteurContact", contact);
+
+              return ResponseEntity.ok(report);
+      }
+
+
 }
 

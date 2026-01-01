@@ -1,4 +1,4 @@
-// Transaction.java → VERSION FINALE 100% COMPATIBLE HIBERNATE 6 + MYSQL
+// growzapp.backend.model.entite.Transaction.java
 package growzapp.backend.model.entite;
 
 import growzapp.backend.model.enumeration.StatutTransaction;
@@ -24,15 +24,26 @@ public class Transaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    
-    @JoinColumn(name = "wallet_id", nullable = false)
+    // Colonne ID du Wallet (pour la simplicité)
+    @Column(name = "wallet_id", nullable = false)
     private Long walletId;
+
+    // Si vous voulez la relation complète pour tx.getWallet().getUser()
+    // Si vous voulez utiliser tx.getWallet(), VOUS DEVEZ AVOIR CE LIEN:
+    /*
+     * @ManyToOne(fetch = FetchType.LAZY)
+     * 
+     * @JoinColumn(name = "wallet_id", insertable = false, updatable = false)
+     * private Wallet wallet;
+     */
+    // *NOTE: Si vous ne pouvez pas modifier la DB, vous devez le chercher
+    // manuellement dans le Webhook.
+    // L'erreur getWallet() vient du code du Webhook qui s'attend à ce champ!
 
     @Column(name = "wallet_type", nullable = false)
     @Enumerated(EnumType.STRING)
     private WalletType walletType;
 
-    // CHANGÉ : double → BigDecimal
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal montant;
 
@@ -44,8 +55,8 @@ public class Transaction {
     @Column(name = "statut", nullable = false)
     private StatutTransaction statut = StatutTransaction.EN_ATTENTE_PAIEMENT;
 
-   @Column(name = "created_at", nullable = false, updatable = false)
-    @CreationTimestamp  // AJOUTE CETTE ANNOTATION
+    @Column(name = "created_at", nullable = false, updatable = false)
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
     @Column(name = "completed_at")
@@ -59,10 +70,14 @@ public class Transaction {
     private String description;
 
     @Column(name = "reference_type", length = 50)
-    private String referenceType; // ex: "PROJET", "DIVIDENDE", "TRANSFERT", "DEPOT_STRIPE"
+    private String referenceType;
 
     @Column(name = "reference_id")
-    private Long referenceId; // ID de l’objet lié (nullable)
+    private Long referenceId;
+
+    // NOUVEAU CHAMP REQUIS PAR LE WEBHOOK PAYDUNYA
+    @Column(name = "reference_externe", length = 255)
+    private String referenceExterne;
 
     // Méthodes utilitaires
     public void markAsSuccess() {

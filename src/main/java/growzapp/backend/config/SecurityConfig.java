@@ -62,6 +62,11 @@ public class SecurityConfig {
                                                 .requestMatchers(HttpMethod.POST, "/api/documents/projet/**")
                                                 .hasAuthority("ROLE_ADMIN") // ← upload
 
+                                                // KYC : Soumission (Accessible à tout utilisateur connecté)
+                                                .requestMatchers("/api/kyc/soumettre").authenticated()
+                                                // KYC : Administration (Uniquement ROLE_ADMIN)
+                                                .requestMatchers("/api/kyc/admin/**").hasAuthority("ROLE_ADMIN")
+
                                                 // ENDPOINTS PROTÉGÉS
                                                 .requestMatchers("/api/investissements/**").authenticated()
                                                 .requestMatchers("/api/projets/mes-projets").authenticated()

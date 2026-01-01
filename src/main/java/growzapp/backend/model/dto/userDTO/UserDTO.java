@@ -4,6 +4,7 @@ package growzapp.backend.model.dto.userDTO;
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
 import growzapp.backend.model.dto.localiteDTO.LocaliteDTO;
 import growzapp.backend.model.dto.projetDTO.ProjetDTO;
+import growzapp.backend.model.enumeration.KycStatus;
 import growzapp.backend.model.enumeration.Sexe;
 import lombok.Data;
 
@@ -41,4 +42,8 @@ public class UserDTO {
 
     // CHAMP OBLIGATOIRE POUR LE FRONT (admin + sécurité)
     private boolean enabled = true; // ← Maintenant bien présent et renvoyé
+
+    // Champs KYC
+    private KycStatus kycStatus;
+    private String kycCommentaireRejet;
 }

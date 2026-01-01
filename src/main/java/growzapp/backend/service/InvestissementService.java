@@ -8,13 +8,17 @@ import growzapp.backend.model.dto.investisementDTO.InvestissementCreateDTO;
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
 import growzapp.backend.model.entite.Investissement;
 import growzapp.backend.model.entite.Projet;
+import growzapp.backend.model.entite.Transaction;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.model.entite.Wallet;
 import growzapp.backend.model.enumeration.StatutPartInvestissement;
 import growzapp.backend.model.enumeration.StatutProjet;
+import growzapp.backend.model.enumeration.StatutTransaction;
+import growzapp.backend.model.enumeration.TypeTransaction;
 import growzapp.backend.model.enumeration.WalletType;
 import growzapp.backend.repository.InvestissementRepository;
 import growzapp.backend.repository.ProjetRepository;
+import growzapp.backend.repository.TransactionRepository;
 import growzapp.backend.repository.UserRepository;
 import growzapp.backend.repository.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -40,6 +44,7 @@ public class InvestissementService {
     private final ProjetRepository projetRepository;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final TransactionRepository transactionRepository;
 
     
 
@@ -119,16 +124,15 @@ public class InvestissementService {
 
     /// InvestissementService.java → VERSION FINALE 2025 – TOUT EST CORRIGÉ
 
+      // =====================================================================
+    // MÉTHODE 1 : investir (Crée la transaction en statut EN_ATTENTE)
+    // =====================================================================
     @Transactional
     public InvestissementDTO investir(Long projetId, int nombrePartsPris, User investisseur) {
-            // ... validation nombre de parts ...
 
             Projet projet = projetRepository.findByIdWithLock(projetId)
                             .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé"));
 
-            // ... validation statut projet ...
-
-            // CORRECTION : prixUnePart est déjà un BigDecimal, pas besoin de valueOf
             BigDecimal prixPart = projet.getPrixUnePart();
             BigDecimal montantTotal = prixPart.multiply(BigDecimal.valueOf(nombrePartsPris));
 
@@ -139,117 +143,140 @@ public class InvestissementService {
                     throw new IllegalStateException("Solde insuffisant");
             }
 
+            // 1. BLOQUE LES FONDS DE L'UTILISATEUR
             walletUser.bloquerFonds(montantTotal);
             walletRepository.save(walletUser);
 
+            // 2. CRÉATION DE L'INVESTISSEMENT
             Investissement investissement = new Investissement();
             investissement.setNombrePartsPris(nombrePartsPris);
-            // CORRECTION : montantInvesti est maintenant un BigDecimal dans l'entité
             investissement.setMontantInvesti(montantTotal);
-            investissement.setInvestisseur(investisseur);
+            investissement.setInvestisseur(investisseur); // <--- CORRECTION D'AFFECTATION
             investissement.setProjet(projet);
             investissement.setStatutPartInvestissement(StatutPartInvestissement.EN_ATTENTE);
             investissement.setDate(LocalDateTime.now());
             investissement.calculerTout();
 
-            investissement = repository.save(investissement);
+            investissement = repository.save(investissement); // Sauvegarde pour obtenir l'ID
+
+            // 3. CRÉATION DE LA TRANSACTION INITIALE (EN ATTENTE)
+            Transaction tx = Transaction.builder()
+                            .walletId(walletUser.getId())
+                            .walletType(WalletType.USER)
+                            .montant(montantTotal)
+                            .type(TypeTransaction.INVESTISSEMENT)
+                            .statut(StatutTransaction.EN_ATTENTE_VALIDATION)
+                            .description("Investissement en attente dans le projet: " + projet.getLibelle())
+                            .createdAt(LocalDateTime.now())
+                            .referenceType("INVESTISSEMENT")
+                            .referenceId(investissement.getId())
+                            .build();
+            transactionRepository.save(tx);
+
             return converter.toInvestissementDto(investissement);
     }
 
 
 
+        //=====================================================================
+        // MÉTHODE 2 : validerInvestissement (Met la transaction à SUCCESS)
+        // =====================================================================
+        @Transactional
+        public Investissement validerInvestissement(Long id) throws Exception {
+        Investissement inv = repository.findByIdWithLock(id)
+                .orElseThrow(() -> new EntityNotFoundException("Investissement non trouvé"));
 
-    @Transactional
-    public Investissement validerInvestissement(Long id) throws Exception {
-            Investissement inv = repository.findByIdWithLock(id)
-                            .orElseThrow(() -> new EntityNotFoundException("Investissement non trouvé"));
+        if (inv.getStatutPartInvestissement() != StatutPartInvestissement.EN_ATTENTE) {
+                throw new IllegalStateException("Cet investissement a déjà été traité");
+        }
 
-            if (inv.getStatutPartInvestissement() != StatutPartInvestissement.EN_ATTENTE) {
-                    throw new IllegalStateException("Cet investissement a déjà été traité");
-            }
+        BigDecimal montant = inv.getMontantInvesti();
+        Projet projet = inv.getProjet();
+        User investisseur = inv.getInvestisseur();
 
-            Projet projet = inv.getProjet();
-            User investisseur = inv.getInvestisseur();
+        // 1. TRANSFERT DE FONDS (Débloque chez l'utilisateur -> Crédite le projet)
+        Wallet walletUser = walletRepository.findByUserIdWithPessimisticLock(investisseur.getId())
+                .orElseThrow(() -> new IllegalStateException("Wallet investisseur non trouvé"));
 
-            // CORRECTION 1 : inv.getMontantInvesti() est déjà un BigDecimal.
-            // Ne pas utiliser BigDecimal.valueOf() dessus.
-            BigDecimal montant = inv.getMontantInvesti();
+        Wallet walletProjet = walletRepository
+                .findByProjetIdAndWalletTypeWithLock(projet.getId(), WalletType.PROJET)
+                .orElseGet(() -> {
+                        // ... (votre logique de création du wallet projet) ...
+                        Wallet w = Wallet.builder()
+                                .walletType(WalletType.PROJET)
+                                .projetId(projet.getId())
+                                .user(null)
+                                .soldeDisponible(BigDecimal.ZERO)
+                                .soldeBloque(BigDecimal.ZERO)
+                                .soldeRetirable(BigDecimal.ZERO)
+                                .build();
+                        return walletRepository.save(w);
+                });
 
-            // WALLET UTILISATEUR
-            Wallet walletUser = walletRepository.findByUserIdWithPessimisticLock(investisseur.getId())
-                            .orElseThrow(() -> new IllegalStateException("Wallet investisseur non trouvé"));
+        walletUser.validerInvestissement(montant); 
+        walletProjet.crediterDisponible(montant);
 
-            // WALLET PROJET
-            Wallet walletProjet = walletRepository
-                            .findByProjetIdAndWalletTypeWithLock(projet.getId(), WalletType.PROJET)
-                            .orElseGet(() -> {
-                                    Wallet w = Wallet.builder()
-                                                    .walletType(WalletType.PROJET)
-                                                    .projetId(projet.getId())
-                                                    .user(null)
-                                                    .soldeDisponible(BigDecimal.ZERO)
-                                                    .soldeBloque(BigDecimal.ZERO)
-                                                    .soldeRetirable(BigDecimal.ZERO)
-                                                    .build();
-                                    return walletRepository.save(w);
-                            });
+        // 2. MISE À JOUR DE LA TRANSACTION ASSOCIÉE (Statut: SUCCESS)
+        Transaction tx = transactionRepository.findByReferenceTypeAndReferenceId("INVESTISSEMENT", id)
+                .orElseThrow(() -> new IllegalStateException("Transaction d'investissement associée introuvable."));
+        
+        tx.markAsSuccess(); 
+        transactionRepository.save(tx);
 
-            // TRANSFERT D'ARGENT
-            walletUser.validerInvestissement(montant);
-            walletProjet.crediterDisponible(montant);
+        // 3. MISE À JOUR DU PROJET
+        projet.setPartsPrises(projet.getPartsPrises() + inv.getNombrePartsPris());
+        projet.setMontantCollecte(projet.getMontantCollecte().add(montant));
+        projetRepository.save(projet);
 
-            // MISE À JOUR DU PROJET
-            projet.setPartsPrises(projet.getPartsPrises() + inv.getNombrePartsPris());
+        // 4. MISE À JOUR DE L'INVESTISSEMENT
+        inv.setStatutPartInvestissement(StatutPartInvestissement.VALIDE);
+        walletRepository.save(walletUser);
+        walletRepository.save(walletProjet);
+        return repository.save(inv);
+        }
 
-            // CORRECTION 2 : L'opérateur + ne fonctionne pas. Utilisez .add()
-            // projet.getMontantCollecte() + inv.getMontantInvesti() devient :
-            projet.setMontantCollecte(projet.getMontantCollecte().add(montant));
+        // =====================================================================
+        // MÉTHODE 3 : refuserInvestissement (Met la transaction à FAILED)
+        // =====================================================================
+        @Transactional
+        public Investissement refuserInvestissement(Long id) {
+                Investissement inv = repository.findByIdWithLock(id)
+                                .orElseThrow(() -> new EntityNotFoundException("Investissement non trouvé"));
 
-            projetRepository.save(projet);
+                if (inv.getStatutPartInvestissement() != StatutPartInvestissement.EN_ATTENTE) {
+                        throw new IllegalStateException("Impossible de refuser un investissement déjà traité");
+                }
 
-            inv.setStatutPartInvestissement(StatutPartInvestissement.VALIDE);
+                BigDecimal montant = inv.getMontantInvesti();
+                Wallet walletUser = walletRepository.findByUserIdWithPessimisticLock(inv.getInvestisseur().getId())
+                                .orElseThrow(() -> new IllegalStateException("Wallet non trouvé"));
 
-            walletRepository.save(walletUser);
-            walletRepository.save(walletProjet);
-            return repository.save(inv);
-    }
+                // 1. REMBOURSEMENT/DÉBLOCAGE : Libère les fonds bloqués et les remet en
+                // Disponible
+                walletUser.debloquerFonds(montant);
+                walletRepository.save(walletUser);
 
+                // 2. MISE À JOUR DE LA TRANSACTION ASSOCIÉE (Statut: FAILED)
+                Transaction tx = transactionRepository.findByReferenceTypeAndReferenceId("INVESTISSEMENT", id)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Transaction d'investissement associée introuvable."));
 
+                tx.markAsFailed();
+                transactionRepository.save(tx);
 
-    @Transactional
-    public Investissement refuserInvestissement(Long id) {
-            Investissement inv = repository.findByIdWithLock(id)
-                            .orElseThrow(() -> new EntityNotFoundException("Investissement non trouvé"));
+                // 3. MISE À JOUR DU PROJET (Remboursement logique de la collecte affichée)
+                Projet projet = inv.getProjet();
+                projet.setPartsPrises(projet.getPartsPrises() - inv.getNombrePartsPris());
+                if (projet.getMontantCollecte() != null) {
+                        projet.setMontantCollecte(projet.getMontantCollecte().subtract(montant));
+                }
+                projetRepository.save(projet);
 
-            if (inv.getStatutPartInvestissement() != StatutPartInvestissement.EN_ATTENTE) {
-                    throw new IllegalStateException("Impossible de refuser un investissement déjà traité");
-            }
+                // 4. MISE À JOUR DE L'INVESTISSEMENT
+                inv.setStatutPartInvestissement(StatutPartInvestissement.ANNULE);
+                return repository.save(inv);
+        }
 
-            // CORRECTION : montantInvesti est déjà un BigDecimal
-            BigDecimal montant = inv.getMontantInvesti();
-
-            Wallet walletUser = walletRepository.findByUserIdWithPessimisticLock(inv.getInvestisseur().getId())
-                            .orElseThrow(() -> new IllegalStateException("Wallet non trouvé"));
-
-            // Libère les fonds bloqués dans le wallet de l'investisseur
-            walletUser.debloquerFonds(montant);
-
-            // Mise à jour du projet (soustraire les parts et le montant)
-            Projet projet = inv.getProjet();
-            projet.setPartsPrises(projet.getPartsPrises() - inv.getNombrePartsPris());
-
-            // CORRECTION : Soustraction de BigDecimals
-            if (projet.getMontantCollecte() != null) {
-                    projet.setMontantCollecte(projet.getMontantCollecte().subtract(montant));
-            }
-
-            inv.setStatutPartInvestissement(StatutPartInvestissement.ANNULE);
-
-            // Sauvegardes
-            projetRepository.save(projet);
-            walletRepository.save(walletUser);
-            return repository.save(inv);
-    }
 
 
 

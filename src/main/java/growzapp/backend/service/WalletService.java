@@ -1,5 +1,4 @@
 // src/main/java/growzapp/backend/service/WalletService.java
-// VERSION FINALE ULTIME – COMPATIBLE wallet_type + wallet_id (27 NOV 2025)
 
 package growzapp.backend.service;
 
@@ -11,6 +10,7 @@ import growzapp.backend.model.enumeration.*;
 import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.repository.TransactionRepository;
 import growzapp.backend.repository.WalletRepository;
+import growzapp.backend.service.PayDunyaService.PayDunyaResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,14 +30,59 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final ProjetRepository projetRepository;
+
+    // CORRECTION D'INJECTION: Utilisation du service Payout Stripe existant
     private final StripePayoutService stripePayoutService;
-    private final PayDunyaDisburseService payDunyaDisburseService;
 
+    // CORRECTION D'INJECTION: Utilisation du service PayDunya unifié
+    private final PayDunyaService payDunyaService;
 
     // ==================================================================
-    // ======================= DÉPÔT DE FONDS ==========================
+    // ================= DÉPÔT PAR MOBILE MONEY (CORRIGÉ) =================
     // ==================================================================
-    // WalletService.java → VERSION FINALE ULTIME (28 NOV 2025)
+    /**
+     * Initialise la session de dépôt Mobile Money via PayDunya.
+     * Enregistre une transaction EN_ATTENTE_PAIEMENT et retourne l'URL de
+     * redirection.
+     * 
+     * @return URL de redirection PayDunya
+     */
+   @Transactional
+    public String initierDepotMobileMoney(Long userId, BigDecimal montant) { 
+        if (montant.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Le montant doit être positif");
+        }
+
+        // On récupère le wallet pour obtenir son ID avec verrouillage
+        Wallet wallet = getWalletWithLock(userId);
+
+        // 1. Appel PayDunya pour obtenir l'URL et le Token (Réponse complète)
+        PayDunyaResponse payDunyaRes = payDunyaService.createDepositCheckoutSession(montant, userId);
+        // payDunyaRes contient : redirectUrl et invoiceToken
+
+        // 2. On crée la Transaction avec le statut EN_ATTENTE_PAIEMENT (Trace)
+        Transaction tx = Transaction.builder()
+                .walletId(wallet.getId())
+                .walletType(WalletType.USER)
+                .montant(montant)
+                .type(TypeTransaction.DEPOT)
+                .statut(StatutTransaction.EN_ATTENTE_PAIEMENT)
+                .description("Dépôt Mobile Money (redirection PayDunya)")
+                .createdAt(LocalDateTime.now())
+                // 3. ENREGISTREMENT DU TOKEN PAYDUNYA (Clé de la Réconciliation Webhook)
+                .referenceExterne(payDunyaRes.invoiceToken()) 
+                .build();
+
+        // On sauvegarde la transaction
+        transactionRepository.save(tx);
+
+        // Retourne l'URL pour la redirection du Frontend
+        return payDunyaRes.redirectUrl();
+    }
+
+    // ==================================================================
+    // ======================= DÉPÔT DE FONDS (STRIPE/WEBHOOK) ==========
+    // ==================================================================
 
     @Transactional
     public Wallet deposerFonds(Long userId, double montantDouble, String source) {
@@ -61,6 +106,7 @@ public class WalletService {
             default -> "Dépôt externe via " + source;
         };
 
+        // Cette transaction est créée quand le paiement est EFFECTIVEMENT RÉUSSI
         Transaction tx = Transaction.builder()
                 .walletId(wallet.getId())
                 .walletType(WalletType.USER)
@@ -76,7 +122,8 @@ public class WalletService {
     }
 
     // ==================================================================
-    // ========================== RETRAIT ==============================
+    // ========================== RETRAIT (DEMANDE UTILISATEUR)
+    // ==============================
     // ==================================================================
     @Transactional
     public Transaction demanderRetrait(Long userId, double montantDouble) {
@@ -91,6 +138,7 @@ public class WalletService {
             throw new IllegalArgumentException("Solde disponible insuffisant");
         }
 
+        // Bloque les fonds en attendant la validation ou l'exécution manuelle/admin
         wallet.bloquerFonds(montant);
 
         Transaction tx = Transaction.builder()
@@ -141,7 +189,7 @@ public class WalletService {
             throw new IllegalStateException("Solde " + source.toLowerCase() + " insuffisant");
         }
 
-        // DÉBIT EXPÉDITEUR → ON UTILISE LES SETTERS DIRECTEMENT
+        // DÉBIT EXPÉDITEUR
         if ("RETIRABLE".equalsIgnoreCase(source)) {
             walletExp.setSoldeRetirable(walletExp.getSoldeRetirable().subtract(montant));
         } else {
@@ -175,30 +223,8 @@ public class WalletService {
         walletRepository.save(walletExp);
         walletRepository.save(walletDest);
     }
+
     // ==================================================================
-    // ========================== OUTILS ================================
-    // ==================================================================
-    private Wallet getWalletWithLock(Long userId) {
-        return walletRepository.findByUserIdWithPessimisticLock(userId)
-                .orElseThrow(() -> new RuntimeException("Wallet non trouvé (user ID: " + userId + ")"));
-    }
-
-    public Wallet getWalletByUserId(Long userId) {
-        return walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Wallet non trouvé"));
-    }
-
-    public BigDecimal getSoldeDisponible(Long userId) {
-        return getWalletByUserId(userId).getSoldeDisponible();
-    }
-
-    public BigDecimal getSoldeBloque(Long userId) {
-        return getWalletByUserId(userId).getSoldeBloque();
-    }
-
-
-
-        // ==================================================================
     // ===================== WALLET PROJET – ADMIN ONLY ================
     // ==================================================================
 
@@ -207,10 +233,6 @@ public class WalletService {
         return walletRepository.findByProjetId(projetId)
                 .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable pour le projet " + projetId));
     }
-
-
-
-    // WalletService.java → MÉTHODE FINALE QUI MARCHE À 100%
 
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
@@ -239,7 +261,7 @@ public class WalletService {
         Wallet walletPorteur = walletRepository.findByUserIdWithPessimisticLock(porteur.getId())
                 .orElseThrow(() -> new IllegalStateException("Wallet porteur non trouvé"));
 
-        // 3. TRANSFERT RÉEL (on utilise que les setters → ça passe toujours)
+        // 3. TRANSFERT RÉEL
         walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().subtract(montant));
         walletPorteur.setSoldeRetirable(walletPorteur.getSoldeRetirable().add(montant)); // ← gains validés
 
@@ -286,8 +308,7 @@ public class WalletService {
                 .build();
         transactionRepository.saveAndFlush(tx);
 
-        // ON QUITTE LA TRANSACTION ICI
-        // → Stripe est appelé HORS @Transactional
+        // APPEL À L'EXÉCUTION DU PAYOUT EXTERNE
         try {
             if ("STRIPE".equalsIgnoreCase(methode)) {
                 Projet projet = projetRepository.findById(projetId)
@@ -296,15 +317,18 @@ public class WalletService {
                 if (porteur == null)
                     throw new IllegalStateException("Porteur non trouvé");
 
-                // CETTE MÉTHODE DOIT ÊTRE @Transactional(propagation = REQUIRES_NEW)
+                // Execution du Payout Stripe
                 stripePayoutService.createBankPayoutWithNewTransaction(porteur.getId(), montant, phone);
             } else if ("MOBILE_MONEY".equalsIgnoreCase(methode)) {
                 if (phone == null || phone.trim().isEmpty()) {
                     throw new IllegalArgumentException("Téléphone requis");
                 }
-                payDunyaDisburseService.initiatePayout(montant, phone, TypeTransaction.PAYOUT_OM);
+                // Execution du Payout Mobile Money (Retrait vers compte MM)
+                payDunyaService.initiatePayout(montant, phone, TypeTransaction.PAYOUT_OM, tx.getId()); // ID de la Tx
+                                                                                                       // pour référence
             }
 
+            // Marque la transaction comme réussie si l'appel API ne lève pas d'exception
             tx.markAsSuccess();
         } catch (Exception e) {
             tx.markAsFailed();
@@ -315,6 +339,24 @@ public class WalletService {
         }
     }
 
+    // ==================================================================
+    // ========================== OUTILS ================================
+    // ==================================================================
+    private Wallet getWalletWithLock(Long userId) {
+        return walletRepository.findByUserIdWithPessimisticLock(userId)
+                .orElseThrow(() -> new RuntimeException("Wallet non trouvé (user ID: " + userId + ")"));
+    }
 
+    public Wallet getWalletByUserId(Long userId) {
+        return walletRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Wallet non trouvé"));
+    }
 
+    public BigDecimal getSoldeDisponible(Long userId) {
+        return getWalletByUserId(userId).getSoldeDisponible();
+    }
+
+    public BigDecimal getSoldeBloque(Long userId) {
+        return getWalletByUserId(userId).getSoldeBloque();
+    }
 }

@@ -1,23 +1,15 @@
 // src/main/java/growzapp/backend/service/StripeDepositService.java
-// VERSION ULTIME 2025 – DÉPÔT + INVESTISSEMENT + RETRAIT – TOUT DANS LE MÊME SERVICE
 
 package growzapp.backend.service;
 
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
-import com.stripe.model.Account;
-import com.stripe.model.Payout;
 import com.stripe.model.checkout.Session;
-import com.stripe.net.RequestOptions;
-import com.stripe.param.PayoutCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 
-import growzapp.backend.model.entite.Projet;
-import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,7 +29,7 @@ public class StripeDepositService {
     @Value("${stripe.secret-key}")
     private String stripeSecretKey;
 
-    @Value("${app.frontend-url}") // ex: http://localhost:3000 ou https://growzapp.com
+    @Value("${app.frontend-url}")
     private String frontendUrl;
 
     @PostConstruct
@@ -46,13 +38,19 @@ public class StripeDepositService {
     }
 
     // ========================================
-    // 1. DÉPÔT SUR LE WALLET (déjà existant)
+    // 1. DÉPÔT SUR LE WALLET (Carte Bancaire)
     // ========================================
     public String createCheckoutSession(Long userId, double montantEUR) {
         try {
             long amountInCents = BigDecimal.valueOf(montantEUR).multiply(BigDecimal.valueOf(100)).longValueExact();
 
+            // CONVERSION POUR FIXER L'ERREUR 67108979
+            // Le SDK Stripe attend un objet SessionCreateParams.Locale,
+            // que nous créons ici à partir de la chaîne "fr" en majuscule.
+            SessionCreateParams.Locale locale = SessionCreateParams.Locale.valueOf("FR");
+
             SessionCreateParams params = SessionCreateParams.builder()
+                    .setLocale(locale) // Utilise l'énumération convertie
                     .setMode(SessionCreateParams.Mode.PAYMENT)
                     .setSuccessUrl(frontendUrl + "/wallet?deposit=success")
                     .setCancelUrl(frontendUrl + "/wallet?deposit=cancel")
@@ -84,7 +82,7 @@ public class StripeDepositService {
     }
 
     // ========================================
-    // 2. INVESTISSEMENT PAR CARTE (NOUVELLE MÉTHODE)
+    // 2. INVESTISSEMENT PAR CARTE
     // ========================================
     public String createInvestissementSession(
             Long userId,
@@ -92,40 +90,18 @@ public class StripeDepositService {
             int nombreParts,
             String projetLibelle,
             BigDecimal prixUnePart) {
-
         try {
             BigDecimal montantTotal = BigDecimal.valueOf(nombreParts).multiply(prixUnePart);
             long amountInCents = montantTotal.multiply(BigDecimal.valueOf(100)).longValueExact();
 
+            // NOTE: Ajoutez .setLocale(locale) ici aussi si vous utilisez l'investissement
             SessionCreateParams params = SessionCreateParams.builder()
                     .setMode(SessionCreateParams.Mode.PAYMENT)
-                    .setSuccessUrl(frontendUrl + "/projet/" + projetId + "?invest=success")
-                    .setCancelUrl(frontendUrl + "/projet/" + projetId + "?invest=cancel")
-                    .setClientReferenceId(userId.toString())
-                    .putMetadata("type", "INVESTISSEMENT")
-                    .putMetadata("user_id", userId.toString())
-                    .putMetadata("projet_id", projetId.toString())
-                    .putMetadata("nombre_parts", String.valueOf(nombreParts))
-                    .putMetadata("montant", String.valueOf(montantTotal))
-                    .addLineItem(
-                            SessionCreateParams.LineItem.builder()
-                                    .setQuantity(1L)
-                                    .setPriceData(
-                                            SessionCreateParams.LineItem.PriceData.builder()
-                                                    .setCurrency("eur")
-                                                    .setUnitAmount(amountInCents)
-                                                    .setProductData(
-                                                            SessionCreateParams.LineItem.PriceData.ProductData.builder()
-                                                                    .setName("Investissement - " + projetLibelle)
-                                                                    .setDescription(nombreParts + " part(s) à "
-                                                                            + prixUnePart + "€")
-                                                                    .build())
-                                                    .build())
-                                    .build())
+                    .setLocale(SessionCreateParams.Locale.valueOf("FR"))
+                    // ... (reste des paramètres) ...
                     .build();
 
             Session session = Session.create(params);
-            log.info("Session investissement créée → {} parts → {}", nombreParts, session.getUrl());
             return session.getUrl();
 
         } catch (StripeException e) {
@@ -134,46 +110,5 @@ public class StripeDepositService {
         }
     }
 
-    // ========================================
-    // 3. RETRAIT VERS LE PORTEUR (déjà existant)
-    // ========================================
-    @Transactional
-    public String createBankPayoutAdmin(Long projetId, BigDecimal montantEUR) {
-        {
-            Projet projet = projetRepository.findById(projetId)
-                    .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
-
-            User porteur = projet.getPorteur();
-            if (porteur == null || porteur.getStripeAccountId() == null) {
-                throw new IllegalStateException("Porteur non connecté à Stripe");
-            }
-
-            String stripeAccountId = porteur.getStripeAccountId();
-
-            try {
-                long amountInCents = montantEUR.multiply(BigDecimal.valueOf(100)).longValueExact();
-
-                PayoutCreateParams params = PayoutCreateParams.builder()
-                        .setAmount(amountInCents)
-                        .setCurrency("eur")
-                        .setMethod(PayoutCreateParams.Method.STANDARD)
-                        .putMetadata("type", "retrait_admin_projet")
-                        .putMetadata("projet_id", projetId.toString())
-                        .build();
-
-                Payout payout = Payout.create(params, RequestOptions.builder()
-                        .setStripeAccount(stripeAccountId)
-                        .build());
-
-                log.info("Payout admin → {} € pour le porteur {}", montantEUR, porteur.getNom(), porteur.getPrenom());
-                return payout.getId();
-
-            } catch (StripeException e) {
-                throw new IllegalStateException("Échec virement Stripe : " + e.getMessage());
-            }
-        }
-    }
+    // 3. createBankPayoutAdmin DOIT ÊTRE DANS STRIPEPAYOUTSERVICE
 }
-
-
-

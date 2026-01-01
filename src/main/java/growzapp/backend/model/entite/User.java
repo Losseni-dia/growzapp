@@ -2,10 +2,13 @@
 
 package growzapp.backend.model.entite;
 
+import growzapp.backend.model.enumeration.KycStatus;
 import growzapp.backend.model.enumeration.Sexe;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -85,5 +88,26 @@ public class User {
 
    @Column(name = "interface_language", length = 5)
    private String interfaceLanguage = "fr";
+
+
+   // === CHAMPS KYC ===    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kyc_status", nullable = false, length = 20)
+    private KycStatus kycStatus = KycStatus.NON_SOUMIS;
+
+    @Column(name = "kyc_document_url")
+    private String kycDocumentUrl; // Stocke le chemin vers la photo de la CNI/Passeport
+
+    @Column(name = "date_naissance")
+    private LocalDate dateNaissance;
+
+    @Column(name = "adresse_residencielle")
+    private String adresseResidencielle;
+
+    @Column(name = "kyc_date_validation")
+    private LocalDateTime kycDateValidation;
+
+    @Column(name = "kyc_commentaire_rejet")
+    private String kycCommentaireRejet; // Pour expliquer pourquoi l'admin a rejeté
    
 }
