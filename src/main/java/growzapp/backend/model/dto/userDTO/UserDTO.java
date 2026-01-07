@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+// growzapp/backend/model/dto/userDTO/UserDTO.java
 
 @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 @Data
@@ -20,30 +21,27 @@ public class UserDTO {
     private Long id;
     private String image;
     private String login;
-
-    // Jamais renvoyé au front
     private String password;
-
     private String prenom;
     private String nom;
     private Sexe sexe;
     private String email;
     private String contact;
-
     private LocaliteDTO localite;
-
     private String interfaceLanguage;
-
     private List<String> roles = new ArrayList<>();
     private List<String> langues = new ArrayList<>();
-
     private List<InvestissementDTO> investissements = new ArrayList<>();
     private List<ProjetDTO> projets = new ArrayList<>();
+    private boolean enabled = true;
 
-    // CHAMP OBLIGATOIRE POUR LE FRONT (admin + sécurité)
-    private boolean enabled = true; // ← Maintenant bien présent et renvoyé
-
-    // Champs KYC
+    // === CHAMPS KYC AJOUTÉS ===
     private KycStatus kycStatus;
+    private String kycNumeroPiece;
+    private java.time.LocalDate kycDateDelivrance;
+    private java.time.LocalDate kycDateExpiration;
+    private String kycRectoUrl;
+    private String kycVersoUrl;
+    private String kycSelfieUrl;
     private String kycCommentaireRejet;
 }

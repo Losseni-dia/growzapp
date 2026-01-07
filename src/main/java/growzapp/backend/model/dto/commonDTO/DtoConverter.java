@@ -60,6 +60,16 @@ public class DtoConverter {
                 // On transmet la préférence de l'utilisateur au Frontend
                 dto.setInterfaceLanguage(user.getInterfaceLanguage());
 
+                // === MAPPING DES CHAMPS KYC (CRUCIAL) ===
+                dto.setKycStatus(user.getKycStatus());
+                dto.setKycNumeroPiece(user.getKycNumeroPiece());
+                dto.setKycDateDelivrance(user.getKycDateDelivrance());
+                dto.setKycDateExpiration(user.getKycDateExpiration());
+                dto.setKycRectoUrl(user.getKycRectoUrl());
+                dto.setKycVersoUrl(user.getKycVersoUrl());
+                dto.setKycSelfieUrl(user.getKycSelfieUrl());
+                dto.setKycCommentaireRejet(user.getKycCommentaireRejet());
+
                 // Localité + Pays
                 if (user.getLocalite() != null) {
                         Localite loc = user.getLocalite();
@@ -199,15 +209,22 @@ dto.setInvestissements(user.getInvestissements().stream()
         }
       
     // === Secteur ===
+    // === Secteur ===
     public SecteurDTO toSecteurDto(Secteur secteur) {
-        List<String> projetNoms = secteur.getProjets().stream()
-                .map(Projet::getLibelle)
-                .toList();
+            if (secteur == null)
+                    return null;
 
-        return new SecteurDTO(
-                secteur.getId(),
-                secteur.getNom(),
-                projetNoms);
+            // On récupère les libellés des projets pour l'affichage simple
+            List<String> projetNoms = secteur.getProjets() != null
+                            ? secteur.getProjets().stream()
+                                            .map(Projet::getLibelle)
+                                            .toList()
+                            : List.of();
+
+            return new SecteurDTO(
+                            secteur.getId(),
+                            secteur.getNom(),
+                            projetNoms);
     }
 
     public Secteur toSecteurEntity(SecteurDTO dto) {
@@ -238,29 +255,32 @@ dto.setInvestissements(user.getInvestissements().stream()
 
     // === Localite ===
     public LocaliteDTO toLocaliteDto(Localite localite) {
-        String paysNom = localite.getPays() != null ? localite.getPays().getNom() : null;
+            if (localite == null)
+                    return null;
+            String paysNom = localite.getPays() != null ? localite.getPays().getNom() : null;
 
-        List<LocaliteDTO.UserInfo> userInfos = localite.getUsers().stream()
-                .map(user -> new LocaliteDTO.UserInfo(
-                        user.getNom(),
-                        user.getPrenom(),
-                        user.getEmail()))
-                .toList();
+            List<LocaliteDTO.UserInfo> userInfos = localite.getUsers() != null
+                            ? localite.getUsers().stream()
+                                            .map(user -> new LocaliteDTO.UserInfo(user.getNom(), user.getPrenom(),
+                                                            user.getEmail()))
+                                            .toList()
+                            : List.of();
 
-        List<LocaliteDTO.SiteInfo> siteInfos = localite.getLocalisations().stream()
-                .map(loc -> new LocaliteDTO.SiteInfo(
-                        loc.getId(),
-                        loc.getNom(),
-                        loc.getContact()))
-                .toList();
+            // Pour la localité, on agrège tous les projets de TOUS les sites de cette ville
+            List<LocaliteDTO.SiteInfo> siteInfos = localite.getLocalisations() != null
+                            ? localite.getLocalisations().stream()
+                                            .map(loc -> new LocaliteDTO.SiteInfo(loc.getId(), loc.getNom(),
+                                                            loc.getContact()))
+                                            .toList()
+                            : List.of();
 
-        return new LocaliteDTO(
-                localite.getId(),
-                localite.getCodePostal(),
-                localite.getNom(),
-                paysNom,
-                userInfos,
-                siteInfos);
+            return new LocaliteDTO(
+                            localite.getId(),
+                            localite.getCodePostal(),
+                            localite.getNom(),
+                            paysNom,
+                            userInfos,
+                            siteInfos);
     }
 
     public Localite toLocaliteEntity(LocaliteDTO dto) {
@@ -271,14 +291,18 @@ dto.setInvestissements(user.getInvestissements().stream()
         return localite;
     }
 
-    // Dans DtoConverter.java
+    // === Localisation (Site Projet) ===
     public LocalisationDTO toLocalisationDto(Localisation localisation) {
+            if (localisation == null)
+                    return null;
+
             String localiteNom = localisation.getLocalite() != null ? localisation.getLocalite().getNom() : null;
             Long localiteId = localisation.getLocalite() != null ? localisation.getLocalite().getId() : null;
-            String paysNom = localisation.getLocalite() != null && localisation.getLocalite().getPays() != null
+            String paysNom = (localisation.getLocalite() != null && localisation.getLocalite().getPays() != null)
                             ? localisation.getLocalite().getPays().getNom()
                             : null;
 
+            // On récupère les libellés des projets spécifiquement liés à ce site physique
             List<String> projetNoms = localisation.getProjets() != null
                             ? localisation.getProjets().stream()
                                             .map(Projet::getLibelle)
@@ -294,9 +318,10 @@ dto.setInvestissements(user.getInvestissements().stream()
                             localisation.getCreatedAt(),
                             localiteNom,
                             localiteId,
-                            paysNom, // AJOUTÉ
+                            paysNom,
                             projetNoms);
     }
+
 
     public Localisation toLocalisationEntity(LocalisationDTO dto) {
             Localisation localisation = new Localisation();

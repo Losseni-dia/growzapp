@@ -11,8 +11,8 @@ import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.entite.Transaction;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.model.entite.Wallet;
+import growzapp.backend.model.enumeration.KycStatus;
 import growzapp.backend.model.enumeration.StatutPartInvestissement;
-import growzapp.backend.model.enumeration.StatutProjet;
 import growzapp.backend.model.enumeration.StatutTransaction;
 import growzapp.backend.model.enumeration.TypeTransaction;
 import growzapp.backend.model.enumeration.WalletType;
@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -129,6 +130,12 @@ public class InvestissementService {
     // =====================================================================
     @Transactional
     public InvestissementDTO investir(Long projetId, int nombrePartsPris, User investisseur) {
+
+            // === AJOUT DE LA CONTRAINTE KYC ===
+            if (investisseur.getKycStatus() != KycStatus.VALIDE) {
+                    throw new IllegalStateException(
+                                    "Votre profil KYC doit être validé par un administrateur avant de pouvoir investir.");
+            }
 
             Projet projet = projetRepository.findByIdWithLock(projetId)
                             .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé"));
@@ -324,6 +331,47 @@ public class InvestissementService {
                             .toList();
     }
 
+
+
+    // === AJOUT POUR LES STATISTIQUES GLOBALES ===
+
+    public List<Map<String, Object>> getInvestmentEvolution() {
+            // 1. Récupérer et trier par date chronologique
+            List<Investissement> investissements = investissementRepository.findAll().stream()
+                            .filter(inv -> inv.getStatutPartInvestissement() == StatutPartInvestissement.VALIDE)
+                            .sorted(java.util.Comparator.comparing(Investissement::getDate))
+                            .toList();
+
+            // 2. Utilisation de LinkedHashMap pour conserver l'ordre des jours
+            java.util.Map<String, BigDecimal> statsMap = new java.util.LinkedHashMap<>();
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM");
+
+            BigDecimal cumulProgressif = BigDecimal.ZERO;
+
+            for (Investissement inv : investissements) {
+                    String jour = inv.getDate().format(formatter);
+                    BigDecimal montantDeLInvestissement = inv.getMontantInvesti() != null ? inv.getMontantInvesti()
+                                    : BigDecimal.ZERO;
+
+                    // On ajoute le montant de cet investissement au total cumulé
+                    cumulProgressif = cumulProgressif.add(montantDeLInvestissement);
+
+                    // On met à jour (ou écrase) la valeur du jour avec le nouveau cumul
+                    // Si plusieurs investissements le même jour, le dernier passera avec le cumul
+                    // le plus récent
+                    statsMap.put(jour, cumulProgressif);
+            }
+
+            // 3. Conversion pour le Frontend
+            return statsMap.entrySet().stream()
+                            .map(entry -> {
+                                    Map<String, Object> dataPoint = new java.util.HashMap<>();
+                                    dataPoint.put("date", entry.getKey());
+                                    dataPoint.put("montant", entry.getValue());
+                                    return dataPoint;
+                            })
+                            .toList();
+    }
 
 
    

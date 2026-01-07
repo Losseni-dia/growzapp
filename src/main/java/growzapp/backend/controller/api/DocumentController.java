@@ -62,39 +62,27 @@ public class DocumentController {
     }
 
     // LISTE DES DOCUMENTS D'UN PROJET
-    // LISTE DES DOCUMENTS D'UN PROJET
     @GetMapping("/projet/{projetId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseDTO<List<DocumentDTO>>> getDocumentsByProjet(
-                    @PathVariable Long projetId,
-                    Authentication auth) {
+            @PathVariable Long projetId,
+            Authentication auth) {
 
-            // ON UTILISE LA MÉTHODE QUI CHARGE LES ROLES (même si on n’en a pas besoin ici,
-            // ça évite toute LazyException si jamais tu ajoutes un log ou autre chose plus
-            // tard)
-            User user = userRepository.findByLoginForAuth(auth.getName())
-                            .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        User user = userRepository.findByLoginForAuth(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-            Projet projet = projetRepository.findById(projetId)
-                            .orElseThrow(() -> new RuntimeException("Projet non trouvé"));
+        // Utilisation d'une méthode centralisée pour éviter la répétition
+        if (!hasAccessToProject(user, projetId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponseDTO
+                            .error("Seuls les investisseurs, le porteur ou l'admin peuvent consulter ces documents."));
+        }
 
-            boolean hasAccess = user.getRoles().stream()
-                            .anyMatch(r -> "ADMIN".equals(r.getRole())) // ← plus propre : tu stockes "ADMIN", pas
-                                                                        // "ROLE_ADMIN" dans la BDD
-                            || projet.getPorteur().getId().equals(user.getId())
-                            || investissementRepository.existsByInvestisseurIdAndProjetId(user.getId(), projetId);
+        List<DocumentDTO> docs = documentRepository.findByProjetId(projetId).stream()
+                .map(d -> new DocumentDTO(d.getId(), d.getNom(), d.getUrl(), d.getType(), d.getUploadedAt()))
+                .toList();
 
-            if (!hasAccess) {
-                    return ResponseEntity.status(403)
-                                    .body(ApiResponseDTO.error("Accès refusé aux documents de ce projet"));
-            }
-
-            List<DocumentDTO> docs = documentRepository.findByProjetId(projetId).stream()
-                            .map(d -> new DocumentDTO(d.getId(), d.getNom(), d.getUrl(), d.getType(),
-                                            d.getUploadedAt()))
-                            .toList();
-
-            return ResponseEntity.ok(ApiResponseDTO.success(docs));
+        return ResponseEntity.ok(ApiResponseDTO.success(docs));
     }
 
     // TÉLÉCHARGEMENT — MAINTENANT 100 % FIABLE
@@ -141,12 +129,21 @@ public class DocumentController {
         };
     }
 
+
+    // Méthode de vérification centralisée
     private boolean hasAccessToProject(User user, Long projetId) {
-        if (user.getRoles().stream().anyMatch(r -> "ROLE_ADMIN".equals(r.getRole())))
+        // 1. Admin (vérifie les deux formats possibles selon ta BDD)
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(r -> r.getRole().replace("ROLE_", "").equals("ADMIN"));
+        if (isAdmin)
             return true;
-        return projetRepository.findById(projetId)
-                .map(p -> p.getPorteur().getId().equals(user.getId()))
-                .orElse(false) ||
-                investissementRepository.existsByInvestisseurIdAndProjetId(user.getId(), projetId);
+
+        // 2. Porteur du projet
+        Projet projet = projetRepository.findById(projetId).orElse(null);
+        if (projet != null && projet.getPorteur().getId().equals(user.getId()))
+            return true;
+
+        // 3. Investisseur (Vérifie si un investissement VALIDÉ ou EN_ATTENTE existe)
+        return investissementRepository.existsByInvestisseurIdAndProjetId(user.getId(), projetId);
     }
 }

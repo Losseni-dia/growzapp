@@ -90,24 +90,42 @@ public class User {
    private String interfaceLanguage = "fr";
 
 
-   // === CHAMPS KYC ===    
-    @Enumerated(EnumType.STRING)
-    @Column(name = "kyc_status", nullable = false, length = 20)
-    private KycStatus kycStatus = KycStatus.NON_SOUMIS;
+   // === NOUVEAUX CHAMPS KYC AJOUTÉS ===
 
-    @Column(name = "kyc_document_url")
-    private String kycDocumentUrl; // Stocke le chemin vers la photo de la CNI/Passeport
+   @Column(name = "kyc_numero_piece", length = 50)
+   private String kycNumeroPiece;
 
-    @Column(name = "date_naissance")
-    private LocalDate dateNaissance;
+   @Column(name = "kyc_date_delivrance")
+   private LocalDate kycDateDelivrance;
 
-    @Column(name = "adresse_residencielle")
-    private String adresseResidencielle;
+   @Column(name = "kyc_date_expiration")
+   private LocalDate kycDateExpiration;
 
-    @Column(name = "kyc_date_validation")
-    private LocalDateTime kycDateValidation;
+   // On remplace kycDocumentUrl par des champs spécifiques ou on les ajoute
+   @Column(name = "kyc_recto_url")
+   private String kycRectoUrl;
 
-    @Column(name = "kyc_commentaire_rejet")
-    private String kycCommentaireRejet; // Pour expliquer pourquoi l'admin a rejeté
+   @Column(name = "kyc_verso_url")
+   private String kycVersoUrl;
+
+   @Column(name = "kyc_selfie_url")
+   private String kycSelfieUrl;
+
+   // === VOS CHAMPS EXISTANTS ===
+   @Enumerated(EnumType.STRING)
+   @Column(name = "kyc_status", nullable = false, length = 20)
+   private KycStatus kycStatus = KycStatus.NON_SOUMIS;
+
+   @Column(name = "date_naissance")
+   private LocalDate dateNaissance;
+
+   @Column(name = "adresse_residencielle")
+   private String adresseResidencielle;
+
+   @Column(name = "kyc_date_validation")
+   private LocalDateTime kycDateValidation;
+
+   @Column(name = "kyc_commentaire_rejet")
+   private String kycCommentaireRejet;
    
 }

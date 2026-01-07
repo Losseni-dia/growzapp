@@ -65,4 +65,10 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
       
 
   boolean existsByInvestisseurIdAndProjetId(Long investisseurId, Long projetId);
+
+
+  @Query("SELECT SUBSTRING(CAST(i.date AS string), 1, 7) as mois, SUM(i.montantInvesti) as total " +
+      "FROM Investissement i WHERE i.statutPartInvestissement = 'VALIDE' " +
+      "GROUP BY SUBSTRING(CAST(i.date AS string), 1, 7) ORDER BY mois ASC")
+  List<Object[]> getGlobalInvestmentEvolution();
 }

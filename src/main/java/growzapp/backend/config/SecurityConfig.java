@@ -51,6 +51,10 @@ public class SecurityConfig {
                                                 .requestMatchers("/files/documents/**").denyAll()
 
                                                 // CONTRATS PUBLICS
+                                                // MODIFICATION ICI : On autorise le POST pour la vérification sécurisée
+                                                .requestMatchers(HttpMethod.POST,"/api/contrats/public/verifier-securise").permitAll()
+
+                                                // Garder le reste du public
                                                 .requestMatchers("/api/contrats/public/verifier/**").permitAll()
                                                 .requestMatchers("/api/contrats/{numero}").permitAll()
                                                 .requestMatchers("/api/contrats/{numero}/download").permitAll()

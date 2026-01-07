@@ -1,5 +1,7 @@
 package growzapp.backend.controller.api;
 
+import growzapp.backend.model.dto.commonDTO.DtoConverter;
+import growzapp.backend.model.dto.userDTO.UserDTO;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.model.enumeration.KycStatus;
 import growzapp.backend.repository.UserRepository;
@@ -11,9 +13,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
@@ -28,45 +33,61 @@ public class KycController {
 
     private final KycStorageService kycStorageService;
     private final UserRepository userRepository;
+    private final DtoConverter converter;
+
+    /**
+     * Méthode utilitaire pour extraire l'ID de l'utilisateur à partir du login (username)
+     */
+    private Long getCurrentUserId(UserDetails userDetails) {
+        return userRepository.findByLoginForAuth(userDetails.getUsername())
+                .map(User::getId)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé avec le login : " + userDetails.getUsername()));
+    }
 
     /**
      * SOUMISSION DU KYC (Utilisateur connecté)
-     * Contrainte : Un utilisateur ne peut soumettre que pour son propre ID
+     * Utilise @AuthenticationPrincipal pour identifier l'utilisateur via le token JWT
      */
-    @PostMapping("/soumettre")
-    @PreAuthorize("#userId == authentication.principal.id")
+    @PostMapping(value = "/soumettre", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> soumettreKyc(
-            @RequestParam("file") MultipartFile file,
+            @RequestParam("fileRecto") MultipartFile fileRecto,
+            @RequestParam(value = "fileVerso", required = false) MultipartFile fileVerso,
+            @RequestParam("fileSelfie") MultipartFile fileSelfie,
             @RequestParam("dateNaissance") String dateNaissance,
             @RequestParam("adresse") String adresse,
-            @RequestParam("userId") Long userId) {
+            @RequestParam("numeroPiece") String numeroPiece,
+            @RequestParam("dateDelivrance") String dateDelivrance,
+            @RequestParam("dateExpiration") String dateExpiration,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        // 1. Validation de sécurité sur le fichier
-        if (file.isEmpty() || file.getSize() > 5 * 1024 * 1024) { // Max 5Mo
-            return ResponseEntity.badRequest().body("Fichier invalide ou trop volumineux (Max 5Mo)");
-        }
-
-        String contentType = file.getContentType();
-        if (contentType == null || (!contentType.equals("image/jpeg") && !contentType.equals("image/png")
-                && !contentType.equals("application/pdf"))) {
-            return ResponseEntity.badRequest().body("Format autorisé : JPG, PNG ou PDF uniquement");
-        }
-
+        // 1. Identification sécurisée de l'utilisateur
+        Long userId = getCurrentUserId(userDetails);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-        // 2. Sauvegarde sécurisée
-        String fileName = kycStorageService.save(file);
+        // 2. Sauvegarde des images et mise à jour des URLs
+        user.setKycRectoUrl(kycStorageService.save(fileRecto));
+        
+        if (fileVerso != null && !fileVerso.isEmpty()) {
+            user.setKycVersoUrl(kycStorageService.save(fileVerso));
+        }
+        
+        user.setKycSelfieUrl(kycStorageService.save(fileSelfie));
 
-        // 3. Mise à jour de l'entité
-        user.setKycDocumentUrl(fileName);
-        user.setAdresseResidencielle(adresse);
+        // 3. Mise à jour des informations d'identité
+        user.setKycNumeroPiece(numeroPiece);
+        user.setKycDateDelivrance(LocalDate.parse(dateDelivrance));
+        user.setKycDateExpiration(LocalDate.parse(dateExpiration));
         user.setDateNaissance(LocalDate.parse(dateNaissance));
+        user.setAdresseResidencielle(adresse);
+        
+        // Passage du statut en attente
         user.setKycStatus(KycStatus.EN_ATTENTE);
 
         userRepository.save(user);
 
-        return ResponseEntity.ok(Map.of("message", "Document KYC soumis. En attente de validation."));
+        return ResponseEntity.ok(Map.of("message", "Votre dossier KYC a été soumis avec succès et est en cours de révision."));
     }
 
     /**
@@ -74,30 +95,56 @@ public class KycController {
      */
     @GetMapping("/admin/en-attente")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<User>> getDemandesEnAttente() {
-        return ResponseEntity.ok(userRepository.findByKycStatus(KycStatus.EN_ATTENTE));
+    public ResponseEntity<List<UserDTO>> getDemandesEnAttente() {
+        List<User> users = userRepository.findByKycStatus(KycStatus.EN_ATTENTE);
+        
+        // On transforme la liste d'entités en liste de DTO pour couper les boucles infinies
+        List<UserDTO> dtos = users.stream()
+                .map(converter::toUserDto)
+                .toList();
+                
+        return ResponseEntity.ok(dtos);
     }
 
     /**
      * VISIONNEUSE DE DOCUMENT (Admin uniquement)
      * Sert le fichier depuis le stockage privé
      */
-    @GetMapping("/admin/document/{userId}")
+    @GetMapping("/admin/document/{userId}/{type}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Resource> getKycDocument(@PathVariable Long userId) {
+    public ResponseEntity<Resource> getKycDocument(@PathVariable Long userId, @PathVariable String type) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
+        String fileName = switch (type.toLowerCase()) {
+            case "recto" -> user.getKycRectoUrl();
+            case "verso" -> user.getKycVersoUrl();
+            case "selfie" -> user.getKycSelfieUrl();
+            default -> null;
+        };
+
+        if (fileName == null)
+            return ResponseEntity.notFound().build();
+
         try {
-            Path filePath = Paths.get("uploads/kyc-documents").resolve(user.getKycDocumentUrl());
+            // CONSTRUCTION DU CHEMIN ABSOLU SÉCURISÉE
+            Path rootPath = Paths.get("uploads", "private", "kyc-documents").toAbsolutePath().normalize();
+            Path filePath = rootPath.resolve(fileName).normalize();
+
             Resource resource = new UrlResource(filePath.toUri());
 
-            if (resource.exists() || resource.isReadable()) {
+            if (resource.exists() && resource.isReadable()) {
+                // Détection du type de fichier
+                String contentType = Files.probeContentType(filePath);
+                if (contentType == null)
+                    contentType = "image/jpeg";
+
                 return ResponseEntity.ok()
-                        .contentType(MediaType.IMAGE_JPEG) // Ou dynamique selon l'extension
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
                         .body(resource);
             } else {
+                System.err.println("Fichier introuvable au chemin : " + filePath.toString());
                 return ResponseEntity.notFound().build();
             }
         } catch (Exception e) {

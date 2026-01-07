@@ -3,6 +3,8 @@ package growzapp.backend.model.entite;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -30,6 +32,7 @@ public class Localite {
     private String nom;
 
     @ManyToOne
+    @JsonIgnoreProperties("localites")
     @JoinColumn(name = "pays_id")
     private Pays pays;
 

@@ -3,6 +3,8 @@ package growzapp.backend.model.entite;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -27,5 +29,6 @@ public class Pays {
     private String nom;
 
     @OneToMany(mappedBy = "pays", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Localite> localites = new ArrayList<>();
 }

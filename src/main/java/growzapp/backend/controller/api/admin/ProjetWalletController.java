@@ -5,7 +5,6 @@
 package growzapp.backend.controller.api.admin;
 
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
-import growzapp.backend.model.dto.dividendeDTO.DividendeDTO;
 import growzapp.backend.model.dto.dividendeDTO.DividendeHistoriqueAdminDTO;
 import growzapp.backend.model.dto.dividendeDTO.PayerDividendeGlobalRequest;
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
@@ -17,6 +16,7 @@ import growzapp.backend.model.entite.Wallet;
 import growzapp.backend.model.enumeration.StatutTransaction;
 import growzapp.backend.model.enumeration.TypeTransaction;
 import growzapp.backend.model.enumeration.WalletType;
+import growzapp.backend.repository.InvestissementRepository;
 import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.repository.TransactionRepository;
 import growzapp.backend.repository.WalletRepository;
@@ -51,6 +51,7 @@ public class ProjetWalletController {
     private final DividendeService dividendeService;
     private final TransactionRepository transactionRepository;
     private final InvestissementService investissementService;
+    private final InvestissementRepository investissementRepository;
     private final WalletService walletService;
 
     // 1. Trésorerie réelle (argent vraiment séquestré dans les wallets PROJET)
@@ -314,6 +315,10 @@ public class ProjetWalletController {
 
               return ResponseEntity.ok(report);
       }
+
+
+
+     
 
 
 }

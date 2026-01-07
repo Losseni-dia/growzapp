@@ -31,7 +31,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
@@ -97,25 +99,30 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
     }
 }
 
-    // PROFIL DE L'UTILISATEUR CONNECTÉ
-    @GetMapping("/me")
-    @PreAuthorize("isAuthenticated()")
-    public ApiResponseDTO<UserDTO> getUserById(@PathVariable Long id) {
-        UserDTO userDTO = userService.getUserDtoById(id);
-        return ApiResponseDTO.success(userDTO);
-    }
+   // 1. RÉCUPÉRATION DU PROFIL (Corrigé)
+   @GetMapping("/me")
+   @PreAuthorize("isAuthenticated()")
+   public ApiResponseDTO<UserDTO> getMyProfile(@AuthenticationPrincipal UserDetails userDetails) {
+       // Appel de la méthode que nous venons d'ajouter
+       UserDTO userDTO = userService.getUserDtoByLogin(userDetails.getUsername());
+       return ApiResponseDTO.success(userDTO);
+   }
 
-    // MISE À JOUR DU PROFIL (seulement ses propres données)
+    // 2. MISE À JOUR DU PROFIL (Corrigé)
     @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("isAuthenticated")
+    @PreAuthorize("isAuthenticated()") // Ajout des parenthèses manquantes
     public ResponseEntity<ApiResponseDTO<UserDTO>> updateMyProfile(
             @RequestPart("user") String userJson,
-            @RequestPart(value = "image", required = false) MultipartFile image) {
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @AuthenticationPrincipal UserDetails userDetails) { // On injecte userDetails ici aussi
         try {
             ObjectMapper mapper = new ObjectMapper();
             UserUpdateDTO dto = mapper.readValue(userJson, UserUpdateDTO.class);
 
-            // On appelle le service en passant le fichier MultipartFile directement
+            // Optionnel : On force l'ID du DTO pour être sûr que l'user ne modifie que son propre profil
+            // Long currentUserId = userService.getIdByLogin(userDetails.getUsername());
+            // dto.setId(currentUserId);
+
             UserDTO updated = userService.updateMyProfile(dto, image);
 
             return ResponseEntity.ok(ApiResponseDTO.success(updated)

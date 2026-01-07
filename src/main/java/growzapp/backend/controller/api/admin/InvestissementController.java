@@ -1,4 +1,4 @@
-package growzapp.backend.controller.api;
+package growzapp.backend.controller.api.admin;
 
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
 import growzapp.backend.model.dto.commonDTO.DtoConverter;

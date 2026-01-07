@@ -484,5 +484,16 @@ private UserDTO toDto(User user) {
 }
 
 
+// === Récupérer le DTO d'un utilisateur par son login (utilisé par
+// AuthController) ===
+@Transactional(readOnly = true)
+public UserDTO getUserDtoByLogin(String login) {
+    User user = userRepository.findByLoginForAuth(login)
+            .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé avec le login : " + login));
+
+    return converter.toUserDto(user);
+}
+
+
 
 }
