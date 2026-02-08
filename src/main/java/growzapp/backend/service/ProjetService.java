@@ -220,7 +220,22 @@ public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
                 .orElseGet(() -> secteurRepository.save(new Secteur(node.get("secteurNom").asText())));
         projet.setSecteur(secteur);
     }
-    // ... autres champs
+    // MISE À JOUR GÉOLOCALISATION DU SITE
+    if (node.has("siteGps") && projet.getSiteProjet() != null) {
+        JsonNode gpsNode = node.get("siteGps");
+        Localisation site = projet.getSiteProjet();
+
+        if (gpsNode.has("latitude"))
+            site.setLatitude(new BigDecimal(gpsNode.get("latitude").asText()));
+        if (gpsNode.has("longitude"))
+            site.setLongitude(new BigDecimal(gpsNode.get("longitude").asText()));
+        if (gpsNode.has("what3words"))
+            site.setWhat3words(gpsNode.get("what3words").asText());
+        if (gpsNode.has("adresse"))
+            site.setAdresse(gpsNode.get("adresse").asText());
+
+        localisationRepository.save(site);
+    }
 
     Projet saved = projetRepository.save(projet);
     return converter.toProjetDto(saved);
