@@ -2,30 +2,26 @@
 
 package growzapp.backend.service;
 
+import java.math.BigDecimal;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;
 
-import growzapp.backend.repository.ProjetRepository;
-import growzapp.backend.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class StripeDepositService {
 
-    private final ProjetRepository projetRepository;
-    private final UserRepository userRepository;
-
+  
     @Value("${stripe.secret-key}")
     private String stripeSecretKey;
 
