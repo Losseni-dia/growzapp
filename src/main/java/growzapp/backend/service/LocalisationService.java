@@ -77,4 +77,31 @@ public class LocalisationService {
     public void deleteById(Long id) {
         localisationRepository.deleteById(id);
     }
+
+    /**
+     * Calcule la distance en KM entre deux points (Formule Haversine)
+     * Utile pour afficher "Projet à X km de vous"
+     */
+    public double calculerDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+        double R = 6371; // Rayon de la Terre en km
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                   Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    /**
+     * Génère proprement le lien de navigation
+     */
+    public String genererLienItineraire(Localisation loc) {
+        if (loc.getLatitude() == null || loc.getLongitude() == null) return null;
+        
+        // On privilégie Google Maps pour la navigation GPS assistée
+        return String.format("https://www.google.com/maps/dir/?api=1&destination=%s,%s", 
+                             loc.getLatitude(), loc.getLongitude());
+    }
+
 }

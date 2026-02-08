@@ -1,5 +1,6 @@
 package growzapp.backend.model.entite;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,17 @@ public class Localisation {
     private String contact;
     private String responsable;
 
+    // --- NOUVEAUX CHAMPS GÉO ---
+
+    @Column(precision = 10, scale = 8)
+    private BigDecimal latitude; // Ex: -5.34843400
+
+    @Column(precision = 11, scale = 8)
+    private BigDecimal longitude; // Ex: 4.02073900
+
+    @Column(name = "what3words")
+    private String what3words; // Ex: ///maïs.fonds.récolte
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -41,4 +53,12 @@ public class Localisation {
 
     @OneToMany(mappedBy = "siteProjet")
     private List<Projet> projets = new ArrayList<>();
+
+    // --- HELPER : Générer le lien Google Maps pour le Frontend ---
+    public String getGoogleMapsUrl() {
+        if (latitude != null && longitude != null) {
+            return "https://www.google.com/maps/search/?api=1&query=" + latitude + "," + longitude;
+        }
+        return null;
+    }
 }
