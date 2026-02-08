@@ -1,16 +1,8 @@
 package growzapp.backend.service;
 
-import growzapp.backend.model.dto.commonDTO.DtoConverter;
-import growzapp.backend.model.dto.projetDTO.ProjetCreateDTO;
-import growzapp.backend.model.dto.projetDTO.ProjetDTO;
-import growzapp.backend.model.entite.*;
-import growzapp.backend.model.enumeration.StatutProjet;
-import growzapp.backend.model.enumeration.StatutTransaction;
-import growzapp.backend.model.enumeration.TypeTransaction;
-import growzapp.backend.model.enumeration.WalletType;
-import growzapp.backend.repository.*;
-import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -19,9 +11,25 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
+import growzapp.backend.model.dto.commonDTO.DtoConverter;
+import growzapp.backend.model.dto.projetDTO.ProjetCreateDTO;
+import growzapp.backend.model.dto.projetDTO.ProjetDTO;
+import growzapp.backend.model.entite.Localisation;
+import growzapp.backend.model.entite.Localite;
+import growzapp.backend.model.entite.Projet;
+import growzapp.backend.model.entite.Secteur;
+import growzapp.backend.model.entite.User;
+import growzapp.backend.model.entite.Wallet;
+import growzapp.backend.model.enumeration.StatutProjet;
+import growzapp.backend.model.enumeration.WalletType;
+import growzapp.backend.repository.LocalisationRepository;
+import growzapp.backend.repository.LocaliteRepository;
+import growzapp.backend.repository.ProjetRepository;
+import growzapp.backend.repository.SecteurRepository;
+import growzapp.backend.repository.TransactionRepository;
+import growzapp.backend.repository.WalletRepository;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +43,6 @@ public class ProjetService {
     private final SecteurRepository secteurRepository;
     private final DtoConverter converter;
     private final WalletRepository walletRepository;
-    private final TransactionRepository transactionRepository;
 
 
     // ========================
@@ -152,6 +159,12 @@ public class ProjetService {
         siteProjet.setContact(currentUser.getContact() != null ? currentUser.getContact() : "Non renseigné");
         siteProjet.setResponsable(currentUser.getPrenom() + " " + currentUser.getNom());
         siteProjet.setLocalite(localite);
+
+        // Initialisation des champs Géo à null par défaut
+        siteProjet.setLatitude(null);
+        siteProjet.setLongitude(null);
+        siteProjet.setWhat3words(null);
+
         siteProjet = localisationRepository.saveAndFlush(siteProjet);
 
         // === Projet ===
