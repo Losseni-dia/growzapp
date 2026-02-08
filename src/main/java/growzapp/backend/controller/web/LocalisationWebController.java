@@ -36,14 +36,6 @@ public class LocalisationWebController {
         return "localisation/show";
     }
 
-    // === CRÉER ===
-    @GetMapping("/create")
-    public String createForm(Model model) {
-        model.addAttribute("localisation", new LocalisationDTO(null, null, null, null, null, null, null, null, null, null));
-        model.addAttribute("title", "Créer un site");
-        return "localisation/form";
-    }
-
 
     // === ÉDITER ===
     @GetMapping("/{id}/edit")
@@ -54,24 +46,47 @@ public class LocalisationWebController {
         return "localisation/form";
     }
 
+    // === CRÉER ===
+    @GetMapping("/create")
+    public String createForm(Model model) {
+        // 14 arguments initialisés à null ou List.of()
+        model.addAttribute("localisation", new LocalisationDTO(
+                null, null, null, null, null, null, // Base
+                null, null, null, null, // Géo
+                null, null, null, // Rel
+                List.of() // Projets
+        ));
+        model.addAttribute("title", "Créer un site");
+        return "localisation/form";
+    }
+
     // === SAUVEGARDER ===
     @PostMapping(value = { "/create", "/{id}/edit" })
     public String save(@PathVariable(required = false) Long id,
             @ModelAttribute LocalisationDTO localisation) {
+
+        // Si l'ID vient de l'URL, on reconstruit le record pour s'assurer que l'ID est
+        // correct
+        LocalisationDTO toSave = localisation;
         if (id != null) {
-            localisation = new LocalisationDTO(
+            toSave = new LocalisationDTO(
                     id,
                     localisation.nom(),
                     localisation.adresse(),
                     localisation.contact(),
                     localisation.responsable(),
                     localisation.createdAt(),
+                    localisation.latitude(),
+                    localisation.longitude(),
+                    localisation.what3words(),
+                    localisation.googleMapsUrl(),
                     localisation.localiteNom(),
                     localisation.localiteId(),
                     localisation.paysNom(),
                     localisation.projets());
         }
-        localisationService.save(localisation);
+
+        localisationService.save(toSave);
         return "redirect:/localisations";
     }
 

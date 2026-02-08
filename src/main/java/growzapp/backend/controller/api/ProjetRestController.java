@@ -162,4 +162,19 @@ public class ProjetRestController {
         return userRepository.findByLoginForAuth(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
     }
+
+
+    // Ajouter ceci dans ProjetRestController.java
+
+    @GetMapping("/autour-de-moi")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponseDTO<List<ProjetDTO>> getProjetsProches(
+            @RequestParam double lat,
+            @RequestParam double lon,
+            @RequestParam(defaultValue = "50") double rayonKm) {
+
+        // Cette méthode devra être implémentée dans ton ProjetService
+        // en utilisant la formule Haversine que nous avons vue
+        return ApiResponseDTO.success(projetService.findProjetsProches(lat, lon, rayonKm));
+    }
 }

@@ -55,7 +55,7 @@ public class ProjetWebController {
                 0.0, // valeurTotalePartsEnPourcent
                 null, // statutProjet
                 null, // createdAt
-                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null,null, null, null, null,
                 List.of(), // documents
                 List.of() // investissements
         );
@@ -106,6 +106,10 @@ public class ProjetWebController {
                     projetForm.porteurNom(),
                     projetForm.siteNom(),
                     projetForm.secteurNom(),
+                    projetForm.latitude(),
+                    projetForm.longitude(),
+                    projetForm.what3words(),
+                    projetForm.googleMapsUrl(),
                     existing.documents(), // conserve les documents existants
                     existing.investissements() // conserve les investissements
             );

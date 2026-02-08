@@ -40,8 +40,23 @@ public class LocalisationRestController {
         Localite localite = localiteRepository.findById(localiteId)
                 .orElseThrow(() -> new RuntimeException("Localité non trouvée"));
 
-        LocalisationDTO dto = new LocalisationDTO(localiteId, null, null, null, null, null, null, localiteId, null,
-                null);
+        // Correction de l'instanciation (14 arguments requis dans l'ordre du record)
+        LocalisationDTO dto = new LocalisationDTO(
+                null, // id
+                null, // nom
+                null, // adresse
+                null, // contact
+                null, // responsable
+                null, // createdAt
+                null, // latitude (BigDecimal)
+                null, // longitude (BigDecimal)
+                null, // what3words
+                null, // googleMapsUrl
+                localite.getNom(), // localiteNom
+                localiteId, // localiteId
+                null, // paysNom
+                List.of() // projets
+        );
 
         model.addAttribute("localisation", dto);
         model.addAttribute("title", "Créer une localisation à " + localite.getNom());

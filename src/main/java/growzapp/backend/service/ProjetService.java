@@ -266,13 +266,52 @@ public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
 
 
 
-
-
-
     @PreAuthorize("hasRole('ADMIN')")
 public Wallet getProjetWallet(Long projetId) {
     return walletRepository.findByProjetId(projetId)
             .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+}
+
+
+/**
+ * Recherche les projets validés dans un rayon donné autour d'un point GPS.
+ * 
+ * @param userLat Latitude de l'investisseur
+ * @param userLon Longitude de l'investisseur
+ * @param rayonKm Rayon de recherche (ex: 50 km)
+ */
+public List<ProjetDTO> findProjetsProches(double userLat, double userLon, double rayonKm) {
+    return projetRepository.findByStatutProjet(StatutProjet.VALIDE)
+            .stream()
+            .filter(p -> p.getSiteProjet() != null &&
+                    p.getSiteProjet().getLatitude() != null &&
+                    p.getSiteProjet().getLongitude() != null)
+            .filter(p -> {
+                double distance = calculerDistanceKm(
+                        userLat,
+                        userLon,
+                        p.getSiteProjet().getLatitude().doubleValue(),
+                        p.getSiteProjet().getLongitude().doubleValue());
+                return distance <= rayonKm;
+            })
+            .map(converter::toProjetDto)
+            .toList();
+}
+
+/**
+ * Formule Haversine pour le calcul de distance
+ */
+private double calculerDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+    double R = 6371; // Rayon moyen de la Terre en km
+    double dLat = Math.toRadians(lat2 - lat1);
+    double dLon = Math.toRadians(lon2 - lon1);
+
+    double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
 
 

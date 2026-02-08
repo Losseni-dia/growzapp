@@ -81,7 +81,12 @@ public class LocaliteWebController {
 public String createLocalisationForm(@PathVariable Long id, Model model) {
     LocaliteDTO localite = localiteService.getById(id);
 
-    LocalisationDTO dto = new LocalisationDTO(id, null, null, null, null, null, null, id, null, null);
+    LocalisationDTO dto = new LocalisationDTO(
+            null, null, null, null, null, null, // Base
+            null, null, null, null, // Géo
+            null, null, null, // Rel
+            List.of() // Projets
+    );
 
     model.addAttribute("localisation", dto);
     model.addAttribute("title", "Créer une localisation à " + localite.nom());
