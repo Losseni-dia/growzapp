@@ -26,7 +26,6 @@ import growzapp.backend.repository.LocalisationRepository;
 import growzapp.backend.repository.LocaliteRepository;
 import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.repository.SecteurRepository;
-import growzapp.backend.repository.TransactionRepository;
 import growzapp.backend.repository.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +59,15 @@ public class ProjetService {
         Projet projet = projetRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Projet non trouvé"));
         return converter.toProjetDto(projet);
+    }
+
+    // Dans ProjetService.java
+
+    // Garde ta méthode getById actuelle si d'autres classes l'utilisent,
+    // mais ajoute celle-ci pour le Controller :
+    public Projet getEntityById(Long id) {
+        return projetRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé"));
     }
 
     public List<ProjetDTO> getAllAdmin(String search) {

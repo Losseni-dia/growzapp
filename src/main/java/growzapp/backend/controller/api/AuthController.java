@@ -1,31 +1,9 @@
 package growzapp.backend.controller.api;
 
-import growzapp.backend.config.JwtService;
-import growzapp.backend.model.dto.AuthDTO.LoginRequest;
-import growzapp.backend.model.dto.AuthDTO.LoginResponse;
-import growzapp.backend.model.dto.userDTO.UserCreateDTO;
-import growzapp.backend.model.dto.userDTO.UserDTO;
-import growzapp.backend.model.dto.userDTO.UserSearchDTO;
-import growzapp.backend.model.dto.userDTO.UserUpdateDTO;
-import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
-import growzapp.backend.model.dto.commonDTO.DtoConverter;
-import growzapp.backend.model.entite.User;
-import growzapp.backend.repository.UserRepository;
-import growzapp.backend.service.UserService;
-import jakarta.annotation.security.PermitAll;
-import lombok.RequiredArgsConstructor;
-
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.web.multipart.MultipartFile;
-import java.io.IOException;
-import java.util.List;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -35,7 +13,35 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import growzapp.backend.config.JwtService;
+import growzapp.backend.model.dto.AuthDTO.LoginRequest;
+import growzapp.backend.model.dto.AuthDTO.LoginResponse;
+import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
+import growzapp.backend.model.dto.commonDTO.DtoConverter;
+import growzapp.backend.model.dto.userDTO.UserCreateDTO;
+import growzapp.backend.model.dto.userDTO.UserDTO;
+import growzapp.backend.model.dto.userDTO.UserSearchDTO;
+import growzapp.backend.model.dto.userDTO.UserUpdateDTO;
+import growzapp.backend.model.entite.User;
+import growzapp.backend.repository.UserRepository;
+import growzapp.backend.service.UserService;
+import jakarta.annotation.security.PermitAll;
+import lombok.RequiredArgsConstructor;
 
 
 @RestController

@@ -1,16 +1,16 @@
 // growzapp/backend/service/UserService.java
 package growzapp.backend.service;
 
-import growzapp.backend.model.dto.commonDTO.DtoConverter;
-import growzapp.backend.model.dto.userDTO.UserCreateDTO;
-import growzapp.backend.model.dto.userDTO.UserDTO;
-import growzapp.backend.model.dto.userDTO.UserUpdateDTO;
-import growzapp.backend.model.entite.*;
-import growzapp.backend.repository.*;
-import jakarta.persistence.EntityManager;
-import lombok.RequiredArgsConstructor;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
-import org.hibernate.Hibernate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -19,13 +19,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.*;
-import java.util.stream.Collectors;
+import growzapp.backend.model.dto.commonDTO.DtoConverter;
+import growzapp.backend.model.dto.userDTO.UserCreateDTO;
+import growzapp.backend.model.dto.userDTO.UserDTO;
+import growzapp.backend.model.dto.userDTO.UserUpdateDTO;
+import growzapp.backend.model.entite.Langue;
+import growzapp.backend.model.entite.Localite;
+import growzapp.backend.model.entite.Role;
+import growzapp.backend.model.entite.User;
+import growzapp.backend.model.entite.Wallet;
+import growzapp.backend.repository.RoleRepository;
+import growzapp.backend.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor

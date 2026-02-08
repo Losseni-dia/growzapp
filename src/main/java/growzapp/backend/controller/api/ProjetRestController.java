@@ -5,6 +5,7 @@ package growzapp.backend.controller.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
+import growzapp.backend.model.dto.commonDTO.DtoConverter;
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
 import growzapp.backend.model.dto.investisementDTO.InvestissementRequestDto;
 import growzapp.backend.model.dto.projetDTO.ProjetCreateDTO;
@@ -41,6 +42,8 @@ public class ProjetRestController {
     private final StripeDepositService stripeDepositService;
     private final InvestissementService investissementService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final DtoConverter dtoConverter;
+
 
     // LISTE DES PROJETS VALIDÉS (PUBLIQUE)
     @GetMapping
@@ -49,9 +52,18 @@ public class ProjetRestController {
     }
 
     // DÉTAIL D'UN PROJET
+    // Dans ton ProjetController.java
+
     @GetMapping("/{id}")
     public ApiResponseDTO<ProjetDTO> getById(@PathVariable Long id) {
-        return ApiResponseDTO.success(projetService.getById(id));
+        // 1. On récupère l'entité (et non le DTO) depuis le service
+        Projet projetEntity = projetService.getEntityById(id);
+
+        // 2. On utilise TON converter (celui où on a ajouté le String.format)
+        // C'est cette étape qui va remplir le champ googleMapsUrl
+        ProjetDTO dto = dtoConverter.toProjetDto(projetEntity);
+
+        return ApiResponseDTO.success(dto);
     }
 
     // CRÉATION D'UN PROJET
@@ -163,18 +175,18 @@ public class ProjetRestController {
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
     }
 
-
     // Ajouter ceci dans ProjetRestController.java
 
-    @GetMapping("/autour-de-moi")
-    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/proche-de-moi")
     public ApiResponseDTO<List<ProjetDTO>> getProjetsProches(
             @RequestParam double lat,
             @RequestParam double lon,
-            @RequestParam(defaultValue = "50") double rayonKm) {
+            @RequestParam(defaultValue = "100") double rayon) {
 
-        // Cette méthode devra être implémentée dans ton ProjetService
-        // en utilisant la formule Haversine que nous avons vue
-        return ApiResponseDTO.success(projetService.findProjetsProches(lat, lon, rayonKm));
+        log.info("Recherche de projets dans un rayon de {}km autour de {},{}", rayon, lat, lon);
+        List<ProjetDTO> proches = projetService.findProjetsProches(lat, lon, rayon);
+
+        return ApiResponseDTO.success(proches)
+                .message(proches.size() + " projets trouvés à proximité.");
     }
 }

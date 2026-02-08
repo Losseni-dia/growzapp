@@ -141,7 +141,7 @@ public class DtoConverter {
                                                                 : null,
                                                 p.getSiteProjet() != null ? p.getSiteProjet().getNom() : null,
                                                 p.getSecteur() != null ? p.getSecteur().getNom() : null,
-                                                                // --- 🟢 NOUVEAUX CHAMPS GÉO AJOUTÉS ICI ---
+                                                // --- 🟢 NOUVEAUX CHAMPS GÉO AJOUTÉS ICI ---
                                                 (p.getSiteProjet() != null) ? p.getSiteProjet().getLatitude() : null,
                                                 (p.getSiteProjet() != null) ? p.getSiteProjet().getLongitude() : null,
                                                 (p.getSiteProjet() != null) ? p.getSiteProjet().getWhat3words() : null,
@@ -402,7 +402,7 @@ public class DtoConverter {
                         w3w = projet.getSiteProjet().getWhat3words();
 
                         if (lat != null && lon != null) {
-                                gmaps = String.format("https://www.google.com/maps/dir/?api=1&destination=%s,%s", lat,
+                                gmaps = String.format("https://www.google.com/maps/search/?api=1&query=%s,%s", lat,
                                                 lon);
                         }
                 }
@@ -525,6 +525,24 @@ public class DtoConverter {
                                 : "Inconnu";
 
                 Long projetId = investissement.getProjet() != null ? investissement.getProjet().getId() : null;
+
+                BigDecimal latitude = null;
+                BigDecimal longitude = null;
+                String googleMapsUrl = null;
+
+                if (investissement.getProjet() != null && investissement.getProjet().getSiteProjet() != null) {
+                        var site = investissement.getProjet().getSiteProjet();
+                        latitude = site.getLatitude();
+                        longitude = site.getLongitude();
+                        googleMapsUrl = site.getGoogleMapsUrl();
+
+                        // Sécurité : si l'URL est vide mais qu'on a les coordonnées, on la génère
+                        if (googleMapsUrl == null && latitude != null && longitude != null) {
+                                googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=" + latitude + ","
+                                                + longitude;
+                        }
+                }
+
                 String projetLibelle = investissement.getProjet() != null ? investissement.getProjet().getLibelle()
                                 : "Projet inconnu";
 
@@ -594,6 +612,10 @@ public class DtoConverter {
                                 .projetPoster(projetPoster)
                                 .contratUrl(contratUrl)
                                 .numeroContrat(numeroContrat)
+                                // --- AJOUTS ICI ---
+                                .latitude(latitude)
+                                .longitude(longitude)
+                                .googleMapsUrl(googleMapsUrl)
                                 .dividendes(dividendes)
                                 .montantTotalPercu(montantPercu) // Envoie le BigDecimal
                                 .montantTotalPlanifie(montantPlanifie) // Envoie le BigDecimal
