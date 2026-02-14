@@ -42,12 +42,11 @@ import growzapp.backend.model.dto.userDTO.UserUpdateDTO;
 import growzapp.backend.model.entite.PasswordResetToken;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.UserRepository;
-import growzapp.backend.service.EmailService;
+import growzapp.backend.service.EmailSenderService;
 import growzapp.backend.service.PasswordResetTokenService;
 import growzapp.backend.service.UserService;
 import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
-
 
 @RestController
 @RequestMapping("/api/auth")
@@ -61,67 +60,65 @@ public class UserController {
     private final UserRepository userRepository;
     private final DtoConverter dtoConverter; // ← INJECTÉ AUTOMATIQUEMENT GRÂCE À @RequiredArgsConstructor
     private final PasswordResetTokenService tokenService;
-    private final EmailService emailService;
+    private final EmailSenderService emailService;
     private final PasswordEncoder passwordEncoder;
 
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+        System.out.println("Tentative de login avec : " + request.getLogin());
 
- @PostMapping("/login")
-public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-    System.out.println("Tentative de login avec : " + request.getLogin());
+        // Authentification Spring Security
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getLogin(), request.getPassword()));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        System.out.println("AUTHENTIFICATION RÉUSSIE !");
 
-    // Authentification Spring Security
-    Authentication authentication = authenticationManager.authenticate(
-        new UsernamePasswordAuthenticationToken(request.getLogin(), request.getPassword())
-    );
-    SecurityContextHolder.getContext().setAuthentication(authentication);
-    System.out.println("AUTHENTIFICATION RÉUSSIE !");
+        // On recharge l'utilisateur avec les rôles déjà chargés (grâce à l'EntityGraph)
+        User userEntity = userRepository.findByLoginForAuth(request.getLogin())
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé"));
 
-    // On recharge l'utilisateur avec les rôles déjà chargés (grâce à l'EntityGraph)
-    User userEntity = userRepository.findByLoginForAuth(request.getLogin())
-            .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé"));
+        UserDTO userDTO = dtoConverter.toUserDto(userEntity);
 
-    UserDTO userDTO = dtoConverter.toUserDto(userEntity);
+        String token = jwtService.generateToken(userEntity);
 
-    String token = jwtService.generateToken(userEntity);
-
-    return ResponseEntity.ok(new LoginResponse(token, userDTO));
-}
-
-
- @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-@PermitAll
-public ResponseEntity<ApiResponseDTO<UserDTO>> register(
-        @RequestPart("user") String userJson,
-        @RequestPart(value = "image", required = false) MultipartFile image) {
-    try {
-        ObjectMapper mapper = new ObjectMapper();
-        // === LIGNE IMPORTANTE : Ignore les champs qui ne correspondent pas parfaitement ===
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        
-        UserCreateDTO dto = mapper.readValue(userJson, UserCreateDTO.class);
-
-        // Appel du service (on lui passe le fichier Multipart)
-        UserDTO created = userService.registerUser(dto, image);
-
-        return ResponseEntity.ok(ApiResponseDTO.success(created)
-                .message("Inscription réussie !"));
-
-    } catch (Exception e) {
-        // Log l'erreur exacte dans ta console Java pour debug
-        e.printStackTrace(); 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponseDTO.error("Erreur serveur : " + e.getMessage()));
+        return ResponseEntity.ok(new LoginResponse(token, userDTO));
     }
-}
 
-   // 1. RÉCUPÉRATION DU PROFIL (Corrigé)
-   @GetMapping("/me")
-   @PreAuthorize("isAuthenticated()")
-   public ApiResponseDTO<UserDTO> getMyProfile(@AuthenticationPrincipal UserDetails userDetails) {
-       // Appel de la méthode que nous venons d'ajouter
-       UserDTO userDTO = userService.getUserDtoByLogin(userDetails.getUsername());
-       return ApiResponseDTO.success(userDTO);
-   }
+    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PermitAll
+    public ResponseEntity<ApiResponseDTO<UserDTO>> register(
+            @RequestPart("user") String userJson,
+            @RequestPart(value = "image", required = false) MultipartFile image) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            // === LIGNE IMPORTANTE : Ignore les champs qui ne correspondent pas
+            // parfaitement ===
+            mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+            UserCreateDTO dto = mapper.readValue(userJson, UserCreateDTO.class);
+
+            // Appel du service (on lui passe le fichier Multipart)
+            UserDTO created = userService.registerUser(dto, image);
+
+            return ResponseEntity.ok(ApiResponseDTO.success(created)
+                    .message("Inscription réussie !"));
+
+        } catch (Exception e) {
+            // Log l'erreur exacte dans ta console Java pour debug
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.error("Erreur serveur : " + e.getMessage()));
+        }
+    }
+
+    // 1. RÉCUPÉRATION DU PROFIL (Corrigé)
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponseDTO<UserDTO> getMyProfile(@AuthenticationPrincipal UserDetails userDetails) {
+        // Appel de la méthode que nous venons d'ajouter
+        UserDTO userDTO = userService.getUserDtoByLogin(userDetails.getUsername());
+        return ApiResponseDTO.success(userDTO);
+    }
 
     // 2. MISE À JOUR DU PROFIL (Corrigé)
     @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -134,7 +131,8 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
             ObjectMapper mapper = new ObjectMapper();
             UserUpdateDTO dto = mapper.readValue(userJson, UserUpdateDTO.class);
 
-            // Optionnel : On force l'ID du DTO pour être sûr que l'user ne modifie que son propre profil
+            // Optionnel : On force l'ID du DTO pour être sûr que l'user ne modifie que son
+            // propre profil
             // Long currentUserId = userService.getIdByLogin(userDetails.getUsername());
             // dto.setId(currentUserId);
 
@@ -149,65 +147,63 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
         }
     }
 
+    // Dans ton AuthController.java → ajoute cette méthode n’importe où dans la
+    // classe
 
-   // Dans ton AuthController.java → ajoute cette méthode n’importe où dans la classe
+    // AJOUTE ÇA DANS AuthController.java (n’importe où dans la classe)
 
-   // AJOUTE ÇA DANS AuthController.java (n’importe où dans la classe)
+    @GetMapping("/search")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<UserSearchDTO>> searchUsers(@RequestParam("term") String term) {
 
-   @GetMapping("/search")
-   @PreAuthorize("isAuthenticated()")
-   public ResponseEntity<List<UserSearchDTO>> searchUsers(@RequestParam("term") String term) {
+        if (term == null || term.trim().length() < 2) {
+            return ResponseEntity.ok(List.of());
+        }
 
-       if (term == null || term.trim().length() < 2) {
-           return ResponseEntity.ok(List.of());
-       }
+        // On cherche avec %term% pour plus de souplesse
+        String search = "%" + term.toLowerCase() + "%";
 
-       // On cherche avec %term% pour plus de souplesse
-       String search = "%" + term.toLowerCase() + "%";
+        List<User> users = userRepository.findBySearchTerm(search);
 
-       List<User> users = userRepository.findBySearchTerm(search);
+        List<UserSearchDTO> result = users.stream()
+                .filter(u -> !u.getLogin().equalsIgnoreCase("admin")) // optionnel
+                .limit(10)
+                .map(u -> new UserSearchDTO(
+                        u.getId(),
+                        (u.getPrenom() + " " + u.getNom()).trim(),
+                        u.getLogin(),
+                        u.getImage()))
+                .toList();
 
-       List<UserSearchDTO> result = users.stream()
-               .filter(u -> !u.getLogin().equalsIgnoreCase("admin")) // optionnel
-               .limit(10)
-               .map(u -> new UserSearchDTO(
-                       u.getId(),
-                       (u.getPrenom() + " " + u.getNom()).trim(),
-                       u.getLogin(),
-                       u.getImage()))
-               .toList();
+        return ResponseEntity.ok(result);
+    }
 
-       return ResponseEntity.ok(result);
-   }
+    // === AJOUTE CECI À LA FIN DE TA CLASSE AuthController ===
 
+    @PatchMapping("/me/language")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponseDTO<String>> updateLanguage(@RequestParam("lang") String lang) {
 
-   // === AJOUTE CECI À LA FIN DE TA CLASSE AuthController ===
+        // 1. On récupère le login de l'utilisateur connecté
+        String currentLogin = SecurityContextHolder.getContext().getAuthentication().getName();
 
-   @PatchMapping("/me/language")
-   @PreAuthorize("isAuthenticated()")
-   public ResponseEntity<ApiResponseDTO<String>> updateLanguage(@RequestParam("lang") String lang) {
+        // 2. On cherche l'utilisateur en base
+        // Note: J'utilise findByLoginForAuth car je sais qu'elle existe dans ton code
+        // plus haut,
+        // mais l'idéal serait un simple findByLogin.
+        User user = userRepository.findByLoginForAuth(currentLogin)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
 
-       // 1. On récupère le login de l'utilisateur connecté
-       String currentLogin = SecurityContextHolder.getContext().getAuthentication().getName();
+        // 3. On met à jour la langue
+        user.setInterfaceLanguage(lang);
+        userRepository.save(user);
 
-       // 2. On cherche l'utilisateur en base
-       // Note: J'utilise findByLoginForAuth car je sais qu'elle existe dans ton code
-       // plus haut,
-       // mais l'idéal serait un simple findByLogin.
-       User user = userRepository.findByLoginForAuth(currentLogin)
-               .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
+        System.out.println("Langue mise à jour pour " + currentLogin + " : " + lang);
 
-       // 3. On met à jour la langue
-       user.setInterfaceLanguage(lang);
-       userRepository.save(user);
+        return ResponseEntity.ok(ApiResponseDTO.success("Langue mise à jour avec succès"));
+    }
 
-       System.out.println("Langue mise à jour pour " + currentLogin + " : " + lang);
-
-       return ResponseEntity.ok(ApiResponseDTO.success("Langue mise à jour avec succès"));
-   }
-
-
-       // MOT DE PASSE OUBLIÉ (Public)
+    // MOT DE PASSE OUBLIÉ (Public)
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -238,7 +234,5 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
 
         return ResponseEntity.ok("Mot de passe réinitialisé avec succès.");
     }
-
-
 
 }
