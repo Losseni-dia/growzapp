@@ -1,6 +1,7 @@
 package growzapp.backend.controller.api;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -13,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -37,8 +39,11 @@ import growzapp.backend.model.dto.userDTO.UserCreateDTO;
 import growzapp.backend.model.dto.userDTO.UserDTO;
 import growzapp.backend.model.dto.userDTO.UserSearchDTO;
 import growzapp.backend.model.dto.userDTO.UserUpdateDTO;
+import growzapp.backend.model.entite.PasswordResetToken;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.repository.UserRepository;
+import growzapp.backend.service.EmailService;
+import growzapp.backend.service.PasswordResetTokenService;
 import growzapp.backend.service.UserService;
 import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
@@ -48,13 +53,17 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
-public class AuthController {
+public class UserController {
 
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final DtoConverter dtoConverter; // ← INJECTÉ AUTOMATIQUEMENT GRÂCE À @RequiredArgsConstructor
+    private final PasswordResetTokenService tokenService;
+    private final EmailService emailService;
+    private final PasswordEncoder passwordEncoder;
+
 
  @PostMapping("/login")
 public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
@@ -196,6 +205,39 @@ public ResponseEntity<ApiResponseDTO<UserDTO>> register(
 
        return ResponseEntity.ok(ApiResponseDTO.success("Langue mise à jour avec succès"));
    }
+
+
+       // MOT DE PASSE OUBLIÉ (Public)
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        User user = userService.findByEmail(email);
+        if (user != null) {
+            PasswordResetToken token = tokenService.createTokenForUser(user);
+            emailService.sendPasswordResetMail(user.getEmail(), token.getToken());
+        }
+        return ResponseEntity.ok("Si un compte existe avec cet email, un lien a été envoyé.");
+    }
+
+    // RÉINITIALISATION MOT DE PASSE (Public)
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+        String password = request.get("password");
+
+        User user = tokenService.validatePasswordResetToken(token);
+
+        if (user == null) {
+            return ResponseEntity.badRequest().body("Token invalide ou expiré");
+        }
+
+        user.setPassword(passwordEncoder.encode(password));
+        userService.updateUser(user.getId(), user);
+
+        tokenService.deleteToken(token);
+
+        return ResponseEntity.ok("Mot de passe réinitialisé avec succès.");
+    }
 
 
 

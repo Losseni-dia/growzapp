@@ -19,4 +19,5 @@ public class EmailSenderService {
     public void sendContratEmail(Investissement inv, byte[] pdf) {
         emailService.envoyerContratParEmail(inv, pdf);
     }
+    
 }

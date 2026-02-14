@@ -9,7 +9,7 @@ import jakarta.transaction.Transactional;
 
 @Component
 @RequiredArgsConstructor
-public class TokenCleanup {
+public class TokenCleanupService {
     private final PasswordResetTokenRepository tokenRepo;
 
     @Scheduled(cron = "0 0 * * * *") // toutes les heures
