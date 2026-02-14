@@ -20,7 +20,13 @@ public class PasswordResetTokenService {
     @Transactional
     public PasswordResetToken createTokenForUser(User user) {
 
-        tokenRepo.findByUser(user).ifPresent(tokenRepo::delete);
+        // 1. Suppression directe et brutale
+        tokenRepo.deleteByUser(user);
+
+        // 2. On force la synchronisation avec la DB avant la suite
+        tokenRepo.flush();
+
+        // 3. Création du token
 
         String token = UUID.randomUUID().toString();
         PasswordResetToken prt = new PasswordResetToken();

@@ -203,41 +203,43 @@ public class UserController {
         return ResponseEntity.ok(ApiResponseDTO.success("Langue mise à jour avec succès"));
     }
 
-    // MOT DE PASSE OUBLIÉ (Public)
+    // Dans ton AuthController.java (ou PasswordController)
+
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> request) {
+    // Change "String" par "?"
+    public ResponseEntity<ApiResponseDTO<?>> forgotPassword(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         User user = userService.findByEmail(email);
-        if (email == null || email.isBlank()){
+
+        if (user != null) {
             PasswordResetToken token = tokenService.createTokenForUser(user);
             emailService.sendPasswordResetMail(user.getEmail(), token.getToken());
         }
-        return ResponseEntity.ok("Si un compte existe avec cet email, un lien a été envoyé.");
+
+        // Le "?" permet d'accepter le "null" ou n'importe quel objet sans erreur de
+        // type
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(null)
+                        .message("Si un compte existe avec cet email, un lien a été envoyé."));
     }
 
-    // RÉINITIALISATION MOT DE PASSE (Public)
     @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponseDTO<String>> resetPassword(@RequestBody Map<String, String> request) {
         String token = request.get("token");
         String password = request.get("password");
-
-           if (token == null || token.isBlank() || password == null || password.isBlank()) {
-         return ResponseEntity.badRequest().body("Token et mot de passe requis.");
-      }
-
 
         User user = tokenService.validatePasswordResetToken(token);
 
         if (user == null) {
-            return ResponseEntity.badRequest().body("Token invalide ou expiré");
+            return ResponseEntity.badRequest().body(ApiResponseDTO.error("Token invalide ou expiré"));
         }
 
         user.setPassword(passwordEncoder.encode(password));
         userService.updateUser(user.getId(), user);
-
         tokenService.deleteToken(token);
 
-        return ResponseEntity.ok("Mot de passe réinitialisé avec succès.");
+        return ResponseEntity.ok(
+                ApiResponseDTO.<String>success(null)
+                        .message("Mot de passe réinitialisé avec succès."));
     }
-
 }
