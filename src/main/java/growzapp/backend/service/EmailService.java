@@ -11,12 +11,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.YearMonth;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +24,9 @@ import org.springframework.stereotype.Service;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+
+    @Value("${app.frontend-url}") // On utilise le nom exact de ton application.properties
+    private String frontendUrl;
 
     // === FACTURE (déjà existante) ===
     // Dans EmailService.java – SUPPRIME @Async pour les factures
@@ -228,7 +231,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             // TODO: Ajuste l'URL selon ton environnement (localhost ou domaine réel)
-            String resetLink = "http://localhost:5173/reset-password?token=" + token;
+            String resetLink = frontendUrl + "/reset-password?token=" + token;
 
             helper.setTo(to);
             helper.setSubject("GrowzApp – Réinitialisation de votre mot de passe");
