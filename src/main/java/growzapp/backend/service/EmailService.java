@@ -191,31 +191,81 @@ public class EmailService {
     }
 
     @Async
-public void envoyerRapportMensuel(String emailAdmin, YearMonth mois, byte[] pdf) {
-    try {
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+    public void envoyerRapportMensuel(String emailAdmin, YearMonth mois, byte[] pdf) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-        helper.setTo(emailAdmin);
-        helper.setSubject("Rapport mensuel des investissements – " + mois);
-        helper.setText("""
-                <h2>Rapport mensuel généré</h2>
-                <p>Voici le rapport complet des investissements validés pour le mois de 
-                <strong>%s</strong>.</p>
-                <p>Vous trouverez ci-joint le document PDF.</p>
-                <br>
-                <p>Cordialement,</p>
-                <p><strong>GrowzApp Bot</strong></p>
-                """.formatted(mois.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH))), true);
+            helper.setTo(emailAdmin);
+            helper.setSubject("Rapport mensuel des investissements – " + mois);
+            helper.setText("""
+                    <h2>Rapport mensuel généré</h2>
+                    <p>Voici le rapport complet des investissements validés pour le mois de
+                    <strong>%s</strong>.</p>
+                    <p>Vous trouverez ci-joint le document PDF.</p>
+                    <br>
+                    <p>Cordialement,</p>
+                    <p><strong>GrowzApp Bot</strong></p>
+                    """.formatted(
+                    mois.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH))),
+                    true);
 
-        helper.addAttachment(
-                "Rapport_Investissements_" + mois + ".pdf",
-                new ByteArrayResource(pdf)
-        );
+            helper.addAttachment(
+                    "Rapport_Investissements_" + mois + ".pdf",
+                    new ByteArrayResource(pdf));
 
-        mailSender.send(message);
-    } catch (Exception e) {
-        e.printStackTrace();
+            mailSender.send(message);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
-}
+
+    // === MOT DE PASSE OUBLIÉ ===
+    @Async
+    public void sendPasswordResetMail(String to, String token) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            // TODO: Ajuste l'URL selon ton environnement (localhost ou domaine réel)
+            String resetLink = "http://localhost:5173/reset-password?token=" + token;
+
+            helper.setTo(to);
+            helper.setSubject("GrowzApp – Réinitialisation de votre mot de passe");
+
+            String htmlContent = """
+                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <h1 style="color: #28a745; margin: 0;">GrowzApp</h1>
+                            <p style="font-size: 0.9em; color: #666;">Investir dans l'avenir durable</p>
+                        </div>
+                        <h2 style="color: #333;">Bonjour,</h2>
+                        <p>Nous avons reçu une demande de réinitialisation de mot de passe pour votre compte GrowzApp.</p>
+                        <p>Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe. Ce lien est valable pendant <strong>24 heures</strong>.</p>
+
+                        <div style="text-align: center; margin: 35px 0;">
+                            <a href="%s" style="background-color: #28a745; color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; display: inline-block;">
+                                Réinitialiser mon mot de passe
+                            </a>
+                        </div>
+
+                        <p style="font-size: 0.9em; color: #666;">Si vous n'avez pas demandé cette réinitialisation, vous pouvez ignorer cet e-mail en toute sécurité. Votre mot de passe actuel ne sera pas modifié.</p>
+
+                        <hr style="border: none; border-top: 1px solid #eee; margin-top: 30px;">
+                        <p style="font-size: 0.8em; color: #999; text-align: center;">
+                            Ceci est un message automatique, merci de ne pas y répondre.<br>
+                            &copy; 2024 GrowzApp - Agriculture Durable
+                        </p>
+                    </div>
+                    """
+                    .formatted(resetLink);
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            log.info("Email de réinitialisation envoyé avec succès à {}", to);
+
+        } catch (MessagingException e) {
+            log.error("Échec de l'envoi de l'email de reset à {} : {}", to, e.getMessage());
+        }
+    }
 }
