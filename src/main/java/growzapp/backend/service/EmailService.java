@@ -265,7 +265,7 @@ public class EmailService {
 
             helper.setText(htmlContent, true);
             mailSender.send(message);
-            log.info("Email de réinitialisation envoyé avec succès à {}", to);
+            log.info("Email de réinitialisation envoyé avec succès");
 
         } catch (MessagingException e) {
             log.error("Échec de l'envoi de l'email de reset à {} : {}", to, e.getMessage());

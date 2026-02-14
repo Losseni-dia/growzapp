@@ -208,7 +208,7 @@ public class UserController {
     public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         User user = userService.findByEmail(email);
-        if (user != null) {
+        if (email == null || email.isBlank()){
             PasswordResetToken token = tokenService.createTokenForUser(user);
             emailService.sendPasswordResetMail(user.getEmail(), token.getToken());
         }
@@ -220,6 +220,11 @@ public class UserController {
     public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> request) {
         String token = request.get("token");
         String password = request.get("password");
+
+           if (token == null || token.isBlank() || password == null || password.isBlank()) {
+         return ResponseEntity.badRequest().body("Token et mot de passe requis.");
+      }
+
 
         User user = tokenService.validatePasswordResetToken(token);
 

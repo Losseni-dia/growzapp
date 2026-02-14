@@ -15,8 +15,6 @@ public class TokenCleanupService {
     @Scheduled(cron = "0 0 * * * *") // toutes les heures
     @Transactional
     public void removeExpiredTokens() {
-        tokenRepo.findAll().stream()
-                .filter(token -> token.getExpiryDate().isBefore(java.time.LocalDateTime.now()))
-                .forEach(token -> tokenRepo.delete(token));
+        tokenRepo.deleteAllExpiredBefore(java.time.LocalDateTime.now());
     }
 }

@@ -17,7 +17,11 @@ public class PasswordResetTokenService {
 
     private final PasswordResetTokenRepository tokenRepo;
 
+    @Transactional
     public PasswordResetToken createTokenForUser(User user) {
+
+        tokenRepo.findByUser(user).ifPresent(tokenRepo::delete);
+
         String token = UUID.randomUUID().toString();
         PasswordResetToken prt = new PasswordResetToken();
         prt.setToken(token);
