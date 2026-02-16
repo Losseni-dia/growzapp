@@ -61,6 +61,13 @@ public class SecurityConfig {
 
 
                                                 .requestMatchers("/api/news/**").permitAll()
+                                                .requestMatchers(HttpMethod.POST, "/api/news/**")
+                                                .hasAnyRole("ADMIN", "COMMUNICANT")
+                                                .requestMatchers(HttpMethod.PUT, "/api/news/**")
+                                                .hasAnyRole("ADMIN", "COMMUNICANT")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/news/**").hasAnyRole("ADMIN") // Seul
+                                                                                                                        // l'admin
+                                                                                                                        // supprime
 
                                                 // API DOCUMENTS : authentifié + logique fine dans le controller
                                                 .requestMatchers("/api/documents/projet/**").authenticated() // ← liste
