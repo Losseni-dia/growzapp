@@ -1,5 +1,8 @@
 package growzapp.backend.news.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -7,8 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import growzapp.backend.news.model.News;
 import growzapp.backend.news.model.NewsCategory;
 import growzapp.backend.news.repository.NewsRepository;
-
-import java.util.List;
 
 @Service
 public class NewsService {
@@ -65,5 +66,10 @@ public class NewsService {
         rss.append("</rss>");
 
         return rss.toString();
+    }
+
+    public News saveNews(News news) {
+        news.setCreatedAt(LocalDateTime.now());
+        return newsRepository.save(news);
     }
 }

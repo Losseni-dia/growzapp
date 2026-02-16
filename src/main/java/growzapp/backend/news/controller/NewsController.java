@@ -39,5 +39,12 @@ public class NewsController {
     @GetMapping("/{id}")
     public ResponseEntity<News> getNewsById(@PathVariable Long id) {
         return ResponseEntity.ok(newsService.getNewsById(id));
-}
+    }
+
+    @PostMapping
+    public ResponseEntity<News> createNews(@RequestBody News news) {
+        // Le service s'occupera de mettre la date de création
+        News savedNews = newsService.saveNews(news);
+        return ResponseEntity.ok(savedNews);
+    }
 }
