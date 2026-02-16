@@ -59,6 +59,9 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/contrats/{numero}").permitAll()
                                                 .requestMatchers("/api/contrats/{numero}/download").permitAll()
 
+
+                                                .requestMatchers("/api/news/**").permitAll()
+
                                                 // API DOCUMENTS : authentifié + logique fine dans le controller
                                                 .requestMatchers("/api/documents/projet/**").authenticated() // ← liste
                                                 .requestMatchers(HttpMethod.GET, "/api/documents/*/download")
