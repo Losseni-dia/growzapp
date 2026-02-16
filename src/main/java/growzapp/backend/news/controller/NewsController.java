@@ -3,13 +3,17 @@ package growzapp.backend.news.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import growzapp.backend.news.model.News;
 import growzapp.backend.news.model.NewsCategory;
 import growzapp.backend.news.repository.NewsRepository;
 import growzapp.backend.news.service.NewsService;
+import growzapp.backend.service.FileStorageService;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/news")
@@ -20,6 +24,10 @@ public class NewsController {
 
     @Autowired
     private NewsService newsService;
+
+    @Autowired
+    private FileStorageService fileStorageService;
+
 
     @GetMapping
     public List<News> getAllNews(@RequestParam(required = false) NewsCategory category) {
@@ -41,10 +49,17 @@ public class NewsController {
         return ResponseEntity.ok(newsService.getNewsById(id));
     }
 
-    @PostMapping
-    public ResponseEntity<News> createNews(@RequestBody News news) {
-        // Le service s'occupera de mettre la date de création
-        News savedNews = newsService.saveNews(news);
-        return ResponseEntity.ok(savedNews);
-    }
+   // Dans NewsController.java
+   // src/main/java/growzapp/backend/news/controller/NewsController.java
+
+   @PostMapping("/upload")
+   public ResponseEntity<Map<String, String>> upload(@RequestParam("file") MultipartFile file) {
+       try {
+           // Utilise ta méthode existante qui renvoie "/uploads/posters/filename"
+           String url = fileStorageService.savePosterOrAvatar(file);
+           return ResponseEntity.ok(Map.of("url", url));
+       } catch (IOException e) {
+           return ResponseEntity.status(500).build();
+       }
+   }
 }
