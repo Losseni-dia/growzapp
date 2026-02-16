@@ -1,11 +1,13 @@
 package growzapp.backend.news.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import growzapp.backend.news.model.News;
 import growzapp.backend.news.model.NewsCategory;
 import growzapp.backend.news.repository.NewsRepository;
+import growzapp.backend.news.service.NewsService;
 
 import java.util.List;
 
@@ -16,6 +18,9 @@ public class NewsController {
     @Autowired
     private NewsRepository newsRepository;
 
+    @Autowired
+    private NewsService newsService;
+
     @GetMapping
     public List<News> getAllNews(@RequestParam(required = false) NewsCategory category) {
         if (category != null) {
@@ -24,8 +29,15 @@ public class NewsController {
         return newsRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    @GetMapping("/{id}")
-    public News getNewsById(@SuppressWarnings("unused") @PathVariable Long id) {
-        return newsRepository.findById(id).orElseThrow();
+    // 1. Mets la route RSS AVANT la route avec ID
+    @GetMapping(value = "/rss", produces = "application/xml")
+    public ResponseEntity<String> getRssFeed() {
+        return ResponseEntity.ok(newsService.generateRssFeed());
     }
+
+    // 2. La route avec ID vient après
+    @GetMapping("/{id}")
+    public ResponseEntity<News> getNewsById(@PathVariable Long id) {
+        return ResponseEntity.ok(newsService.getNewsById(id));
+}
 }
