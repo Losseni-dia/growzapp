@@ -19,4 +19,11 @@ public class EmailSenderService {
     public void sendContratEmail(Investissement inv, byte[] pdf) {
         emailService.envoyerContratParEmail(inv, pdf);
     }
+
+    @Async
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void sendPasswordResetMail(String email, String token) {
+        emailService.sendPasswordResetMail(email, token);
+    }
+
 }

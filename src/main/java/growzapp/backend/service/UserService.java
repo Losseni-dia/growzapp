@@ -500,6 +500,24 @@ public UserDTO getUserDtoByLogin(String login) {
     return converter.toUserDto(user);
 }
 
+// === Ajouts pour le Password Reset ===
+
+@Transactional(readOnly = true)
+public User findByEmail(String email) {
+    return userRepository.findByEmail(email) // Assure-toi que cette méthode existe dans UserRepository
+            .orElse(null); // On retourne null pour que le controller gère le message générique
+}
+
+@Transactional
+public void updateUser(Long id, User user) {
+    // Cette méthode est utilisée par le reset-password pour sauvegarder l'entité
+    // User modifiée
+    if (!userRepository.existsById(id)) {
+        throw new RuntimeException("Utilisateur introuvable");
+    }
+    userRepository.save(user);
+}
+
 
 
 }
