@@ -235,12 +235,23 @@ public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
     if (node.has("partsDisponible"))
         projet.setPartsDisponible(node.get("partsDisponible").asInt());
 
+    if (node.has("valeurTotalePartsEnPourcent")) {
+        projet.setValeurTotalePartsEnPourcent(node.get("valeurTotalePartsEnPourcent").asDouble());
+    }
+
     if (node.has("roiProjete"))
         projet.setRoiProjete(node.get("roiProjete").asDouble());
 
     if (node.has("statutProjet"))
         projet.setStatutProjet(StatutProjet.valueOf(node.get("statutProjet").asText()));
 
+    // --- MISE À JOUR DES DATES ---
+    if (node.has("dateDebut") && !node.get("dateDebut").isNull() && !node.get("dateDebut").asText().isEmpty()) {
+        projet.setDateDebut(LocalDateTime.parse(node.get("dateDebut").asText().split("T")[0] + "T00:00:00"));
+    }
+    if (node.has("dateFin") && !node.get("dateFin").isNull() && !node.get("dateFin").asText().isEmpty()) {
+        projet.setDateFin(LocalDateTime.parse(node.get("dateFin").asText().split("T")[0] + "T00:00:00"));
+    }
     // --- Secteur ---
     if (node.has("secteurNom")) {
         Secteur secteur = secteurRepository.findByNomIgnoreCase(node.get("secteurNom").asText())
