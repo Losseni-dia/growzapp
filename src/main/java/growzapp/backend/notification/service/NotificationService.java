@@ -1,5 +1,6 @@
 package growzapp.backend.notification.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -49,19 +50,27 @@ public class NotificationService {
      * Notifie tous les investisseurs qui ont déjà misé sur ce projet
      * qu'un nouvel investissement vient d'avoir lieu.
      */
-    public void notifyExistingInvestors(Projet project, Double newAmount) {
-        // On récupère tous les investissements du projet
-        // Puis on extrait les utilisateurs uniques (pour ne pas notifier 2 fois la même
-        // personne)
+    public void notifyExistingInvestors(Projet project, BigDecimal newAmount, User currentInvestor) {
+        // Vérification de sécurité pour éviter les NullPointerException sur la liste
+        if (project.getInvestissements() == null)
+            return;
+
         project.getInvestissements().stream()
-                .map(Investissement::getUser) // On récupère l'investisseur
-                .distinct() // On évite les doublons si quelqu'un a investi plusieurs fois
+                // On récupère l'objet User (nommé 'investisseur' dans ton entité
+                // Investissement)
+                .map(Investissement::getInvestisseur)
+                // On évite les doublons pour ne pas spammer un utilisateur ayant plusieurs
+                // parts
+                .distinct()
+                // FILTRE : On exclut l'investisseur qui vient de réaliser l'achat
+                .filter(user -> !user.getId().equals(currentInvestor.getId()))
                 .forEach(user -> {
                     Notification notif = new Notification();
-                    notif.setRecipient(user);
+                    notif.setRecipient(user); // Utilise le setter corrigé dans l'entité Notification
                     notif.setTitle("Le projet avance !");
-                    notif.setContent("Un nouvel investissement de " + newAmount + "€ vient d'être réalisé sur "
-                            + project.getNom() + ".");
+                    // Utilise getLibelle() ou getNom() selon ton entité Projet
+                    notif.setContent("Un nouvel investissement de " + newAmount + " FCFA vient d'être réalisé sur "
+                            + project.getLibelle() + ".");
                     notificationRepository.save(notif);
                 });
     }
