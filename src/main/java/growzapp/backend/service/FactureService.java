@@ -1,6 +1,16 @@
 package growzapp.backend.service;
 
-import com.lowagie.text.DocumentException;
+import java.time.LocalDateTime;
+import java.time.Year;
+// N'oublie pas l'import
+import java.util.Locale;
+
+import org.hibernate.Hibernate; // IMPORT CRUCIAL POUR LE DÉBALLAGE
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import growzapp.backend.model.dto.commonDTO.DtoConverter;
 import growzapp.backend.model.dto.factureDTO.FactureDTO;
 import growzapp.backend.model.entite.Dividende;
@@ -13,17 +23,6 @@ import growzapp.backend.repository.DividendeRepository;
 import growzapp.backend.repository.FactureRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.Hibernate; // IMPORT CRUCIAL POUR LE DÉBALLAGE
-import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-// N'oublie pas l'import
-import java.util.Locale;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.Year;
 
 @Slf4j
 @Service
@@ -139,10 +138,7 @@ public class FactureService {
                 .orElseThrow(() -> new RuntimeException("Facture non trouvée : " + id));
     }
 
-
     // Dans FactureService.java
-
- 
 
     // ... autres méthodes existantes ...
 
@@ -151,16 +147,20 @@ public class FactureService {
      */
     public byte[] genererPdf(Long factureId, String lang) throws Exception {
         Facture facture = findEntityById(factureId);
-        
+
         // 1. Définition de la Locale
         Locale locale = Locale.FRENCH; // Par défaut
-        if ("en".equalsIgnoreCase(lang)) locale = Locale.ENGLISH;
-        else if ("es".equalsIgnoreCase(lang)) locale = new Locale("es");
+        if ("en".equalsIgnoreCase(lang))
+            locale = Locale.ENGLISH;
+        else if ("es".equalsIgnoreCase(lang))
+            locale = new Locale("es");
 
-        // 2. Si c'est en FR (langue originale), on essaie de charger le fichier stocké pour la performance
+        // 2. Si c'est en FR (langue originale), on essaie de charger le fichier stocké
+        // pour la performance
         if (locale.equals(Locale.FRENCH)) {
             try {
-                // On suppose que getFichierUrl retourne le chemin relatif (ex: /uploads/factures/...)
+                // On suppose que getFichierUrl retourne le chemin relatif (ex:
+                // /uploads/factures/...)
                 return fileStorageService.loadAsBytes(facture.getFichierUrl());
             } catch (Exception e) {
                 log.warn("Fichier original introuvable, régénération à la volée en FR.");
@@ -169,8 +169,9 @@ public class FactureService {
 
         // 3. Génération dynamique (EN, ES ou fallback FR)
         // Il faut s'assurer que les objets liés sont chargés (Projet, Investisseur)
-        // Hibernate.initialize... si nécessaire, mais normalement findById le gère si EAGER ou transaction
-        
+        // Hibernate.initialize... si nécessaire, mais normalement findById le gère si
+        // EAGER ou transaction
+
         return facturePdfService.generateDividendeFacture(facture.getDividende(), locale);
     }
 }
