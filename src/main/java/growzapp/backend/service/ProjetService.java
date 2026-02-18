@@ -22,6 +22,7 @@ import growzapp.backend.model.entite.User;
 import growzapp.backend.model.entite.Wallet;
 import growzapp.backend.model.enumeration.StatutProjet;
 import growzapp.backend.model.enumeration.WalletType;
+import growzapp.backend.notification.service.NotificationService;
 import growzapp.backend.repository.LocalisationRepository;
 import growzapp.backend.repository.LocaliteRepository;
 import growzapp.backend.repository.ProjetRepository;
@@ -42,6 +43,7 @@ public class ProjetService {
     private final SecteurRepository secteurRepository;
     private final DtoConverter converter;
     private final WalletRepository walletRepository;
+    private final NotificationService notificationService;
 
 
     // ========================
@@ -195,7 +197,7 @@ public class ProjetService {
                     Wallet walletProjet = Wallet.builder()
                             .walletType(WalletType.PROJET)
                             .projetId(saved.getId())
-                            .user(saved.getPorteur()) // le porteur est lié, mais n'a pas accès
+                            .user(null) // le porteur est lié, mais n'a pas accès
                             .soldeDisponible(BigDecimal.ZERO)
                             .soldeBloque(BigDecimal.ZERO)
                             .soldeRetirable(BigDecimal.ZERO)
@@ -223,6 +225,34 @@ public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
 
     if (node.has("libelle")) projet.setLibelle(node.get("libelle").asText());
     if (node.has("description")) projet.setDescription(node.get("description").asText());
+    // --- NOUVEAU : Champs financiers (C'est ce qui manquait !) ---
+    if (node.has("objectifFinancement"))
+        projet.setObjectifFinancement(node.get("objectifFinancement").decimalValue());
+
+    if (node.has("prixUnePart"))
+        projet.setPrixUnePart(node.get("prixUnePart").decimalValue());
+
+    if (node.has("partsDisponible"))
+        projet.setPartsDisponible(node.get("partsDisponible").asInt());
+
+    if (node.has("valeurTotalePartsEnPourcent")) {
+        projet.setValeurTotalePartsEnPourcent(node.get("valeurTotalePartsEnPourcent").asDouble());
+    }
+
+    if (node.has("roiProjete"))
+        projet.setRoiProjete(node.get("roiProjete").asDouble());
+
+    if (node.has("statutProjet"))
+        projet.setStatutProjet(StatutProjet.valueOf(node.get("statutProjet").asText()));
+
+    // --- MISE À JOUR DES DATES ---
+    if (node.has("dateDebut") && !node.get("dateDebut").isNull() && !node.get("dateDebut").asText().isEmpty()) {
+        projet.setDateDebut(LocalDateTime.parse(node.get("dateDebut").asText().split("T")[0] + "T00:00:00"));
+    }
+    if (node.has("dateFin") && !node.get("dateFin").isNull() && !node.get("dateFin").asText().isEmpty()) {
+        projet.setDateFin(LocalDateTime.parse(node.get("dateFin").asText().split("T")[0] + "T00:00:00"));
+    }
+    // --- Secteur ---
     if (node.has("secteurNom")) {
         Secteur secteur = secteurRepository.findByNomIgnoreCase(node.get("secteurNom").asText())
                 .orElseGet(() -> secteurRepository.save(new Secteur(node.get("secteurNom").asText())));
@@ -258,20 +288,29 @@ public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
         projetRepository.deleteById(id);
     }
 
+
     @Transactional
     public ProjetDTO changerStatut(Long id, StatutProjet nouveauStatut) {
         Projet projet = projetRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé avec l'ID : " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé"));
 
-        if (projet.getStatutProjet() == StatutProjet.TERMINE) {
-            throw new IllegalStateException("Un projet terminé ne peut plus être modifié");
+        StatutProjet ancienStatut = projet.getStatutProjet();
+        projet.setStatutProjet(nouveauStatut);
+
+        // On sauvegarde d'abord !
+        Projet saved = projetRepository.save(projet);
+
+        // PROTECTION : On ne notifie QUE si on passe de n'importe quoi à VALIDE
+        if (nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE) {
+            if (notificationService != null) { // Sécurité supplémentaire
+                notificationService.notifyAllUsers(
+                        "🚀 Nouveau projet !",
+                        "Le projet '" + saved.getLibelle() + "' est disponible.");
+            }
         }
 
-        projet.setStatutProjet(nouveauStatut);
-        Projet saved = projetRepository.save(projet);
         return converter.toProjetDto(saved);
     }
-
 
 
     @PreAuthorize("hasRole('ADMIN')")
