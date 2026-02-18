@@ -51,7 +51,6 @@ public class ProjetWalletController {
     private final DividendeService dividendeService;
     private final TransactionRepository transactionRepository;
     private final InvestissementService investissementService;
-    private final InvestissementRepository investissementRepository;
     private final WalletService walletService;
 
     // 1. Trésorerie réelle (argent vraiment séquestré dans les wallets PROJET)
