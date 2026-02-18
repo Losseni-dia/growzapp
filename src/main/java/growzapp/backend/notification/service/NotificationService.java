@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import growzapp.backend.model.entite.User;
 import growzapp.backend.notification.model.Notification;
+import growzapp.backend.notification.repository.NotificationRepository;
 import growzapp.backend.repository.UserRepository;
 
 @Service
