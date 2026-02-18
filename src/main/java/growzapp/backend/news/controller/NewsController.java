@@ -37,6 +37,12 @@ public class NewsController {
         return newsRepository.findAllByOrderByCreatedAtDesc();
     }
 
+    @PostMapping
+    public ResponseEntity<News> createNews(@RequestBody News news) {
+        // Sauvegarde l'article en utilisant le service
+        News createdNews = newsService.createNews(news);
+        return ResponseEntity.ok(createdNews);
+    }
     // 1. Mets la route RSS AVANT la route avec ID
     @GetMapping(value = "/rss", produces = "application/xml")
     public ResponseEntity<String> getRssFeed() {
