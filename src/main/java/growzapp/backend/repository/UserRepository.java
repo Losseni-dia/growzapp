@@ -1,7 +1,8 @@
 package growzapp.backend.repository;
 
-import growzapp.backend.model.entite.User;
-import growzapp.backend.model.enumeration.KycStatus;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,11 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.stripe.model.tax.Registration.CountryOptions.Us;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import growzapp.backend.model.entite.User;
+import growzapp.backend.model.enumeration.KycStatus;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -77,6 +75,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         List<User> findByKycStatus(KycStatus status);
 
-        @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName")
+        // Dans UserRepository.java
+        @Query("SELECT u FROM User u JOIN u.roles r WHERE r.role = :roleName")
         List<User> findByRole(@Param("roleName") String roleName);
 }
