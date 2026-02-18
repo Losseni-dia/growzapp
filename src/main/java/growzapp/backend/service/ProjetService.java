@@ -22,6 +22,7 @@ import growzapp.backend.model.entite.User;
 import growzapp.backend.model.entite.Wallet;
 import growzapp.backend.model.enumeration.StatutProjet;
 import growzapp.backend.model.enumeration.WalletType;
+import growzapp.backend.notification.service.NotificationService;
 import growzapp.backend.repository.LocalisationRepository;
 import growzapp.backend.repository.LocaliteRepository;
 import growzapp.backend.repository.ProjetRepository;
@@ -42,7 +43,7 @@ public class ProjetService {
     private final SecteurRepository secteurRepository;
     private final DtoConverter converter;
     private final WalletRepository walletRepository;
-
+    private final NotificationService notificationService;
 
     // ========================
     // GETTERS
@@ -217,37 +218,39 @@ public class ProjetService {
     // UPDATE (LA MÉTHODE QUI MARCHE À 100%)
     // ========================
 
-  @Transactional
-public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
-    Projet projet = projetRepository.findById(id).orElseThrow();
+    @Transactional
+    public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
+        Projet projet = projetRepository.findById(id).orElseThrow();
 
-    if (node.has("libelle")) projet.setLibelle(node.get("libelle").asText());
-    if (node.has("description")) projet.setDescription(node.get("description").asText());
-    if (node.has("secteurNom")) {
-        Secteur secteur = secteurRepository.findByNomIgnoreCase(node.get("secteurNom").asText())
-                .orElseGet(() -> secteurRepository.save(new Secteur(node.get("secteurNom").asText())));
-        projet.setSecteur(secteur);
+        if (node.has("libelle"))
+            projet.setLibelle(node.get("libelle").asText());
+        if (node.has("description"))
+            projet.setDescription(node.get("description").asText());
+        if (node.has("secteurNom")) {
+            Secteur secteur = secteurRepository.findByNomIgnoreCase(node.get("secteurNom").asText())
+                    .orElseGet(() -> secteurRepository.save(new Secteur(node.get("secteurNom").asText())));
+            projet.setSecteur(secteur);
+        }
+        // MISE À JOUR GÉOLOCALISATION DU SITE
+        if (node.has("siteGps") && projet.getSiteProjet() != null) {
+            JsonNode gpsNode = node.get("siteGps");
+            Localisation site = projet.getSiteProjet();
+
+            if (gpsNode.has("latitude"))
+                site.setLatitude(new BigDecimal(gpsNode.get("latitude").asText()));
+            if (gpsNode.has("longitude"))
+                site.setLongitude(new BigDecimal(gpsNode.get("longitude").asText()));
+            if (gpsNode.has("what3words"))
+                site.setWhat3words(gpsNode.get("what3words").asText());
+            if (gpsNode.has("adresse"))
+                site.setAdresse(gpsNode.get("adresse").asText());
+
+            localisationRepository.save(site);
+        }
+
+        Projet saved = projetRepository.save(projet);
+        return converter.toProjetDto(saved);
     }
-    // MISE À JOUR GÉOLOCALISATION DU SITE
-    if (node.has("siteGps") && projet.getSiteProjet() != null) {
-        JsonNode gpsNode = node.get("siteGps");
-        Localisation site = projet.getSiteProjet();
-
-        if (gpsNode.has("latitude"))
-            site.setLatitude(new BigDecimal(gpsNode.get("latitude").asText()));
-        if (gpsNode.has("longitude"))
-            site.setLongitude(new BigDecimal(gpsNode.get("longitude").asText()));
-        if (gpsNode.has("what3words"))
-            site.setWhat3words(gpsNode.get("what3words").asText());
-        if (gpsNode.has("adresse"))
-            site.setAdresse(gpsNode.get("adresse").asText());
-
-        localisationRepository.save(site);
-    }
-
-    Projet saved = projetRepository.save(projet);
-    return converter.toProjetDto(saved);
-}
 
     // ========================
     // AUTRES
@@ -267,63 +270,69 @@ public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
             throw new IllegalStateException("Un projet terminé ne peut plus être modifié");
         }
 
+        // Sauvegarde de l'ancien statut avant modification
+        StatutProjet ancienStatut = projet.getStatutProjet();
+
         projet.setStatutProjet(nouveauStatut);
         Projet saved = projetRepository.save(projet);
+
+        // LOGIQUE DE NOTIFICATION GLOBALE
+        // On ne notifie que si le projet passe d'un état quelconque à VALIDE
+        if (nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE) {
+            notificationService.notifyAllUsers(
+                    "🚀 Nouveau projet disponible !",
+                    "L'opportunité '" + saved.getLibelle()
+                            + "' est désormais ouverte à l'investissement. Découvrez les détails dès maintenant.");
+        }
+
         return converter.toProjetDto(saved);
     }
 
-
-
     @PreAuthorize("hasRole('ADMIN')")
-public Wallet getProjetWallet(Long projetId) {
-    return walletRepository.findByProjetId(projetId)
-            .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
-}
+    public Wallet getProjetWallet(Long projetId) {
+        return walletRepository.findByProjetId(projetId)
+                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+    }
 
+    /**
+     * Recherche les projets validés dans un rayon donné autour d'un point GPS.
+     * 
+     * @param userLat Latitude de l'investisseur
+     * @param userLon Longitude de l'investisseur
+     * @param rayonKm Rayon de recherche (ex: 50 km)
+     */
+    public List<ProjetDTO> findProjetsProches(double userLat, double userLon, double rayonKm) {
+        return projetRepository.findByStatutProjet(StatutProjet.VALIDE)
+                .stream()
+                .filter(p -> p.getSiteProjet() != null &&
+                        p.getSiteProjet().getLatitude() != null &&
+                        p.getSiteProjet().getLongitude() != null)
+                .filter(p -> {
+                    double distance = calculerDistanceKm(
+                            userLat,
+                            userLon,
+                            p.getSiteProjet().getLatitude().doubleValue(),
+                            p.getSiteProjet().getLongitude().doubleValue());
+                    return distance <= rayonKm;
+                })
+                .map(converter::toProjetDto)
+                .toList();
+    }
 
-/**
- * Recherche les projets validés dans un rayon donné autour d'un point GPS.
- * 
- * @param userLat Latitude de l'investisseur
- * @param userLon Longitude de l'investisseur
- * @param rayonKm Rayon de recherche (ex: 50 km)
- */
-public List<ProjetDTO> findProjetsProches(double userLat, double userLon, double rayonKm) {
-    return projetRepository.findByStatutProjet(StatutProjet.VALIDE)
-            .stream()
-            .filter(p -> p.getSiteProjet() != null &&
-                    p.getSiteProjet().getLatitude() != null &&
-                    p.getSiteProjet().getLongitude() != null)
-            .filter(p -> {
-                double distance = calculerDistanceKm(
-                        userLat,
-                        userLon,
-                        p.getSiteProjet().getLatitude().doubleValue(),
-                        p.getSiteProjet().getLongitude().doubleValue());
-                return distance <= rayonKm;
-            })
-            .map(converter::toProjetDto)
-            .toList();
-}
+    /**
+     * Formule Haversine pour le calcul de distance
+     */
+    private double calculerDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+        double R = 6371; // Rayon moyen de la Terre en km
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
 
-/**
- * Formule Haversine pour le calcul de distance
- */
-private double calculerDistanceKm(double lat1, double lon1, double lat2, double lon2) {
-    double R = 6371; // Rayon moyen de la Terre en km
-    double dLat = Math.toRadians(lat2 - lat1);
-    double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
 
-    double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
-
-
-
-
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
 
 }
