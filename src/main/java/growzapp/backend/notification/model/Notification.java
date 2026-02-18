@@ -2,8 +2,11 @@ package growzapp.backend.notification.model;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import growzapp.backend.model.entite.User;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -25,7 +28,8 @@ public class Notification {
     private LocalDateTime date = LocalDateTime.now();
     private boolean isRead = false;
 
-    @ManyToOne
+   @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    private User recipient; // L'utilisateur qui reçoit la notification
+   @JsonIgnoreProperties({"projets", "investissements", "roles", "wallet", "localite", "langues", "password"}) 
+    private User recipient;
 }
