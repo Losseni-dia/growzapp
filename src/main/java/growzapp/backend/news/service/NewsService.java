@@ -36,6 +36,26 @@ public class NewsService {
         return newsRepository.save(news);
     }
 
+
+    // Dans growzapp.backend.news.service.NewsService
+
+    @Transactional
+    public News updateNews(Long id, News newsDetails) {
+        News news = getNewsById(id);
+        news.setTitle(newsDetails.getTitle());
+        news.setContent(newsDetails.getContent());
+        news.setImageUrl(newsDetails.getImageUrl());
+        news.setCategory(newsDetails.getCategory());
+        // On ne change pas le createdAt
+        return newsRepository.save(news);
+    }
+
+    @Transactional
+    public void deleteNews(Long id) {
+        News news = getNewsById(id);
+        newsRepository.delete(news);
+    }
+
     // On prépare la méthode pour le flux RSS (on la remplira plus tard)
     // src/main/java/growzapp/backend/news/service/NewsService.java
 
