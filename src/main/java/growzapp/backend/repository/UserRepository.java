@@ -76,4 +76,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
         Optional<User> findWithProfileById(Long id);
 
         List<User> findByKycStatus(KycStatus status);
+
+        @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName")
+        List<User> findByRole(@Param("roleName") String roleName);
 }

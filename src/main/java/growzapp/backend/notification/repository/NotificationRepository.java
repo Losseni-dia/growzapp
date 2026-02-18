@@ -11,14 +11,14 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
-    // Récupère toutes les notifications d'un utilisateur, de la plus récente à la
-    // plus ancienne
-    List<Notification> findByRecipientOrderByDateDesc(User recipient);
 
     // Récupère uniquement les notifications non lues pour le badge de la cloche
     List<Notification> findByRecipientAndIsReadFalseOrderByDateDesc(User recipient);
 
     // Compte le nombre de notifications non lues (très utile pour le badge du
     // Header)
+
+    List<Notification> findByRecipientOrderByDateDesc(User recipient);
+
     long countByRecipientAndIsReadFalse(User recipient);
 }
