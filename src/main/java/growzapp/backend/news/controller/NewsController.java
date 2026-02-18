@@ -55,6 +55,19 @@ public class NewsController {
         return ResponseEntity.ok(newsService.getNewsById(id));
     }
 
+    // Dans growzapp.backend.news.controller.NewsController
+
+    @PutMapping("/{id}")
+    public ResponseEntity<News> updateNews(@PathVariable Long id, @RequestBody News news) {
+        return ResponseEntity.ok(newsService.updateNews(id, news));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteNews(@PathVariable Long id) {
+        newsService.deleteNews(id);
+        return ResponseEntity.noContent().build();
+    }
+
    // Dans NewsController.java
    // src/main/java/growzapp/backend/news/controller/NewsController.java
 
