@@ -27,6 +27,8 @@ public class Notification {
     private String content;
     private LocalDateTime date = LocalDateTime.now();
     private boolean isRead = false;
+    
+    private Long projetId;
 
    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
