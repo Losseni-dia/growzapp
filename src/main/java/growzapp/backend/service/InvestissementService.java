@@ -237,14 +237,20 @@ public class InvestissementService {
                 // ON SAUVEGARDE MAIS ON NE FAIT PAS ENCORE LE RETURN
                 Investissement savedInv = repository.save(inv);
 
-                // 5. NOTIFICATIONS (Maintenant elles sont bien exécutées !)
+                // --- DANS InvestissementService.java ---
+
+                // 5. NOTIFICATIONS
+                // Correction : on ajoute projet.getId() comme 4ème argument
                 notificationService.notifyProjectOwner(
                                 projet.getPorteur(),
                                 "Nouvel investissement !",
                                 "Félicitations ! Un montant de " + montant + " FCFA a été investi dans votre projet "
-                                                + projet.getLibelle());
+                                                + projet.getLibelle(),
+                                projet.getId() // <--- C'est ce qui manquait !
+                );
 
-                // B. Notifier les autres investisseurs du projet
+                // B. Notifier les autres investisseurs (Ici c'est déjà bon car la signature
+                // accepte Projet)
                 notificationService.notifyExistingInvestors(
                                 projet,
                                 montant,
