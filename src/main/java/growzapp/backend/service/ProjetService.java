@@ -302,13 +302,15 @@ public ProjetDTO updateProjetFromJson(Long id, JsonNode node) {
 
         // PROTECTION : On ne notifie QUE si on passe de n'importe quoi à VALIDE
         if (nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE) {
-            if (notificationService != null) { // Sécurité supplémentaire
+            if (notificationService != null) {
+                // On ajoute l'ID du projet sauvegardé comme 3ème argument
                 notificationService.notifyAllUsers(
                         "🚀 Nouveau projet !",
-                        "Le projet '" + saved.getLibelle() + "' est disponible.");
+                        "Le projet '" + saved.getLibelle() + "' est disponible.",
+                        saved.getId() // <--- AJOUT : Permet la redirection au clic
+                );
             }
         }
-
         return converter.toProjetDto(saved);
     }
 
