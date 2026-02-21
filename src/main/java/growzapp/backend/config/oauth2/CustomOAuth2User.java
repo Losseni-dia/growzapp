@@ -8,23 +8,15 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Getter
 public class CustomOAuth2User implements OAuth2User {
-    private final Long id;
-    private final String email;
-    private final Collection<? extends GrantedAuthority> authorities;
+    private final User user; // Ton entité de la base de données
     private final Map<String, Object> attributes;
 
     public CustomOAuth2User(User user, Map<String, Object> attributes) {
-        this.id = user.getId();
-        this.email = user.getEmail();
+        this.user = user;
         this.attributes = attributes;
-        // On convertit tes rôles (ADMIN, INVESTISSEUR, etc.) en GrantedAuthority
-        this.authorities = user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getRole()))
-                .collect(Collectors.toList());
     }
 
     @Override
@@ -34,11 +26,13 @@ public class CustomOAuth2User implements OAuth2User {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities;
+        return user.getRoles().stream()
+                .map(r -> new SimpleGrantedAuthority("ROLE_" + r.getRole()))
+                .toList();
     }
 
     @Override
     public String getName() {
-        return email;
+        return user.getLogin();
     }
 }
