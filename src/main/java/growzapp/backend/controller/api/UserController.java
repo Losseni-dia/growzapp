@@ -116,16 +116,22 @@ public class UserController {
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public ApiResponseDTO<UserDTO> getMyProfile(Authentication authentication) {
-        String login;
+        if (authentication == null) {
+            throw new RuntimeException("Non authentifié");
+        }
 
-        if (authentication.getPrincipal() instanceof OAuth2User) {
-            // Cas Google / GitHub
-            // On récupère le nom (login) via la méthode getName() que tu as définie dans
+        String login;
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof OAuth2User oAuth2User) {
+            // Pour Google/GitHub, on utilise l'email ou le login défini dans ton
             // CustomOAuth2User
-            login = ((OAuth2User) authentication.getPrincipal()).getName();
+            login = oAuth2User.getName();
+        } else if (principal instanceof UserDetails userDetails) {
+            // Pour la connexion classique
+            login = userDetails.getUsername();
         } else {
-            // Cas classique (Email/Password)
-            login = authentication.getName();
+            login = principal.toString();
         }
 
         UserDTO userDTO = userService.getUserDtoByLogin(login);
