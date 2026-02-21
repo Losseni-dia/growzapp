@@ -14,6 +14,7 @@ import growzapp.backend.model.entite.User;
 import growzapp.backend.model.enumeration.KycStatus;
 import growzapp.backend.repository.RoleRepository;
 import growzapp.backend.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -29,14 +30,14 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return processOAuth2User(userRequest, oAuth2User);
     }
 
+
+
+    @Transactional
     public OAuth2User processOAuth2User(OAuth2UserRequest userRequest, OAuth2User oAuth2User) {
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
         OAuth2UserInfo oAuth2UserInfo = getOAuth2UserInfo(registrationId, oAuth2User.getAttributes());
 
-        // 1. On récupère la valeur initiale
         String emailCandidate = oAuth2UserInfo.getEmail();
-
-        // 2. Logique GitHub (si besoin de changer la valeur)
         if (emailCandidate == null && registrationId.equalsIgnoreCase("github")) {
             emailCandidate = oAuth2User.getAttributes().get("login") + "@github.com";
         }
@@ -45,20 +46,22 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new RuntimeException("Email non trouvé chez le fournisseur.");
         }
 
-        // 3. ON CRÉE UNE VARIABLE FINALE ICI
-        // C'est cette variable que la lambda va "capturer"
         final String finalEmail = emailCandidate;
 
-        // CHANGEMENT ICI : On utilise la méthode qui FETCH les rôles
         return userRepository.findByEmailWithRoles(finalEmail)
                 .map(existingUser -> {
-                    // Plus besoin de .size() car FETCH a déjà chargé la collection
-                    // pendant que la session était ouverte !
+                    // MISE À JOUR DE L'IMAGE SI ELLE A CHANGÉ OU SI ELLE EST VIDE
+                    if (oAuth2UserInfo.getImageUrl() != null) {
+                        existingUser.setImage(oAuth2UserInfo.getImageUrl());
+                        // On peut aussi mettre à jour le nom/prénom si on veut
+                        existingUser.setPrenom(oAuth2UserInfo.getFirstName());
+                        existingUser.setNom(oAuth2UserInfo.getLastName());
+                        userRepository.save(existingUser); // On sauvegarde les changements
+                    }
                     return new CustomOAuth2User(existingUser, oAuth2User.getAttributes());
                 })
                 .orElseGet(() -> {
                     User newUser = createSocialUser(oAuth2UserInfo, finalEmail);
-                    // Pour un nouvel utilisateur, les rôles sont déjà chargés par le .save()
                     return new CustomOAuth2User(newUser, oAuth2User.getAttributes());
                 });
     }
