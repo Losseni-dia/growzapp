@@ -50,20 +50,19 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         return userRepository.findByEmailWithRoles(finalEmail)
                 .map(existingUser -> {
-                    // MISE À JOUR DE L'IMAGE SI ELLE A CHANGÉ OU SI ELLE EST VIDE
-                    if (oAuth2UserInfo.getImageUrl() != null) {
-                        existingUser.setImage(oAuth2UserInfo.getImageUrl());
-                        // On peut aussi mettre à jour le nom/prénom si on veut
-                        existingUser.setPrenom(oAuth2UserInfo.getFirstName());
-                        existingUser.setNom(oAuth2UserInfo.getLastName());
-                        userRepository.save(existingUser); // On sauvegarde les changements
-                    }
-                    return new CustomOAuth2User(existingUser, oAuth2User.getAttributes());
+                    // FORCE LA MISE À JOUR : C'est ici que ça se joue !
+                    existingUser.setPrenom(oAuth2UserInfo.getFirstName());
+                    existingUser.setNom(oAuth2UserInfo.getLastName());
+                    existingUser.setImage(oAuth2UserInfo.getImageUrl());
+                    // On sauvegarde pour que la DB soit à jour
+                    User updatedUser = userRepository.save(existingUser);
+                    return new CustomOAuth2User(updatedUser, oAuth2User.getAttributes());
                 })
                 .orElseGet(() -> {
                     User newUser = createSocialUser(oAuth2UserInfo, finalEmail);
                     return new CustomOAuth2User(newUser, oAuth2User.getAttributes());
                 });
+    
     }
 
     // L'aiguillage qui choisit la bonne classe (Google, GitHub, etc.)
