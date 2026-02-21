@@ -4,14 +4,18 @@ import growzapp.backend.model.entite.User;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
 import java.util.Collection;
 import java.util.Map;
 
 @Getter
-public class CustomOAuth2User implements OAuth2User {
-    private final User user; // Ton entité de la base de données
+// On ajoute OidcUser ici pour supporter Google/Apple/Azure etc.
+public class CustomOAuth2User implements OAuth2User, OidcUser {
+    private final User user;
     private final Map<String, Object> attributes;
 
     public CustomOAuth2User(User user, Map<String, Object> attributes) {
@@ -34,5 +38,24 @@ public class CustomOAuth2User implements OAuth2User {
     @Override
     public String getName() {
         return user.getLogin();
+    }
+
+    // --- Méthodes obligatoires pour OidcUser ---
+
+    @Override
+    public Map<String, Object> getClaims() {
+        return attributes;
+    }
+
+    @Override
+    public OidcIdToken getIdToken() {
+        // Optionnel : tu peux le passer au constructeur si tu en as besoin,
+        // sinon null suffit pour la plupart des success handlers.
+        return (OidcIdToken) attributes.get("id_token");
+    }
+
+    @Override
+    public OidcUserInfo getUserInfo() {
+        return null;
     }
 }
