@@ -120,21 +120,14 @@ public class UserController {
             throw new RuntimeException("Non authentifié");
         }
 
-        String login;
-        Object principal = authentication.getPrincipal();
+        // PEU IMPORTE le type de principal (OAuth2 ou UserDetails),
+        // l'identifiant unique est dans getName()
+        String login = authentication.getName();
 
-        if (principal instanceof OAuth2User oAuth2User) {
-            // Pour Google/GitHub, on utilise l'email ou le login défini dans ton
-            // CustomOAuth2User
-            login = oAuth2User.getName();
-        } else if (principal instanceof UserDetails userDetails) {
-            // Pour la connexion classique
-            login = userDetails.getUsername();
-        } else {
-            login = principal.toString();
-        }
-
+        // Ton UserService.getUserDtoByLogin utilise déjà findWithProfileByLogin
+        // donc il va charger la localité, les projets, etc.
         UserDTO userDTO = userService.getUserDtoByLogin(login);
+
         return ApiResponseDTO.success(userDTO);
     }
 
