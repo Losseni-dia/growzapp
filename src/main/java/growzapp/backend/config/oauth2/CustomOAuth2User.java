@@ -40,6 +40,10 @@ public class CustomOAuth2User implements OAuth2User, OidcUser {
         return user.getLogin();
     }
 
+    public String getImageUrl() {
+        return user.getImage();
+    }
+
     // --- Méthodes obligatoires pour OidcUser ---
 
     @Override
