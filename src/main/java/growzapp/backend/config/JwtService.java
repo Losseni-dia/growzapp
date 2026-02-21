@@ -37,6 +37,16 @@ public class JwtService {
                 .compact();
     }
 
+    public String generateToken(String login, Map<String, Object> extraClaims) {
+        return Jwts.builder()
+                .setClaims(extraClaims)
+                .setSubject(login)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24h
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
     private Key getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
         return Keys.hmacShaKeyFor(keyBytes);
