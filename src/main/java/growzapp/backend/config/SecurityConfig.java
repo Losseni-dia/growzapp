@@ -41,6 +41,7 @@ public class SecurityConfig {
 
                                                 // PUBLIC
                                                 .requestMatchers("/api/auth/**", "/api/auth/register").permitAll()
+                                                .requestMatchers("/login/oauth2/**").permitAll()
                                                 .requestMatchers("/api/projets", "/api/projets/**").permitAll()
                                                 .requestMatchers("/api/localites", "/api/langues", "/api/secteurs")
                                                 .permitAll()
