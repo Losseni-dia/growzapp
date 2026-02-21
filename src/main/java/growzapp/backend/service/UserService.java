@@ -70,7 +70,7 @@ public class UserService {
     public UserDTO updateMyProfile(UserUpdateDTO dto, MultipartFile imageFile) throws IOException {
         User current = getCurrentUser();
 
-        // 1. Unicité Login/Email
+        // 1. Unicité Login/Email (inchangé)
         if (dto.getLogin() != null && !dto.getLogin().equals(current.getLogin())
                 && userRepository.existsByLogin(dto.getLogin())) {
             throw new IllegalArgumentException("Ce login est déjà utilisé");
@@ -97,18 +97,18 @@ public class UserService {
             current.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
 
-        // 4. GESTION DE L'IMAGE (Optimisée)
+        // 3. Gestion de l'IMAGE (La partie cruciale pour Google/GitHub)
         if (imageFile != null && !imageFile.isEmpty()) {
-            // Supprimer l'ancienne si ce n'est pas une URL DiceBear
+            // Cas A : On upload un nouveau fichier local
+            // On nettoie l'ancien fichier s'il existe et si ce n'est pas un lien externe
             if (current.getImage() != null && !current.getImage().startsWith("http")) {
-                try {
-                    Files.deleteIfExists(Paths.get(AVATAR_DIR + current.getImage()));
-                } catch (IOException e) {
-                    System.err.println("Erreur suppression ancien avatar: " + e.getMessage());
-                }
+                Files.deleteIfExists(Paths.get(AVATAR_DIR + current.getImage()));
             }
-            // Enregistrer le nom du fichier
             current.setImage(saveImageLocally(imageFile));
+        } else if (dto.getImage() != null && dto.getImage().startsWith("http")) {
+            // Cas B : On reçoit une URL (Google, GitHub ou DiceBear) et aucun fichier n'est
+            // uploadé
+            current.setImage(dto.getImage());
         }
 
         // 5. Relations
@@ -423,67 +423,6 @@ public UserDTO getCurrentUserDto() {
     return converter.toUserDto(user);
 }
 
-// === Mise à jour du profil par l'utilisateur (pas de rôles) ===
-@Transactional
-public UserDTO updateMyProfile(UserUpdateDTO dto) {
-    User current = getCurrentUser();
-    if (current == null)
-        throw new RuntimeException("Non authentifié");
-
-    // === Unicité login/email (seulement si modifié) ===
-    if (dto.getLogin() != null && !dto.getLogin().equals(current.getLogin())
-            && userRepository.existsByLogin(dto.getLogin())) {
-        throw new IllegalArgumentException("Ce login est déjà utilisé");
-    }
-    if (dto.getEmail() != null && !dto.getEmail().equals(current.getEmail())
-            && userRepository.existsByEmail(dto.getEmail())) {
-        throw new IllegalArgumentException("Cet email est déjà utilisé");
-    }
-
-    // === Champs simples : on ne met à jour que si la valeur est fournie ===
-    if (dto.getLogin() != null && !dto.getLogin().isBlank())
-        current.setLogin(dto.getLogin());
-    if (dto.getPrenom() != null && !dto.getPrenom().isBlank())
-        current.setPrenom(dto.getPrenom());
-    if (dto.getNom() != null && !dto.getNom().isBlank())
-        current.setNom(dto.getNom());
-    if (dto.getEmail() != null && !dto.getEmail().isBlank())
-        current.setEmail(dto.getEmail());
-    if (dto.getContact() != null)
-        current.setContact(dto.getContact().isBlank() ? null : dto.getContact());
-    if (dto.getSexe() != null)
-        current.setSexe(dto.getSexe());
-
-    // === Mot de passe ===
-    if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
-        current.setPassword(passwordEncoder.encode(dto.getPassword()));
-    }
-
-    // === Photo (si upload via multipart) ===
-    if (dto.getImage() != null && !dto.getImage().isBlank()) {
-        current.setImage(dto.getImage());
-    }
-
-    // === Localité ===
-    if (dto.getLocalite() != null && dto.getLocalite().id() != null && dto.getLocalite().id() > 0) {
-        current.setLocalite(entityManager.getReference(Localite.class, dto.getLocalite().id()));
-    }
-
-    // === Langues ===
-    if (dto.getLangues() != null) { // ← C'EST LA CLÉ : on teste juste "présent", pas "non vide" !
-        List<Langue> nouvelles = dto.getLangues().stream()
-                .filter(l -> l.getId() != null && l.getId() > 0)
-                .map(l -> entityManager.getReference(Langue.class, l.getId()))
-                .toList();
-
-        //current.getLangues().clear();
-        current.getLangues().addAll(nouvelles);
-    }
-    // Sinon → on garde les langues actuelles (ne rien faire)
-
-    current = userRepository.save(current);
-    return toDto(current);
-}
 
 private UserDTO toDto(User user) {
     return converter.toUserDto(user); // Centralisé, propre, plus de doublon
@@ -493,9 +432,13 @@ private UserDTO toDto(User user) {
 // === Récupérer le DTO d'un utilisateur par son login (utilisé par
 // AuthController) ===
 @Transactional(readOnly = true)
-public UserDTO getUserDtoByLogin(String login) {
-    User user = userRepository.findByLoginForAuth(login)
-            .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé avec le login : " + login));
+public UserDTO getUserDtoByLogin(String loginOrEmail) {
+    // 1. On tente par Login avec le profil complet
+    User user = userRepository.findWithProfileByLogin(loginOrEmail)
+            // 2. Si non trouvé, on tente par Email avec le profil complet
+            .orElseGet(() -> userRepository.findWithProfileByEmail(loginOrEmail)
+                    // 3. Si toujours rien, on lance l'erreur
+                    .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + loginOrEmail)));
 
     return converter.toUserDto(user);
 }

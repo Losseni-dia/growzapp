@@ -36,14 +36,14 @@ public class User {
     @Column(nullable = false,unique = true,length = 50)
     private String login;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String password;
 
     private String prenom;
     private String nom;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "sexe", nullable = false, length = 1)
+    @Column(name = "sexe", nullable = true, length = 1)
     private Sexe sexe;
 
     @Column(unique = true, length = 191)

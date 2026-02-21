@@ -78,4 +78,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
         // Dans UserRepository.java
         @Query("SELECT u FROM User u JOIN u.roles r WHERE r.role = :roleName")
         List<User> findByRole(@Param("roleName") String roleName);
+
+        @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.email = :email")
+        Optional<User> findByEmailWithRoles(@Param("email") String email);
+
+        @EntityGraph(attributePaths = {
+                        "projets", "projets.secteur", "projets.siteProjet",
+                        "investissements", "investissements.projet",
+                        "localite", "langues", "roles"
+        })
+        Optional<User> findWithProfileByEmail(String email);
 }
