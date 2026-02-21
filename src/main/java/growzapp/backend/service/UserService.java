@@ -433,9 +433,11 @@ private UserDTO toDto(User user) {
 // AuthController) ===
 @Transactional(readOnly = true)
 public UserDTO getUserDtoByLogin(String loginOrEmail) {
-    // On cherche d'abord par login, sinon par email
-    User user = userRepository.findByLoginForAuth(loginOrEmail)
-            .orElseGet(() -> userRepository.findByEmail(loginOrEmail)
+    // 1. On tente par Login avec le profil complet
+    User user = userRepository.findWithProfileByLogin(loginOrEmail)
+            // 2. Si non trouvé, on tente par Email avec le profil complet
+            .orElseGet(() -> userRepository.findWithProfileByEmail(loginOrEmail)
+                    // 3. Si toujours rien, on lance l'erreur
                     .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + loginOrEmail)));
 
     return converter.toUserDto(user);
