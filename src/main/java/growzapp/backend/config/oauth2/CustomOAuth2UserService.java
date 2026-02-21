@@ -1,26 +1,27 @@
 package growzapp.backend.config.oauth2;
 
-import growzapp.backend.model.entite.User;
-import growzapp.backend.model.enumeration.KycStatus;
-import growzapp.backend.repository.UserRepository;
-import growzapp.backend.repository.RoleRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.Collections;
+import java.util.Map;
+import java.util.UUID;
+
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.UUID;
+import growzapp.backend.model.entite.User;
+import growzapp.backend.model.enumeration.KycStatus;
+import growzapp.backend.repository.RoleRepository;
+import growzapp.backend.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository; // Pour attribuer le rôle par défaut
+    private final RoleRepository roleRepository;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -28,37 +29,50 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return processOAuth2User(userRequest, oAuth2User);
     }
 
-    public OAuth2User processOAuth2User(OAuth2UserRequest userRequest, OAuth2User oAuth2User) {
+    private OAuth2User processOAuth2User(OAuth2UserRequest userRequest, OAuth2User oAuth2User) {
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
-        Map<String, Object> attributes = oAuth2User.getAttributes();
 
-        String email = extractEmail(registrationId, attributes);
+        // --- C'EST ICI QU'ON UTILISE TES CLASSES ---
+        OAuth2UserInfo oAuth2UserInfo = getOAuth2UserInfo(registrationId, oAuth2User.getAttributes());
 
-        // On cherche l'utilisateur dans ta base PostgreSQL
-        User user = userRepository.findByLoginForAuth(email)
-                .orElseGet(() -> createSocialUser(email, attributes));
-
-        return new CustomOAuth2User(user, attributes);
-    }
-
-    private String extractEmail(String provider, Map<String, Object> attributes) {
-        if (provider.equalsIgnoreCase("github") && attributes.get("email") == null) {
-            return attributes.get("login") + "@github.com";
+        if (oAuth2UserInfo.getEmail() == null) {
+            throw new RuntimeException("Email non trouvé chez le fournisseur.");
         }
-        return (String) attributes.get("email");
+
+        User user = userRepository.findByLoginForAuth(oAuth2UserInfo.getEmail())
+                .orElseGet(() -> createSocialUser(oAuth2UserInfo));
+
+        return new CustomOAuth2User(user, oAuth2User.getAttributes());
     }
 
-    private User createSocialUser(String email, Map<String, Object> attributes) {
+    // L'aiguillage qui choisit la bonne classe (Google, GitHub, etc.)
+    private OAuth2UserInfo getOAuth2UserInfo(String registrationId, Map<String, Object> attributes) {
+        if (registrationId.equalsIgnoreCase("google")) {
+            return new GoogleOAuth2UserInfo(attributes);
+        } else if (registrationId.equalsIgnoreCase("github")) {
+            // Tu pourrais créer une classe GithubOAuth2UserInfo plus tard
+            return new GoogleOAuth2UserInfo(attributes);
+        } else {
+            throw new RuntimeException("Login avec " + registrationId + " non supporté.");
+        }
+    }
+
+    private User createSocialUser(OAuth2UserInfo userInfo) {
         User user = new User();
-        user.setEmail(email);
-        user.setLogin(email);
-        user.setNom((String) attributes.get("name"));
-        user.setEnabled(true);
-        user.setPassword(UUID.randomUUID().toString());// Pas de mot de passe pour les comptes sociaux
+        user.setEmail(userInfo.getEmail());
+        user.setLogin(userInfo.getEmail());
+
+        // On utilise enfin tes méthodes getFirstName() et getLastName() !
+        user.setPrenom(userInfo.getFirstName());
+        user.setNom(userInfo.getLastName());
+        user.setImage(userInfo.getImageUrl());
+
+        // Sécurité pour la DB
+        user.setPassword(UUID.randomUUID().toString());
+        user.setSexe(null);
         user.setEnabled(true);
         user.setKycStatus(KycStatus.NON_SOUMIS);
 
-        // On lui donne le rôle INVESTISSEUR par défaut (à adapter)
         roleRepository.findByRole("USER").ifPresent(role -> user.setRoles(Collections.singleton(role)));
 
         return userRepository.save(user);
