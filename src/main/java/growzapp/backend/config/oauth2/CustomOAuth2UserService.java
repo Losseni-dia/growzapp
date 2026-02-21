@@ -1,6 +1,7 @@
 package growzapp.backend.config.oauth2;
 
 import growzapp.backend.model.entite.User;
+import growzapp.backend.model.enumeration.KycStatus;
 import growzapp.backend.repository.UserRepository;
 import growzapp.backend.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -52,7 +54,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         user.setLogin(email);
         user.setNom((String) attributes.get("name"));
         user.setEnabled(true);
-        user.setPassword(null); // Pas de mot de passe pour les comptes sociaux
+        user.setPassword(UUID.randomUUID().toString());// Pas de mot de passe pour les comptes sociaux
+        user.setEnabled(true);
+        user.setKycStatus(KycStatus.NON_SOUMIS);
 
         // On lui donne le rôle INVESTISSEUR par défaut (à adapter)
         roleRepository.findByRole("USER").ifPresent(role -> user.setRoles(Collections.singleton(role)));
