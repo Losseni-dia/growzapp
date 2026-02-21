@@ -13,6 +13,10 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -46,7 +50,7 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/localites", "/api/langues", "/api/secteurs")
                                                 .permitAll()
                                                 .requestMatchers("/api/currencies/**").permitAll() // Autorise l'accès
-                                                                                                   // public
+                                                // public
 
                                                 // FICHIERS PUBLICS
                                                 .requestMatchers("/uploads/posters/**").permitAll()
@@ -58,13 +62,14 @@ public class SecurityConfig {
 
                                                 // CONTRATS PUBLICS
                                                 // MODIFICATION ICI : On autorise le POST pour la vérification sécurisée
-                                                .requestMatchers(HttpMethod.POST,"/api/contrats/public/verifier-securise").permitAll()
+                                                .requestMatchers(HttpMethod.POST,
+                                                                "/api/contrats/public/verifier-securise")
+                                                .permitAll()
 
                                                 // Garder le reste du public
                                                 .requestMatchers("/api/contrats/public/verifier/**").permitAll()
                                                 .requestMatchers("/api/contrats/{numero}").permitAll()
                                                 .requestMatchers("/api/contrats/{numero}/download").permitAll()
-
 
                                                 .requestMatchers("/api/news/**").permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/news/**")
@@ -72,8 +77,8 @@ public class SecurityConfig {
                                                 .requestMatchers(HttpMethod.PUT, "/api/news/**")
                                                 .hasAnyRole("ADMIN", "COMMUNICANT")
                                                 .requestMatchers(HttpMethod.DELETE, "/api/news/**").hasAnyRole("ADMIN") // Seul
-                                                                                                                        // l'admin
-                                                                                                                        // supprime
+                                                // l'admin
+                                                // supprime
 
                                                 // API DOCUMENTS : authentifié + logique fine dans le controller
                                                 .requestMatchers("/api/documents/projet/**").authenticated() // ← liste
@@ -110,13 +115,31 @@ public class SecurityConfig {
 
                                 .formLogin(form -> form.disable())
                                 .httpBasic(basic -> basic.disable())
+
                                 .oauth2Login(oauth2 -> oauth2
                                                 .userInfoEndpoint(userInfo -> userInfo
-                                                                .userService(customOAuth2UserService))
+                                                                .userService(customOAuth2UserService) // Gère GitHub,
+                                                                // Facebook, etc.
+                                                                .oidcUserService(this.oidcUserService()) // Gère Google
+                                                                                                         // (OIDC)
+                                                )
                                                 .successHandler(oauth2SuccessHandler))
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();
+        }
+
+        @Bean
+        public OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
+                OidcUserService delegate = new OidcUserService();
+                return (userRequest) -> {
+                        // Le délégué récupère l'utilisateur OIDC (Google) standard
+                        OidcUser oidcUser = delegate.loadUser(userRequest);
+
+                        // On appelle ta méthode maintenant publique pour transformer l'OidcUser
+                        // en ton CustomOAuth2User (qui contient ton entité User PostgreSQL)
+                        return (OidcUser) customOAuth2UserService.processOAuth2User(userRequest, oidcUser);
+                };
         }
 
         @Bean
