@@ -15,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -114,9 +115,26 @@ public class UserController {
     // 1. RÉCUPÉRATION DU PROFIL (Corrigé)
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
-    public ApiResponseDTO<UserDTO> getMyProfile(@AuthenticationPrincipal UserDetails userDetails) {
-        // Appel de la méthode que nous venons d'ajouter
-        UserDTO userDTO = userService.getUserDtoByLogin(userDetails.getUsername());
+    public ApiResponseDTO<UserDTO> getMyProfile(Authentication authentication) {
+        if (authentication == null) {
+            throw new RuntimeException("Non authentifié");
+        }
+
+        String login;
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof OAuth2User oAuth2User) {
+            // Pour Google/GitHub, on utilise l'email ou le login défini dans ton
+            // CustomOAuth2User
+            login = oAuth2User.getName();
+        } else if (principal instanceof UserDetails userDetails) {
+            // Pour la connexion classique
+            login = userDetails.getUsername();
+        } else {
+            login = principal.toString();
+        }
+
+        UserDTO userDTO = userService.getUserDtoByLogin(login);
         return ApiResponseDTO.success(userDTO);
     }
 

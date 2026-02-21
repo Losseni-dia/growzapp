@@ -28,9 +28,14 @@ public class JwtService {
                 .map(r -> r.getRole())
                 .toList());
 
+        // On appelle la méthode qui contient déjà toute la logique Jwts.builder()
+        return generateToken(user.getLogin(), claims);
+    }
+
+    public String generateToken(String login, Map<String, Object> extraClaims) {
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(user.getLogin())
+                .setClaims(extraClaims)
+                .setSubject(login)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24h
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
