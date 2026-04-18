@@ -22,6 +22,12 @@ public interface ProjetRepository extends JpaRepository<Projet, Long> {
 
     List<Projet> findByPorteurId(Long id);
 
+    // NOUVEAU : Rechercher un projet par son slug SEO
+    Optional<Projet> findBySlug(String slug);
+
+    // Pour éviter les doublons lors de la création
+    boolean existsBySlug(String slug);
+
     long countByPorteurId(Long porteurId);
 
     List<Projet> findByStatutProjet(StatutProjet statut);
