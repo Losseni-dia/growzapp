@@ -42,6 +42,12 @@ public class Investissement {
     @Column(name = "statut_investissement", nullable = false)
     private StatutPartInvestissement statutPartInvestissement = StatutPartInvestissement.EN_ATTENTE;
 
+
+    @Column(name = "risk_warning_accepted_at")
+    private LocalDateTime riskWarningAcceptedAt;
+
+    @Column(name = "insurance_terms_accepted_at")
+    private LocalDateTime insuranceTermsAcceptedAt;
     // ==================== RELATIONS ====================
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -54,6 +54,15 @@ public class User {
     @Column(nullable = false)
     private boolean enabled;
 
+    @Column(name = "cgu_accepted_at")
+    private LocalDateTime cguAcceptedAt;
+
+    @Column(name = "rgpd_accepted_at")
+    private LocalDateTime rgpdAcceptedAt;
+
+    @Column(name = "cgu_version_accepted")
+    private String cguVersionAccepted; // Ex: "v1.0"
+
     // === RELATIONS ===
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "localite_id")
