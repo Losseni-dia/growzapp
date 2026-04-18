@@ -186,6 +186,7 @@ public class ProjetService {
         projet.setPorteur(currentUser);
         projet.setSecteur(secteur);
         projet.setSiteProjet(siteProjet);
+        
         // poster sera rempli dans le controller après l’upload
 
         // Tout est sauvegardé d’un coup grâce à @Transactional + cascade ou flush final
@@ -361,6 +362,16 @@ private double calculerDistanceKm(double lat1, double lon1, double lat2, double 
 
     double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+}
+
+public ProjetDTO getProjetBySlug(String slug) {
+    // On cherche par slug au lieu de ID
+    Projet projet = projetRepository.findBySlug(slug)
+            .orElseThrow(() -> new EntityNotFoundException("Projet introuvable avec le slug : " + slug));
+
+    // On convertit en DTO (cela inclut ton googleMapsUrl s'il est dans le
+    // converter)
+    return converter.toProjetDto(projet);
 }
 
 
