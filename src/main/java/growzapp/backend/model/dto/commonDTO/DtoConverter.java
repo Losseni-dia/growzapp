@@ -99,6 +99,7 @@ public class DtoConverter {
                 dto.setProjets(user.getProjets().stream()
                                 .map(p -> new ProjetDTO(
                                                 p.getId(),
+                                                p.getSlug(),
                                                 p.getPoster(),
                                                 p.getReference(),
                                                 p.getLibelle(),
@@ -116,6 +117,7 @@ public class DtoConverter {
                                                 p.getValeurTotalePartsEnPourcent(),
                                                 p.getStatutProjet(),
                                                 p.getCreatedAt(),
+                                                p.getCertifiedAt(), // <--- AJOUT DU CHAMP DE CERTIFICATION ICI
                                                 p.getSiteProjet() != null && p.getSiteProjet().getLocalite() != null
                                                                 ? p.getSiteProjet().getLocalite().getId()
                                                                 : null,
@@ -409,6 +411,7 @@ public class DtoConverter {
 
                 return new ProjetDTO(
                                 projet.getId(),
+                                projet.getSlug(), // <-- AJOUT DU SLUG ICI
                                 projet.getPoster(),
                                 projet.getReference(),
                                 projet.getLibelle(),
@@ -426,6 +429,7 @@ public class DtoConverter {
                                 projet.getValeurTotalePartsEnPourcent(),
                                 projet.getStatutProjet(),
                                 projet.getCreatedAt(),
+                                projet.getCertifiedAt(), // <--- AJOUT DU CHAMP DE CERTIFICATION ICI
                                 localiteId,
                                 porteurId,
                                 siteId,

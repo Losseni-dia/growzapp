@@ -1,4 +1,3 @@
-// src/main/java/growzapp/backend/model/dto/projetDTO/ProjetDTO.java
 package growzapp.backend.model.dto.projetDTO;
 
 import growzapp.backend.model.dto.documentDTO.DocumentDTO;
@@ -11,23 +10,26 @@ import java.util.List;
 
 public record ProjetDTO(
                 Long id,
+                String slug,
                 String poster,
                 Integer reference,
                 String libelle,
                 String description,
-                BigDecimal valuation, // Changé double -> BigDecimal
+                BigDecimal valuation,
                 double roiProjete,
                 int partsDisponible,
                 int partsPrises,
-                BigDecimal prixUnePart, // Changé double -> BigDecimal
-                BigDecimal objectifFinancement, // Changé double -> BigDecimal
-                BigDecimal montantCollecte, // Changé double -> BigDecimal
+                BigDecimal prixUnePart,
+                BigDecimal objectifFinancement,
+                BigDecimal montantCollecte,
                 String currencyCode,
                 LocalDateTime dateDebut,
                 LocalDateTime dateFin,
                 double valeurTotalePartsEnPourcent,
                 StatutProjet statutProjet,
                 LocalDateTime createdAt,
+                // --- AJOUT DU CHAMP DE CERTIFICATION ---
+                LocalDateTime certifiedAt,
                 Long localiteId,
                 Long porteurId,
                 Long siteId,
@@ -43,19 +45,18 @@ public record ProjetDTO(
                 String what3words,
                 String googleMapsUrl,
                 List<DocumentDTO> documents,
-                List<InvestissementDTO> investissements
-
-// AJOUTÉ : SOLDE RÉEL DU WALLET (SEULEMENT ADMIN)
-) {
+                List<InvestissementDTO> investissements) {
 
         // === MÉTHODE WITH PERSONNALISÉE POUR LE POSTER ===
         public ProjetDTO withPoster(String newPoster) {
                 return new ProjetDTO(
-                                id, newPoster, reference, libelle, description, valuation, roiProjete,
+                                id,
+                                slug, newPoster, reference, libelle, description, valuation, roiProjete,
                                 partsDisponible, partsPrises, prixUnePart, objectifFinancement,
                                 montantCollecte, currencyCode, dateDebut, dateFin,
-                                valeurTotalePartsEnPourcent, statutProjet, createdAt, localiteId,
-                                porteurId, siteId, secteurId, paysId, paysNom, localiteNom,
+                                valeurTotalePartsEnPourcent, statutProjet, createdAt,
+                                certifiedAt, // <--- Ne pas oublier ici
+                                localiteId, porteurId, siteId, secteurId, paysId, paysNom, localiteNom,
                                 porteurNom, siteNom, secteurNom, latitude, longitude, what3words, googleMapsUrl,
                                 documents, investissements);
         }
@@ -63,11 +64,12 @@ public record ProjetDTO(
         // Bonus : avec ID (utile pour update)
         public ProjetDTO withId(Long newId) {
                 return new ProjetDTO(
-                                newId, poster, reference, libelle, description, valuation, roiProjete,
+                                newId, slug, poster, reference, libelle, description, valuation, roiProjete,
                                 partsDisponible, partsPrises, prixUnePart, objectifFinancement,
                                 montantCollecte, currencyCode, dateDebut, dateFin,
-                                valeurTotalePartsEnPourcent, statutProjet, createdAt, localiteId,
-                                porteurId, siteId, secteurId, paysId, paysNom, localiteNom,
+                                valeurTotalePartsEnPourcent, statutProjet, createdAt,
+                                certifiedAt, // <--- Ne pas oublier ici
+                                localiteId, porteurId, siteId, secteurId, paysId, paysNom, localiteNom,
                                 porteurNom, siteNom, secteurNom, latitude, longitude, what3words, googleMapsUrl,
                                 documents, investissements);
         }
