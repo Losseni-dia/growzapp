@@ -189,4 +189,11 @@ public class ProjetRestController {
         return ApiResponseDTO.success(proches)
                 .message(proches.size() + " projets trouvés à proximité.");
     }
+
+
+    @GetMapping("/slug/{slug}")
+    public ApiResponseDTO<ProjetDTO> getBySlug(@PathVariable String slug) {
+        log.info("Récupération du projet par slug : {}", slug);
+        return ApiResponseDTO.success(projetService.getProjetBySlug(slug));
+    }
 }
