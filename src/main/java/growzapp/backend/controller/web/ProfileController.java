@@ -3,8 +3,8 @@ package growzapp.backend.controller.web;
 
 import growzapp.backend.model.entite.Investissement;
 import growzapp.backend.model.entite.User;
+import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.repository.InvestissementRepository;
-import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.service.DividendeService;
 import growzapp.backend.service.UserService;
 import lombok.RequiredArgsConstructor;

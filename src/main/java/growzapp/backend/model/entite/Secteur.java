@@ -7,6 +7,8 @@ import lombok.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import growzapp.backend.module.projet.model.Projet;
+
 @Entity
 @Table(name = "secteurs")
 @Data

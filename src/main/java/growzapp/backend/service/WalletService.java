@@ -2,12 +2,12 @@
 
 package growzapp.backend.service;
 
-import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.entite.Transaction;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.model.entite.Wallet;
 import growzapp.backend.model.enumeration.*;
-import growzapp.backend.repository.ProjetRepository;
+import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.repository.TransactionRepository;
 import growzapp.backend.repository.WalletRepository;
 import growzapp.backend.service.PayDunyaService.PayDunyaResponse;

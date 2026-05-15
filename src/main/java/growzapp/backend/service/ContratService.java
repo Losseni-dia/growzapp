@@ -4,6 +4,7 @@ package growzapp.backend.service;
 
 import growzapp.backend.model.entite.*;
 import growzapp.backend.model.enumeration.StatutPartInvestissement;
+import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.repository.ContratRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;

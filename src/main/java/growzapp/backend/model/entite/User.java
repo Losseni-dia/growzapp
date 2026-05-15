@@ -4,6 +4,7 @@ package growzapp.backend.model.entite;
 
 import growzapp.backend.model.enumeration.KycStatus;
 import growzapp.backend.model.enumeration.Sexe;
+import growzapp.backend.module.projet.model.Projet;
 import jakarta.persistence.*;
 import lombok.*;
 
