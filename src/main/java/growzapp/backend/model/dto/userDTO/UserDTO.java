@@ -3,9 +3,9 @@ package growzapp.backend.model.dto.userDTO;
 
 import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
 import growzapp.backend.model.dto.localiteDTO.LocaliteDTO;
-import growzapp.backend.model.dto.projetDTO.ProjetDTO;
 import growzapp.backend.model.enumeration.KycStatus;
 import growzapp.backend.model.enumeration.Sexe;
+import growzapp.backend.module.projet.dto.ProjetDTO;
 import lombok.Data;
 
 import java.util.ArrayList;

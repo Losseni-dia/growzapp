@@ -21,13 +21,13 @@ import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
 
 import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.entite.User;
 import growzapp.backend.model.enumeration.StatutPartInvestissement;
 import growzapp.backend.model.enumeration.StatutTransaction;
+import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.repository.InvestissementRepository;
 import growzapp.backend.repository.PayoutModelRepository;
-import growzapp.backend.repository.ProjetRepository;
 import growzapp.backend.repository.UserRepository;
 import growzapp.backend.service.DepositService; // NOUVELLE INJECTION
 import growzapp.backend.repository.WalletRepository;

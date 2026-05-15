@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.entite.Projet;
 import growzapp.backend.model.entite.User;
+import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.notification.model.Notification;
 import growzapp.backend.notification.repository.NotificationRepository;
 import growzapp.backend.repository.UserRepository;

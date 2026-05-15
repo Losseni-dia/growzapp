@@ -7,7 +7,6 @@ import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
 import growzapp.backend.model.dto.localisationDTO.LocalisationDTO;
 import growzapp.backend.model.dto.localiteDTO.LocaliteDTO;
 import growzapp.backend.model.dto.paysDTO.PaysDTO;
-import growzapp.backend.model.dto.projetDTO.ProjetDTO;
 import growzapp.backend.model.dto.secteurDTO.SecteurDTO;
 import growzapp.backend.model.dto.userDTO.UserDTO;
 import growzapp.backend.model.dto.walletDTOs.TransactionDTO;
@@ -17,6 +16,8 @@ import growzapp.backend.model.enumeration.StatutFacture;
 import growzapp.backend.model.enumeration.StatutProjet;
 import growzapp.backend.model.enumeration.TypeTransaction;
 import growzapp.backend.model.enumeration.WalletType;
+import growzapp.backend.module.projet.dto.ProjetDTO;
+import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.repository.LocalisationRepository;
 import growzapp.backend.repository.SecteurRepository;
 import growzapp.backend.repository.UserRepository;
@@ -114,6 +115,7 @@ public class DtoConverter {
                                                 "XOF", // <-- AJOUT : currencyCode (indispensable pour le Record)
                                                 p.getDateDebut(),
                                                 p.getDateFin(),
+                                                p.getDureeMois(),
                                                 p.getValeurTotalePartsEnPourcent(),
                                                 p.getStatutProjet(),
                                                 p.getCreatedAt(),
@@ -353,170 +355,7 @@ public class DtoConverter {
                 return localisation;
         }
 
-        // === Projet ===
-        public ProjetDTO toProjetDto(Projet projet) {
-                // IDs
-                Long localiteId = projet.getSiteProjet() != null && projet.getSiteProjet().getLocalite() != null
-                                ? projet.getSiteProjet().getLocalite().getId()
-                                : null;
-
-                Long porteurId = projet.getPorteur() != null ? projet.getPorteur().getId() : null;
-
-                Long siteId = projet.getSiteProjet() != null ? projet.getSiteProjet().getId() : null;
-
-                Long secteurId = projet.getSecteur() != null ? projet.getSecteur().getId() : null;
-
-                // === PAYS ID (CORRIGÉ !) ===
-                Long paysId = null;
-                String paysNom = null;
-                if (projet.getSiteProjet() != null
-                                && projet.getSiteProjet().getLocalite() != null
-                                && projet.getSiteProjet().getLocalite().getPays() != null) {
-                        paysId = projet.getSiteProjet().getLocalite().getPays().getId(); // ← Long paysId
-                        paysNom = projet.getSiteProjet().getLocalite().getPays().getNom(); // ← String paysNom
-                }
-
-                // Noms
-                String localiteNom = localiteId != null ? projet.getSiteProjet().getLocalite().getNom() : null;
-                String porteurNom = porteurId != null
-                                ? projet.getPorteur().getPrenom() + " " + projet.getPorteur().getNom()
-                                : null;
-                String siteNom = siteId != null ? projet.getSiteProjet().getNom() : null;
-                String secteurNom = secteurId != null ? projet.getSecteur().getNom() : null;
-
-                // Documents et Investissements
-                List<DocumentDTO> docDtos = projet.getDocuments().stream()
-                                .map(this::toDocumentDto)
-                                .toList();
-
-                List<InvestissementDTO> investissementDtos = projet.getInvestissements().stream()
-                                .map(this::toInvestissementDto)
-                                .toList();
-
-                BigDecimal lat = null;
-                BigDecimal lon = null;
-                String w3w = null;
-                String gmaps = null;
-
-                if (projet.getSiteProjet() != null) {
-                        lat = projet.getSiteProjet().getLatitude();
-                        lon = projet.getSiteProjet().getLongitude();
-                        w3w = projet.getSiteProjet().getWhat3words();
-
-                        if (lat != null && lon != null) {
-                                gmaps = String.format("https://www.google.com/maps/search/?api=1&query=%s,%s", lat,
-                                                lon);
-                        }
-                }
-
-                return new ProjetDTO(
-                                projet.getId(),
-                                projet.getSlug(), // <-- AJOUT DU SLUG ICI
-                                projet.getPoster(),
-                                projet.getReference(),
-                                projet.getLibelle(),
-                                projet.getDescription(),
-                                projet.getValuation(), // Est maintenant un BigDecimal
-                                projet.getRoiProjete(),
-                                projet.getPartsDisponible(),
-                                projet.getPartsPrises(),
-                                projet.getPrixUnePart(), // Est maintenant un BigDecimal
-                                projet.getObjectifFinancement(), // Est maintenant un BigDecimal
-                                projet.getMontantCollecte(), // Est maintenant un BigDecimal
-                                "XOF",
-                                projet.getDateDebut(),
-                                projet.getDateFin(),
-                                projet.getValeurTotalePartsEnPourcent(),
-                                projet.getStatutProjet(),
-                                projet.getCreatedAt(),
-                                projet.getCertifiedAt(), // <--- AJOUT DU CHAMP DE CERTIFICATION ICI
-                                localiteId,
-                                porteurId,
-                                siteId,
-                                secteurId,
-                                paysId,
-                                paysNom,
-                                localiteNom,
-                                porteurNom,
-                                siteNom,
-                                secteurNom,
-                                lat,
-                                lon,
-                                w3w,
-                                gmaps,
-                                docDtos,
-                                investissementDtos);
-        }
-
-        public Projet toProjetEntity(ProjetDTO dto) {
-                Projet projet = new Projet();
-                projet.setId(dto.id());
-                projet.setPoster(dto.poster());
-                projet.setReference(dto.reference());
-                projet.setLibelle(dto.libelle());
-                projet.setDescription(dto.description());
-                projet.setValuation(dto.valuation());
-                projet.setRoiProjete(dto.roiProjete());
-                projet.setPartsDisponible(dto.partsDisponible());
-                projet.setPartsPrises(dto.partsPrises());
-                projet.setPrixUnePart(dto.prixUnePart());
-                projet.setObjectifFinancement(dto.objectifFinancement());
-                projet.setMontantCollecte(dto.montantCollecte());
-                projet.setDateDebut(dto.dateDebut());
-                projet.setDateFin(dto.dateFin());
-                projet.setValeurTotalePartsEnPourcent(dto.valeurTotalePartsEnPourcent());
-                projet.setStatutProjet(dto.statutProjet() != null ? dto.statutProjet() : StatutProjet.EN_PREPARATION);
-                projet.setCreatedAt(dto.createdAt() != null ? dto.createdAt() : LocalDateTime.now());
-                return projet;
-        }
-
-        // === MÉTHODE CRITIQUE POUR L'UPDATE – À NE SURTOUT PAS SUPPRIMER ===
-        public void updateProjetFromDto(ProjetDTO dto, Projet entity) {
-                if (dto.libelle() != null && !dto.libelle().trim().isEmpty()) {
-                        entity.setLibelle(dto.libelle().trim());
-                }
-                if (dto.description() != null)
-                        entity.setDescription(dto.description());
-                if (dto.reference() != null)
-                        entity.setReference(dto.reference());
-
-                // Correction pour les doubles (ROI et Parts sont restés en double/int)
-                if (dto.roiProjete() > 0)
-                        entity.setRoiProjete(dto.roiProjete());
-                if (dto.partsDisponible() > 0)
-                        entity.setPartsDisponible(dto.partsDisponible());
-
-                // CORRECTION BIGDECIMAL : Utilisation de compareTo pour les montants
-                if (dto.prixUnePart() != null && dto.prixUnePart().compareTo(BigDecimal.ZERO) > 0)
-                        entity.setPrixUnePart(dto.prixUnePart());
-
-                if (dto.objectifFinancement() != null && dto.objectifFinancement().compareTo(BigDecimal.ZERO) > 0)
-                        entity.setObjectifFinancement(dto.objectifFinancement());
-
-                if (dto.dateDebut() != null)
-                        entity.setDateDebut(dto.dateDebut());
-                if (dto.dateFin() != null)
-                        entity.setDateFin(dto.dateFin());
-                if (dto.statutProjet() != null)
-                        entity.setStatutProjet(dto.statutProjet());
-
-                // Relations (Secteur, Porteur, Site) - Inchangé
-                if (dto.secteurId() != null && dto.secteurId() > 0) {
-                        entity.setSecteur(secteurRepository.findById(dto.secteurId())
-                                        .orElseThrow(() -> new RuntimeException(
-                                                        "Secteur non trouvé (ID: " + dto.secteurId() + ")")));
-                }
-                if (dto.porteurId() != null && dto.porteurId() > 0) {
-                        entity.setPorteur(userRepository.findById(dto.porteurId())
-                                        .orElseThrow(() -> new RuntimeException(
-                                                        "Porteur non trouvé (ID: " + dto.porteurId() + ")")));
-                }
-                if (dto.siteId() != null && dto.siteId() > 0) {
-                        entity.setSiteProjet(localisationRepository.findById(dto.siteId())
-                                        .orElseThrow(() -> new RuntimeException(
-                                                        "Site non trouvé (ID: " + dto.siteId() + ")")));
-                }
-        }
+       
 
         public InvestissementDTO toInvestissementDto(Investissement investissement) {
                 // === Base & Noms ===

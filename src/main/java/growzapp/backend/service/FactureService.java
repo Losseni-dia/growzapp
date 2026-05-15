@@ -16,9 +16,9 @@ import growzapp.backend.model.dto.factureDTO.FactureDTO;
 import growzapp.backend.model.entite.Dividende;
 import growzapp.backend.model.entite.Facture;
 import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.entite.Projet; // N'oublie pas cet import
 import growzapp.backend.model.entite.User;
 import growzapp.backend.model.enumeration.StatutFacture;
+import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.repository.DividendeRepository;
 import growzapp.backend.repository.FactureRepository;
 import lombok.RequiredArgsConstructor;

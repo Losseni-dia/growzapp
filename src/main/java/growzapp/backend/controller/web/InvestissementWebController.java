@@ -1,26 +1,24 @@
 // src/main/java/growzapp/backend/controller/web/InvestissementWebController.java
 package growzapp.backend.controller.web;
 
-import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
-import growzapp.backend.model.dto.projetDTO.ProjetDTO;
-import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.entite.User;
-import growzapp.backend.model.enumeration.StatutPartInvestissement;
-import growzapp.backend.repository.InvestissementRepository;
-import growzapp.backend.service.InvestissementService;
-import growzapp.backend.service.ProjetService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.hibernate.Hibernate;
+import java.time.LocalDateTime;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
+import growzapp.backend.model.entite.User;
+import growzapp.backend.model.enumeration.StatutPartInvestissement;
+import growzapp.backend.module.projet.service.ProjetService;
+import growzapp.backend.repository.InvestissementRepository;
+import growzapp.backend.service.InvestissementService;
+import lombok.RequiredArgsConstructor;
 
 @Controller
 @RequestMapping("/investissements")
