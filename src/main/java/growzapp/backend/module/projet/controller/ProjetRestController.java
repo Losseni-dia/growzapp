@@ -29,6 +29,10 @@ import growzapp.backend.module.projet.service.ProjetService;
 import growzapp.backend.repository.UserRepository;
 import growzapp.backend.service.FileUploadService;
 import growzapp.backend.service.InvestissementService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/api/projets")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@Tag(name = "Projets", description = "Gestion du cycle de vie des investissements (Consultation, Création, Géo-recherche)")
 public class ProjetRestController {
 
     private final ProjetService projetService;
@@ -49,6 +54,7 @@ public class ProjetRestController {
     /**
      * LISTE DES PROJETS VALIDÉS (PUBLIQUE)
      */
+    @Operation(summary = "Lister les projets validés", description = "Accès public. Ne renvoie que les projets avec le statut VALIDÉ.")
     @GetMapping
     public ApiResponseDTO<List<ProjetDTO>> getAllPublic() {
         // Le service renvoie des Entités, le contrôleur mappe en DTO
@@ -59,6 +65,9 @@ public class ProjetRestController {
     /**
      * DÉTAIL D'UN PROJET
      */
+    @Operation(summary = "Détail d'un projet par ID")
+    @ApiResponse(responseCode = "200", description = "Projet trouvé")
+    @ApiResponse(responseCode = "404", description = "Projet introuvable")
     @GetMapping("/{id}")
     public ApiResponseDTO<ProjetDTO> getById(@PathVariable Long id) {
         Projet entity = projetService.getById(id);
@@ -68,6 +77,11 @@ public class ProjetRestController {
     /**
      * CRÉATION D'UN PROJET
      */
+    @Operation(
+        summary = "Soumettre un nouveau projet",
+        description = "Requête Multipart. Envoyer le JSON dans la partie 'projet' et le fichier image dans 'poster'.",
+        security = @SecurityRequirement(name = "BearerAuth")
+    )
     @PostMapping(consumes = "multipart/form-data")
     @PreAuthorize("isAuthenticated()")
     public ApiResponseDTO<ProjetDTO> create(
@@ -122,6 +136,7 @@ public class ProjetRestController {
     /**
      * RECHERCHE GÉOGRAPHIQUE
      */
+    @Operation(summary = "Recherche géographique de projets", description = "Rayon par défaut : 100km.")
     @GetMapping("/proche-de-moi")
     public ApiResponseDTO<List<ProjetDTO>> getProjetsProches(
             @RequestParam double lat,
@@ -135,6 +150,7 @@ public class ProjetRestController {
     /**
      * RÉCUPÉRATION PAR SLUG
      */
+    @Operation(summary = "Récupérer un projet par son Slug (SEO)")
     @GetMapping("/slug/{slug}")
     public ApiResponseDTO<ProjetDTO> getBySlug(@PathVariable String slug) {
         Projet entity = projetService.getBySlug(slug);
@@ -144,6 +160,7 @@ public class ProjetRestController {
     /**
      * INVESTIR DANS UN PROJET (Classique)
      */
+    @Operation(summary = "Effectuer un investissement", security = @SecurityRequirement(name = "BearerAuth"))
     @PostMapping("/{projetId}/investir")
     @PreAuthorize("isAuthenticated()")
     public ApiResponseDTO<InvestissementDTO> investir(
