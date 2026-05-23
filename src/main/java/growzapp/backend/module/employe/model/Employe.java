@@ -1,4 +1,4 @@
-package growzapp.backend.model.entite;
+package growzapp.backend.module.employe.model;
 
 import java.util.ArrayList;
 import java.util.List;

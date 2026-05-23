@@ -1,4 +1,4 @@
-package growzapp.backend.model.entite;
+package growzapp.backend.module.employe.model;
 
 import jakarta.persistence.*;
 import lombok.*;

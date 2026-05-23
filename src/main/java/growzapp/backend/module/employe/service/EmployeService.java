@@ -1,11 +1,11 @@
-package growzapp.backend.service;
+package growzapp.backend.module.employe.service;
 
-import growzapp.backend.model.entite.Employe;
-import growzapp.backend.model.entite.EmployeFonction;
-import growzapp.backend.model.entite.EmployeFonctionId;
-import growzapp.backend.model.entite.Fonction;
-import growzapp.backend.repository.EmployeRepository;
-import growzapp.backend.repository.FonctionRepository;
+import growzapp.backend.module.employe.model.Employe;
+import growzapp.backend.module.employe.model.EmployeFonction;
+import growzapp.backend.module.employe.model.EmployeFonctionId;
+import growzapp.backend.module.employe.model.Fonction;
+import growzapp.backend.module.employe.repository.EmployeRepository;
+import growzapp.backend.module.employe.repository.FonctionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +40,7 @@ public class EmployeService {
                 savedEF.setEmploye(employe);
                 savedEF.setFonction(fonction);
                 savedEF.setDatePriseFonction(
-                        ef.getDatePriseFonction() != null ? ef.getDatePriseFonction() : java.time.LocalDate.now());
+                        ef.getDatePriseFonction() != null ? ef.getDatePriseFonction() : LocalDate.now());
 
                 fonctionsToSave.add(savedEF);
             }
@@ -69,28 +69,24 @@ public class EmployeService {
         Employe employe = getById(employeId);
         Fonction fonction = fonctionService.getById(fonctionId);
 
-        // Vérifie si déjà attribuée
         boolean exists = employe.getFonctions().stream()
                 .anyMatch(ef -> ef.getFonction().getId().equals(fonctionId));
         if (exists) {
             throw new IllegalArgumentException("Cette fonction est déjà attribuée à cet employé.");
         }
 
-        // === CRÉE L'ID COMPOSITE ===
         EmployeFonctionId id = new EmployeFonctionId(employeId, fonctionId);
 
-        // === CRÉE L'OBJET DE JOINTURE ===
         EmployeFonction ef = new EmployeFonction();
         ef.setId(id);
         ef.setEmploye(employe);
         ef.setFonction(fonction);
         ef.setDatePriseFonction(datePriseFonction);
 
-        // === AJOUTE ET SAUVEGARDE ===
         employe.getFonctions().add(ef);
         employeRepository.save(employe);
     }
-    
+
     public long count() {
         return employeRepository.count();
     }
