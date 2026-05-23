@@ -1,4 +1,4 @@
-package growzapp.backend.model.enumeration;
+package growzapp.backend.module.kyc.enums;
 
 public enum KycStatus {
     NON_SOUMIS, // L'utilisateur n'a encore rien envoyé
