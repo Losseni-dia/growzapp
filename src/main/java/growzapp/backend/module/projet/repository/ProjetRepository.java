@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import growzapp.backend.model.enumeration.StatutProjet;
+import growzapp.backend.module.projet.enums.StatutProjet;
 import growzapp.backend.module.projet.model.Projet;
 import jakarta.persistence.LockModeType;
 

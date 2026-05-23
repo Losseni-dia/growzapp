@@ -1,4 +1,4 @@
-package growzapp.backend.model.enumeration;
+package growzapp.backend.module.projet.enums;
 
 // growzapp/backend/model/enumeration/StatutProjet.java
 public enum StatutProjet {

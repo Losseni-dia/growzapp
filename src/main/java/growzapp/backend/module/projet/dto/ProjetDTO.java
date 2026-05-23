@@ -1,8 +1,9 @@
 package growzapp.backend.module.projet.dto;
 
-import growzapp.backend.model.dto.documentDTO.DocumentDTO;
-import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
-import growzapp.backend.model.enumeration.StatutProjet;
+
+import growzapp.backend.module.document.dto.DocumentDTO;
+import growzapp.backend.module.investissement.dto.InvestissementDTO;
+import growzapp.backend.module.projet.enums.StatutProjet;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -13,26 +14,41 @@ import java.util.List;
 @Schema(description = "Représentation complète d'un projet pour l'affichage")
 public record ProjetDTO(
                 Long id,
-                String slug,
-                String poster,
+
+                @Schema(example = "or-blanc-coton-bio", description = "Slug unique pour l'URL SEO") String slug,
+
+                @Schema(example = "/uploads/posters/15_poster.jpg") String poster,
+
                 Integer reference,
                 String libelle,
                 String description,
-                BigDecimal valuation,
-                double roiProjete,
-                int partsDisponible,
-                int partsPrises,
-                BigDecimal prixUnePart,
-                BigDecimal objectifFinancement,
-                BigDecimal montantCollecte,
-                String currencyCode,
-                LocalDate dateDebut,
-                LocalDate dateFin,
-                Integer dureeMois,
 
-                @Schema(description = "Pourcentage de l'equity total représenté par les parts") double valeurTotalePartsEnPourcent,
+                @Schema(type = "number", format = "double", example = "90000.0") BigDecimal valuation,
 
-                StatutProjet statutProjet,
+                @Schema(example = "15.5", description = "ROI projeté en pourcentage") double roiProjete,
+
+                @Schema(example = "300") int partsDisponible,
+
+                @Schema(example = "7") int partsPrises,
+
+                @Schema(type = "number", format = "double", example = "150.0") BigDecimal prixUnePart,
+
+                @Schema(type = "number", format = "double", example = "45000.0") BigDecimal objectifFinancement,
+
+                @Schema(type = "number", format = "double", example = "1050.0") BigDecimal montantCollecte,
+
+                @Schema(example = "XOF") String currencyCode,
+
+                @Schema(example = "2026-01-01") LocalDate dateDebut,
+
+                @Schema(example = "2026-06-01") LocalDate dateFin,
+
+                @Schema(example = "36", defaultValue = "36") Integer dureeMois,
+
+                @Schema(description = "Pourcentage de l'equity total représenté par les parts", example = "50.0") double valeurTotalePartsEnPourcent,
+
+                @Schema(example = "VALIDE") StatutProjet statutProjet,
+
                 LocalDateTime createdAt,
                 LocalDateTime certifiedAt,
 
@@ -43,17 +59,17 @@ public record ProjetDTO(
                 Long secteurId,
                 Long paysId,
 
-                // Libellés pour éviter des appels API supplémentaires au Front
-                String paysNom,
-                String localiteNom,
-                String porteurNom,
-                String siteNom,
-                String secteurNom,
+                // Libellés (Flattening pour le Front)
+                @Schema(example = "Côte d'Ivoire") String paysNom,
+                @Schema(example = "Abidjan") String localiteNom,
+                @Schema(example = "Losseni Dia") String porteurNom,
+                @Schema(example = "Centrale Coton Bio Sud") String siteNom,
+                @Schema(example = "Agro-Industrie") String secteurNom,
 
                 // Données Géo
-                BigDecimal latitude,
-                BigDecimal longitude,
-                String what3words,
+                @Schema(example = "5.3484") BigDecimal latitude,
+                @Schema(example = "-4.0305") BigDecimal longitude,
+                @Schema(example = "maïs.fonds.récolte") String what3words,
 
                 @Schema(example = "https://maps.google.com/?q=5.34,-4.02") String googleMapsUrl,
 
