@@ -1,10 +1,12 @@
 // src/main/java/growzapp/backend/repository/TransactionRepository.java
 // VERSION FINALE ULTIME – 100 % COMPATIBLE wallet_id + wallet_type
 
-package growzapp.backend.repository;
+package growzapp.backend.module.wallet.repository;
 
-import growzapp.backend.model.entite.Transaction;
-import growzapp.backend.model.enumeration.*;
+import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.enums.TypeTransaction;
+import growzapp.backend.module.wallet.enums.WalletType;
+import growzapp.backend.module.wallet.model.Transaction;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;

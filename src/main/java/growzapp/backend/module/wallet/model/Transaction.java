@@ -1,9 +1,9 @@
 // growzapp.backend.model.entite.Transaction.java
-package growzapp.backend.model.entite;
+package growzapp.backend.module.wallet.model;
 
-import growzapp.backend.model.enumeration.StatutTransaction;
-import growzapp.backend.model.enumeration.TypeTransaction;
-import growzapp.backend.model.enumeration.WalletType;
+import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.enums.TypeTransaction;
+import growzapp.backend.module.wallet.enums.WalletType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
