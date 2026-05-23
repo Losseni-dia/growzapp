@@ -1,4 +1,4 @@
-package growzapp.backend.model.enumeration;
+package growzapp.backend.module.investissement.enums;
 
 public enum StatutCampagne {
     EN_PREPARATION("En préparation"),

@@ -1,4 +1,4 @@
-package growzapp.backend.model.enumeration;
+package growzapp.backend.module.investissement.enums;
 
 public enum StatutPartInvestissement {
     EN_ATTENTE,
