@@ -1,4 +1,4 @@
-package growzapp.backend.model.entite;
+package growzapp.backend.module.exchangerate.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

@@ -1,7 +1,7 @@
-package growzapp.backend.service;
+package growzapp.backend.module.exchangerate.service;
 
-import growzapp.backend.model.entite.ExchangeRate;
-import growzapp.backend.repository.ExchangeRateRepository;
+import growzapp.backend.module.exchangerate.model.ExchangeRate;
+import growzapp.backend.module.exchangerate.repository.ExchangeRateRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
