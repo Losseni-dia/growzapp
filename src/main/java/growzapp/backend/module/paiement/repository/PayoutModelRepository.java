@@ -1,11 +1,11 @@
-package growzapp.backend.repository;
+package growzapp.backend.module.paiement.repository;
 
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import growzapp.backend.model.entite.PayoutModel;
+import growzapp.backend.module.paiement.model.PayoutModel;
 
 // PayoutRepository.java
 public interface PayoutModelRepository extends JpaRepository<PayoutModel, Long> {

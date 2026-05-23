@@ -1,6 +1,4 @@
-package growzapp.backend.service;
-
-// src/main/java/growzapp/backend/service/StripePayoutService.java
+package growzapp.backend.module.paiement.stripe;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -11,21 +9,20 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.stripe.Stripe;
-import com.stripe.model.Payout;
 import com.stripe.param.PayoutCreateParams;
 
-import growzapp.backend.model.entite.PayoutModel;
-import growzapp.backend.model.entite.Wallet;
-import growzapp.backend.model.enumeration.StatutTransaction;
-import growzapp.backend.model.enumeration.TypeTransaction;
-import growzapp.backend.repository.PayoutModelRepository;
-import growzapp.backend.repository.WalletRepository;
+import growzapp.backend.module.paiement.model.PayoutModel;
+import growzapp.backend.module.paiement.repository.PayoutModelRepository;
+import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.enums.TypeTransaction;
+import growzapp.backend.module.wallet.model.Wallet;
+import growzapp.backend.module.wallet.repository.WalletRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-@Transactional // OBLIGATOIRE
+@Transactional
 public class StripePayoutService {
 
     @Value("${stripe.secret-key}")
@@ -43,9 +40,10 @@ public class StripePayoutService {
      * Retrait bancaire automatique (virement SEPA)
      * Fonctionne en test + prod avec Stripe Connect
      */
-    @Transactional( propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public String createBankPayoutWithNewTransaction(Long userId, BigDecimal montantEUR, String phone) {
-        // Ton code existant, mais DANS UNE NOUVELLE TRANSACTION
+
+        // 1. Vérification et mise à jour du Wallet
         Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalStateException("Wallet introuvable"));
 
@@ -55,7 +53,8 @@ public class StripePayoutService {
 
         wallet.setSoldeRetirable(wallet.getSoldeRetirable().subtract(montantEUR));
         walletRepository.saveAndFlush(wallet);
-        // 2. Créer la trace
+
+        // 2. Créer la trace en BDD - Utilisation EXPLICITE de PayoutModel
         PayoutModel payout = PayoutModel.builder()
                 .userId(userId)
                 .montant(montantEUR)
@@ -77,9 +76,11 @@ public class StripePayoutService {
                     .putMetadata("user_id", userId.toString())
                     .build();
 
-            Payout stripePayout = Payout.create(params);
+            // RÈGLE LA COLLISION : On utilise le nom pleinement qualifié pour Stripe
+            com.stripe.model.Payout stripePayout = com.stripe.model.Payout.create(params);
 
-            // Succès → mise à jour
+            // Succès → Mise à jour de NOTRE entité PayoutModel (qui possède bien les
+            // setters)
             payout.setExternalPayoutId(stripePayout.getId());
             payout.setStatut(StatutTransaction.SUCCESS);
             payout.setPaydunyaStatus(stripePayout.getStatus());

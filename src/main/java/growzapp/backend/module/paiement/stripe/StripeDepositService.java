@@ -1,6 +1,6 @@
 // src/main/java/growzapp/backend/service/StripeDepositService.java
 
-package growzapp.backend.service;
+package growzapp.backend.module.paiement.stripe;
 
 import java.math.BigDecimal;
 

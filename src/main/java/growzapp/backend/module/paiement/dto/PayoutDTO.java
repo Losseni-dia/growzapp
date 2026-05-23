@@ -1,4 +1,4 @@
-package growzapp.backend.model.dto.PayoutDTO;
+package growzapp.backend.module.paiement.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

@@ -1,6 +1,6 @@
 // src/main/java/growzapp/backend/service/PayDunyaService.java
 
-package growzapp.backend.service;
+package growzapp.backend.module.paiement.paydunya;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import growzapp.backend.model.enumeration.TypeTransaction;
+import growzapp.backend.module.wallet.enums.TypeTransaction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
