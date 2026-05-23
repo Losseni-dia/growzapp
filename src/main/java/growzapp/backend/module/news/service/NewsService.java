@@ -1,4 +1,4 @@
-package growzapp.backend.news.service;
+package growzapp.backend.module.news.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -7,9 +7,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import growzapp.backend.news.model.News;
-import growzapp.backend.news.model.NewsCategory;
-import growzapp.backend.news.repository.NewsRepository;
+import growzapp.backend.module.news.model.News;
+import growzapp.backend.module.news.model.NewsCategory;
+import growzapp.backend.module.news.repository.NewsRepository;
 
 @Service
 public class NewsService {

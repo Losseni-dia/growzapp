@@ -1,5 +1,5 @@
 // src/main/java/com/growzapp/model/NewsCategory.java
-package growzapp.backend.news.model;
+package growzapp.backend.module.news.model;
 
 public enum NewsCategory {
     PLATFORM_UPDATE, // Mises à jour plateforme
