@@ -1,9 +1,10 @@
-package growzapp.backend.repository;
+package growzapp.backend.module.dividende.repository;
 
-import growzapp.backend.model.entite.Dividende;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import growzapp.backend.module.dividende.model.Dividende;
 
 import java.util.List;
 
