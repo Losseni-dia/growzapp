@@ -1,14 +1,12 @@
-// src/main/java/growzapp/backend/model/entite/Document.java
-
-package growzapp.backend.model.entite;
-
-import java.time.LocalDateTime;
+package growzapp.backend.module.document.model;
 
 import growzapp.backend.module.projet.model.Projet;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "documents")
@@ -21,15 +19,13 @@ public class Document {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String nom; // ← Nom affiché (ex: "Bilan 2024")
+    private String nom;
 
-    // NOUVEAU CHAMP : le vrai nom du fichier sur le disque
     @Column(nullable = false)
-    private String filename; // ← ex: "a1b2c3d4_budget_abidjan.xlsx"
+    private String filename;
 
-    // On garde "type" pour l'icône et le Content-Type
     @Column(length = 20, nullable = false)
-    private String type; // PDF, EXCEL, CSV, IMAGE
+    private String type;
 
     private LocalDateTime uploadedAt = LocalDateTime.now();
 
@@ -37,7 +33,6 @@ public class Document {
     @JoinColumn(name = "projet_id")
     private Projet projet;
 
-    // Méthode pratique pour avoir l'URL complète (facultatif mais utile)
     public String getUrl() {
         return "/files/documents/" + this.filename;
     }
