@@ -1,6 +1,6 @@
 // src/main/java/growzapp/backend/controller/webhooks/StripeWebhookController.java (CORRIGÉ)
 
-package growzapp.backend.controller.webhooks;
+package growzapp.backend.module.webhooks;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,18 +20,16 @@ import com.stripe.model.Payout;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
 
-import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.entite.User;
-import growzapp.backend.model.enumeration.StatutPartInvestissement;
-import growzapp.backend.model.enumeration.StatutTransaction;
+import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.investissement.repository.InvestissementRepository;
+import growzapp.backend.module.paiement.innerwallet.DepositService;
+import growzapp.backend.module.paiement.repository.PayoutModelRepository;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
-import growzapp.backend.repository.InvestissementRepository;
-import growzapp.backend.repository.PayoutModelRepository;
-import growzapp.backend.repository.UserRepository;
-import growzapp.backend.service.DepositService; // NOUVELLE INJECTION
-import growzapp.backend.repository.WalletRepository;
-
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
+import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

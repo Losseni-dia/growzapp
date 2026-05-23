@@ -1,15 +1,15 @@
 // src/main/java/growzapp/backend/controller/webhooks/PaydunyaWebhookController.java
 
-package growzapp.backend.controller.webhooks;
+package growzapp.backend.module.webhooks;
 
-import growzapp.backend.model.entite.PayoutModel;
-import growzapp.backend.model.entite.Transaction;
-import growzapp.backend.model.enumeration.StatutTransaction;
-import growzapp.backend.repository.PayoutModelRepository;
-import growzapp.backend.repository.TransactionRepository;
-import growzapp.backend.repository.WalletRepository; // NOUVELLE INJECTION REQUISE
-import growzapp.backend.service.WalletService; // Pour la logique de crédit
-import growzapp.backend.model.entite.Wallet; // Import de l'entité Wallet
+import growzapp.backend.module.paiement.model.PayoutModel;
+import growzapp.backend.module.paiement.repository.PayoutModelRepository;
+import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.model.Transaction;
+import growzapp.backend.module.wallet.model.Wallet;
+import growzapp.backend.module.wallet.repository.TransactionRepository;
+import growzapp.backend.module.wallet.repository.WalletRepository;
+import growzapp.backend.module.wallet.service.WalletService; // Pour la logique de crédit
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
