@@ -1,8 +1,9 @@
-package growzapp.backend.notification.repository;
+package growzapp.backend.module.notification.repository;
 
 
-import growzapp.backend.model.entite.User;
-import growzapp.backend.notification.model.Notification;
+import growzapp.backend.module.notification.model.Notification;
+import growzapp.backend.module.user.model.User;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
