@@ -1,4 +1,4 @@
-package growzapp.backend.model.dto.commonDTO;
+package growzapp.backend.module.shared;
 
 import java.util.List;
 
