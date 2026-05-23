@@ -17,18 +17,18 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import growzapp.backend.model.dto.commonDTO.ApiResponseDTO;
-import growzapp.backend.model.dto.investisementDTO.InvestissementDTO;
-import growzapp.backend.model.dto.investisementDTO.InvestissementRequestDto;
-import growzapp.backend.model.entite.User;
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.dto.ProjetDTO;
 import growzapp.backend.module.projet.mapper.ProjetMapper;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.service.ProjetService;
-import growzapp.backend.repository.UserRepository;
-import growzapp.backend.service.FileUploadService;
-import growzapp.backend.service.InvestissementService;
+import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
+import growzapp.backend.module.files.FileUploadService;
+import growzapp.backend.module.investissement.dto.InvestissementDTO;
+import growzapp.backend.module.investissement.dto.InvestissementRequestDto;
+import growzapp.backend.module.investissement.service.InvestissementService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

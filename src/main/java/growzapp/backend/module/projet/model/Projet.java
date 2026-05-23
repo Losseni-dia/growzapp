@@ -8,12 +8,12 @@ import java.util.List;
 import java.text.Normalizer; // Ajouté pour gérer les accents
 import java.util.Locale; // Ajouté pour la mise en minuscule
 
-import growzapp.backend.model.entite.Document;
-import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.entite.Localisation;
-import growzapp.backend.model.entite.Secteur;
-import growzapp.backend.model.entite.User;
-import growzapp.backend.model.enumeration.StatutProjet;
+import growzapp.backend.module.document.model.Document;
+import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.projet.enums.StatutProjet;
+import growzapp.backend.module.referentiel.model.Localisation;
+import growzapp.backend.module.referentiel.model.Secteur;
+import growzapp.backend.module.user.model.User;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
