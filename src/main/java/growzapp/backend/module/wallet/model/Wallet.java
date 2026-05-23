@@ -1,13 +1,15 @@
 // src/main/java/growzapp/backend/model/entite/Wallet.java
 // VERSION FINALE – 27 NOVEMBRE 2025 – PROPRE, SÛR, INTELLIGENT
 
-package growzapp.backend.model.entite;
+package growzapp.backend.module.wallet.model;
 
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import growzapp.backend.model.enumeration.WalletType;
+
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.wallet.enums.WalletType;
 
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity

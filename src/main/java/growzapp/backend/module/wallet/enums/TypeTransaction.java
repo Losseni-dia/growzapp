@@ -1,4 +1,4 @@
-package growzapp.backend.model.enumeration;
+package growzapp.backend.module.wallet.enums;
 
 public enum TypeTransaction {
     DEPOT,

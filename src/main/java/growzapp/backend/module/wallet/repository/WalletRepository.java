@@ -1,10 +1,10 @@
 // src/main/java/growzapp/backend/repository/WalletRepository.java
 // VERSION FINALE – TOUT EST LÀ
 
-package growzapp.backend.repository;
+package growzapp.backend.module.wallet.repository;
 
-import growzapp.backend.model.entite.Wallet;
-import growzapp.backend.model.enumeration.WalletType;
+import growzapp.backend.module.wallet.enums.WalletType;
+import growzapp.backend.module.wallet.model.Wallet;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
