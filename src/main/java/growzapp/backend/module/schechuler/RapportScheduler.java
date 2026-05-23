@@ -1,8 +1,8 @@
-package growzapp.backend.schechuler;
+package growzapp.backend.module.schechuler;
 
 
-import growzapp.backend.service.EmailService;
-import growzapp.backend.service.RapportService;
+import growzapp.backend.module.email.EmailService;
+import growzapp.backend.module.files.RapportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
