@@ -1,8 +1,9 @@
-package growzapp.backend.repository;
+package growzapp.backend.module.employe.repository;
 
-import growzapp.backend.model.entite.Employe;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import growzapp.backend.module.employe.model.Employe;
 
 import java.util.List;
 import java.util.Optional;

@@ -1,7 +1,7 @@
-package growzapp.backend.service;
+package growzapp.backend.module.employe.service;
 
-import growzapp.backend.model.entite.Fonction;
-import growzapp.backend.repository.FonctionRepository;
+import growzapp.backend.module.employe.model.Fonction;
+import growzapp.backend.module.employe.repository.FonctionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
