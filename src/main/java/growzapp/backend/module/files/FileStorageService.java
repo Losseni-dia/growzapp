@@ -1,6 +1,6 @@
 // src/main/java/growzapp/backend/service/FileStorageService.java
 
-package growzapp.backend.service;
+package growzapp.backend.module.files;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
