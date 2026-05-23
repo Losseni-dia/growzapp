@@ -1,15 +1,13 @@
-package growzapp.backend.repository;
+package growzapp.backend.module.document.repository;
 
-import java.util.List;
-
+import growzapp.backend.module.document.model.Document;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import growzapp.backend.model.entite.Document;
+import java.util.List;
 
 @Repository
 public interface DocumentRepository extends JpaRepository<Document, Long> {
-    
+
     List<Document> findByProjetId(Long projetId);
-    
 }
