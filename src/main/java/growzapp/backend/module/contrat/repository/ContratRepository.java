@@ -1,13 +1,13 @@
-package growzapp.backend.repository;
+package growzapp.backend.module.contrat.repository;
 
-import growzapp.backend.model.entite.Contrat;
-import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.enumeration.StatutPartInvestissement;
+import growzapp.backend.module.contrat.model.Contrat;
+import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
+import growzapp.backend.module.investissement.model.Investissement;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor; // <-- AJOUTE CETTE INTERFACE
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,7 +17,7 @@ import java.util.Optional;
 
 public interface ContratRepository
         extends JpaRepository<Contrat, Long>,
-        JpaSpecificationExecutor<Contrat> { // <-- C'EST ÇA QUI MANQUAIT !
+        JpaSpecificationExecutor<Contrat> {
 
     List<Contrat> findByInvestissement(Investissement investissement);
 
@@ -25,7 +25,6 @@ public interface ContratRepository
 
     Optional<Contrat> findByNumeroContrat(String numeroContrat);
 
-    // On utilise CAST(... AS string) ou CAST(... AS timestamp) pour PostgreSQL
     @Query("""
                      SELECT c FROM Contrat c
                      JOIN c.investissement i

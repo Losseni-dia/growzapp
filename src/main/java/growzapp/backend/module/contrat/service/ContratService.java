@@ -1,14 +1,15 @@
-// src/main/java/growzapp/backend/service/ContratService.java → VERSION FINALE 2025
+package growzapp.backend.module.contrat.service;
 
-package growzapp.backend.service;
-
-import growzapp.backend.model.entite.*;
-import growzapp.backend.model.enumeration.StatutPartInvestissement;
+import growzapp.backend.module.contrat.model.Contrat;
+import growzapp.backend.module.contrat.repository.ContratRepository;
+import growzapp.backend.module.files.FileStorageService;
+import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
+import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.projet.model.Projet;
-import growzapp.backend.repository.ContratRepository;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -51,17 +52,14 @@ public class ContratService {
 
         Investissement inv = contrat.getInvestissement();
 
-        // Admin peut tout voir
         if (currentUser.getRoles().stream().anyMatch(r -> "ADMIN".equals(r.getRole()))) {
             return true;
         }
 
-        // Investisseur du contrat
         if (inv.getInvestisseur().getId().equals(currentUser.getId())) {
             return true;
         }
 
-        // Porteur du projet lié
         Projet projet = inv.getProjet();
         if (projet.getPorteur() != null && projet.getPorteur().getId().equals(currentUser.getId())) {
             return true;
@@ -100,35 +98,26 @@ public class ContratService {
     }
 
     // ========================================================================
-    // 2. GÉNÉRATION DE PDF MULTILINGUE (MÉTHODE AJOUTÉE)
+    // 2. GÉNÉRATION DE PDF MULTILINGUE
     // ========================================================================
 
-    /**
-     * Génère ou récupère le PDF du contrat dans la langue spécifiée.
-     */
     public byte[] genererPdf(Contrat contrat, String lang) throws Exception {
-        // 1. Déterminer la locale
-        Locale locale = Locale.FRENCH; // Défaut
+        Locale locale = Locale.FRENCH;
         if ("en".equalsIgnoreCase(lang))
             locale = Locale.ENGLISH;
         else if ("es".equalsIgnoreCase(lang))
             locale = new Locale("es");
 
-        // 2. Si français (original), on tente de charger le fichier stocké pour
-        // perf/juridique
         if (locale.equals(Locale.FRENCH)) {
             try {
                 return fileStorageService.loadAsBytes(contrat.getFichierUrl());
             } catch (Exception e) {
-                // Fallback : si fichier physique perdu, on régénère
                 System.err.println("PDF original introuvable, régénération FR...");
             }
         }
 
-        // 3. Génération dynamique (Traduction à la volée OU Fallback)
         byte[] qrCode = generateQrCode(contrat.getLienVerification());
 
-        // Appel à la méthode surchargée du PDF Service qui accepte la Locale
         return contratPdfService.genererContratInvestissement(
                 contrat.getInvestissement(),
                 contrat.getNumeroContrat(),
@@ -137,10 +126,9 @@ public class ContratService {
     }
 
     // ========================================================================
-    // 3. CRÉATION & SAUVEGARDE (Flux Business)
+    // 3. CRÉATION & SAUVEGARDE
     // ========================================================================
 
-    // Etape 1 : Création de l'entité Contrat en base (sans fichier)
     public Contrat genererEtSauvegarderContrat(Investissement investissement) {
         long count = contratRepository.count() + 1;
         String numeroContrat = "CTR-" + Year.now().getValue() + "-" + String.format("%06d", count);
@@ -151,20 +139,18 @@ public class ContratService {
                 .numeroContrat(numeroContrat)
                 .lienVerification(lienVerification)
                 .dateGeneration(LocalDateTime.now())
-                .fichierUrl("") // Sera rempli par sauvegarderPdfFinal
+                .fichierUrl("")
                 .build();
 
         return contratRepository.save(contrat);
     }
 
-    // Etape 2 : Sauvegarde physique du PDF généré et mise à jour de l'URL
     public void sauvegarderPdfFinal(Contrat contrat, byte[] pdfBytes) throws IOException {
         if (pdfBytes == null || pdfBytes.length == 0) {
             throw new IllegalArgumentException("PDF vide");
         }
 
         String filename = "contrat-" + contrat.getNumeroContrat() + ".pdf";
-        // Sauvegarde via FileStorageService qui retourne l'URL relative (/uploads/...)
         String webUrl = fileStorageService.saveContrat(pdfBytes, filename);
 
         contrat.setFichierUrl(webUrl);
@@ -194,7 +180,6 @@ public class ContratService {
         contratRepository.findAll().forEach(contrat -> {
             if (contrat.getFichierUrl() == null || contrat.getFichierUrl().isBlank()) {
                 try {
-                    // Régénération en Français par défaut pour le stockage
                     byte[] pdf = contratPdfService.genererContratInvestissement(
                             contrat.getInvestissement(),
                             contrat.getNumeroContrat(),
