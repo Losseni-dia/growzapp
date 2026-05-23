@@ -1,11 +1,14 @@
-package growzapp.backend.model.entite;
+package growzapp.backend.module.facture.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import growzapp.backend.module.dividende.model.Dividende;
+import growzapp.backend.module.facture.enums.StatutFacture;
+import growzapp.backend.module.user.model.User;
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
 
-import growzapp.backend.model.enumeration.StatutFacture;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "factures")
@@ -43,21 +46,14 @@ public class Facture {
     @Enumerated(EnumType.STRING)
     private StatutFacture statut = StatutFacture.EMISE;
 
-    // === RELATION OneToOne avec Dividende ===
-    @OneToOne(cascade = CascadeType.ALL) // OK de laisser ALL ici
+    @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "dividende_id", nullable = false, unique = true)
-
-    // STOP BOUCLE JSON : On affiche le dividende, mais PAS la facture à l'intérieur
-    // du dividende
     @JsonIgnoreProperties("facture")
-    @ToString.Exclude // Stop boucle console
+    @ToString.Exclude
     private Dividende dividende;
 
-    // === RELATION avec Investisseur ===
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investisseur_id", nullable = false)
-
-    // Optimisation : On ne charge pas tout l'arbre utilisateur (trop lourd)
     @JsonIgnoreProperties({ "wallet", "investissements", "roles", "password" })
     @ToString.Exclude
     private User investisseur;
