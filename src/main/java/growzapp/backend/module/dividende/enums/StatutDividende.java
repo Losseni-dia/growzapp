@@ -1,4 +1,4 @@
-package growzapp.backend.model.enumeration;
+package growzapp.backend.module.dividende.enums;
 
 public enum StatutDividende {
     PLANIFIE("Paiement de dividendes planifié"),

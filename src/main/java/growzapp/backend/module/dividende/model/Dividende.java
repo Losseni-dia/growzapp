@@ -1,11 +1,14 @@
-package growzapp.backend.model.entite;
+package growzapp.backend.module.dividende.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import growzapp.backend.model.enumeration.MoyenPaiement;
-import growzapp.backend.model.enumeration.StatutDividende;
+
+import growzapp.backend.module.facture.model.Facture;
+import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.paiement.enums.MoyenPaiement;
+import growzapp.backend.module.dividende.enums.StatutDividende;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
