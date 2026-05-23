@@ -1,5 +1,5 @@
 // src/main/java/growzapp/backend/service/EmailService.java
-package growzapp.backend.service;
+package growzapp.backend.module.email;
 
 import java.time.YearMonth;
 
@@ -10,9 +10,9 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import growzapp.backend.model.entite.Dividende;
-import growzapp.backend.model.entite.Facture;
-import growzapp.backend.model.entite.Investissement;
+import growzapp.backend.module.dividende.model.Dividende;
+import growzapp.backend.module.facture.model.Facture;
+import growzapp.backend.module.investissement.model.Investissement;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
