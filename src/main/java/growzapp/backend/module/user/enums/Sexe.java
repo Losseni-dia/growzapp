@@ -1,4 +1,4 @@
-package growzapp.backend.model.enumeration;
+package growzapp.backend.module.user.enums;
 
 public enum Sexe {
     M("Masculin"), F("Feminin"), X("x");
