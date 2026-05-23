@@ -10,10 +10,10 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
-import growzapp.backend.model.entite.User;
-import growzapp.backend.model.enumeration.KycStatus;
-import growzapp.backend.repository.RoleRepository;
-import growzapp.backend.repository.UserRepository;
+import growzapp.backend.module.kyc.enums.KycStatus;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.RoleRepository;
+import growzapp.backend.module.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 

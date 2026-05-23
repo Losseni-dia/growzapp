@@ -1,7 +1,6 @@
 package growzapp.backend.config;
 
 
-import growzapp.backend.model.entite.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -9,6 +8,8 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+
+import growzapp.backend.module.user.model.User;
 
 import java.security.Key;
 import java.util.Date;
