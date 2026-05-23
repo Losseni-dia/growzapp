@@ -1,13 +1,13 @@
-package growzapp.backend.service;
+package growzapp.backend.module.user.service;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
-import growzapp.backend.model.entite.PasswordResetToken;
-import growzapp.backend.model.entite.User;
-import growzapp.backend.repository.PasswordResetTokenRepository;
+import growzapp.backend.module.user.model.PasswordResetToken;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.PasswordResetTokenRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -19,14 +19,8 @@ public class PasswordResetTokenService {
 
     @Transactional
     public PasswordResetToken createTokenForUser(User user) {
-
-        // 1. Suppression directe et brutale
         tokenRepo.deleteByUser(user);
-
-        // 2. On force la synchronisation avec la DB avant la suite
         tokenRepo.flush();
-
-        // 3. Création du token
 
         String token = UUID.randomUUID().toString();
         PasswordResetToken prt = new PasswordResetToken();

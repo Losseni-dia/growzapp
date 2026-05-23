@@ -1,4 +1,4 @@
-package growzapp.backend.repository;
+package growzapp.backend.module.user.repository;
 
 import java.util.List;
 import java.util.Map;
@@ -10,8 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import growzapp.backend.model.entite.User;
-import growzapp.backend.model.enumeration.KycStatus;
+import growzapp.backend.module.kyc.enums.KycStatus;
+import growzapp.backend.module.user.model.User;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {

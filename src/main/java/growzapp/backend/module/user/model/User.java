@@ -1,10 +1,13 @@
 // growzapp/backend/model/entite/User.java
+package growzapp.backend.module.user.model;
 
-package growzapp.backend.model.entite;
-
-import growzapp.backend.model.enumeration.KycStatus;
-import growzapp.backend.model.enumeration.Sexe;
+import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.kyc.enums.KycStatus;
 import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.referentiel.model.Langue;
+import growzapp.backend.module.referentiel.model.Localite;
+import growzapp.backend.module.user.enums.Sexe;
+import growzapp.backend.module.wallet.model.Wallet;
 import jakarta.persistence.*;
 import lombok.*;
 
