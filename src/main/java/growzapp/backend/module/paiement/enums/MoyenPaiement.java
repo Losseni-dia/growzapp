@@ -1,4 +1,4 @@
-package growzapp.backend.model.enumeration;
+package growzapp.backend.module.paiement.enums;
 
 public enum MoyenPaiement {
     VIREMENT("Virement bancaire"),

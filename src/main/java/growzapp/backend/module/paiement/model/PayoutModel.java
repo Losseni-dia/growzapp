@@ -1,10 +1,10 @@
-package growzapp.backend.model.entite;
+package growzapp.backend.module.paiement.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import growzapp.backend.model.enumeration.StatutTransaction;
-import growzapp.backend.model.enumeration.TypeTransaction;
+import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.enums.TypeTransaction;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
