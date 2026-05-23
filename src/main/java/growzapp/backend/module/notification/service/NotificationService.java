@@ -1,4 +1,4 @@
-package growzapp.backend.notification.service;
+package growzapp.backend.module.notification.service;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -6,12 +6,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.entite.User;
+import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.notification.model.Notification;
+import growzapp.backend.module.notification.repository.NotificationRepository;
 import growzapp.backend.module.projet.model.Projet;
-import growzapp.backend.notification.model.Notification;
-import growzapp.backend.notification.repository.NotificationRepository;
-import growzapp.backend.repository.UserRepository;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 
 @Service
 public class NotificationService {
