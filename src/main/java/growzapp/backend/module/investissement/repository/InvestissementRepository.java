@@ -1,10 +1,10 @@
 // src/main/java/growzapp/backend/repository/InvestissementRepository.java
 // AJOUT DE LA MÉTHODE MANQUANTE → tout compile maintenant
 
-package growzapp.backend.repository;
+package growzapp.backend.module.investissement.repository;
 
-import growzapp.backend.model.entite.Investissement;
-import growzapp.backend.model.enumeration.StatutPartInvestissement;
+import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
+import growzapp.backend.module.investissement.model.Investissement;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;

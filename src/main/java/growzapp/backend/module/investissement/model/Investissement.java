@@ -1,9 +1,13 @@
 // src/main/java/growzapp/backend/model/entite/Investissement.java
 
-package growzapp.backend.model.entite;
+package growzapp.backend.module.investissement.model;
 
-import growzapp.backend.model.enumeration.StatutPartInvestissement;
+
+import growzapp.backend.module.contrat.model.Contrat;
+import growzapp.backend.module.dividende.model.Dividende;
+import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.user.model.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
