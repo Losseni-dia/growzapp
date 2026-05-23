@@ -1,9 +1,7 @@
 package growzapp.backend.config;
 
-// UserDetailsServiceImpl.java
-
-import growzapp.backend.model.entite.User;
-import growzapp.backend.repository.UserRepository;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

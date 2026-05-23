@@ -1,6 +1,5 @@
 package growzapp.backend.config.oauth2;
 
-import growzapp.backend.model.entite.User;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -8,6 +7,8 @@ import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+
+import growzapp.backend.module.user.model.User;
 
 import java.util.Collection;
 import java.util.Map;

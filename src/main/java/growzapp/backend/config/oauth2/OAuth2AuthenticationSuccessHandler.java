@@ -8,8 +8,8 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 import growzapp.backend.config.JwtService;
-import growzapp.backend.model.entite.User;
-import growzapp.backend.repository.UserRepository;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 
 import java.io.IOException;
 import java.util.HashMap;
