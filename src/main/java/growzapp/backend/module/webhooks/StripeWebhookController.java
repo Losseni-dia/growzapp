@@ -1,34 +1,35 @@
-// src/main/java/growzapp/backend/controller/webhooks/StripeWebhookController.java (CORRIGÉ)
-
 package growzapp.backend.module.webhooks;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.transaction.annotation.Transactional; // Assurez-vous que ceci est importé
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
 import com.stripe.model.Payout;
-import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
 
-import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.exchangerate.repository.ExchangeRateRepository;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
+import growzapp.backend.module.investissement.service.InvestissementService;
 import growzapp.backend.module.paiement.innerwallet.DepositService;
 import growzapp.backend.module.paiement.repository.PayoutModelRepository;
-import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.model.Wallet;
 import growzapp.backend.module.wallet.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,22 +43,22 @@ public class StripeWebhookController {
     @Value("${stripe.webhook-secret}")
     private String webhookSecret;
 
-    // Suppression de TransactionRepository
+    private static final BigDecimal TAUX_XOF_PAR_EUR = new BigDecimal("655.957");
+
     private final PayoutModelRepository payoutModelRepository;
     private final UserRepository userRepository;
     private final ProjetRepository projetRepository;
     private final InvestissementRepository investissementRepository;
-
-    // NOUVELLES INJECTIONS (ou services réorganisés)
     private final DepositService depositService;
-    private final WalletRepository walletRepository; // Gardé pour l'investissement (soldeBloque)
+    private final WalletRepository walletRepository;
+    private final ExchangeRateRepository exchangeRateRepository;
+    private final InvestissementService investissementService;
 
     @PostMapping
     public ResponseEntity<String> handle(
             @RequestBody String payload,
             @RequestHeader("Stripe-Signature") String sigHeader) {
 
-        // ... (Logique de vérification de signature inchangée) ...
         Event event;
         try {
             event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
@@ -68,117 +69,130 @@ public class StripeWebhookController {
             log.error("Webhook Stripe - Erreur parsing : {}", e.getMessage());
             return ResponseEntity.badRequest().body("Invalid payload");
         }
-        // ...
 
         try {
+            log.info("WEBHOOK REÇU type={} id={}", event.getType(), event.getId());
             switch (event.getType()) {
-                case "checkout.session.completed", "checkout.session.async_payment_succeeded" ->
-                    handleCheckoutSessionCompleted(event);
+                case "checkout.session.completed",
+                        "checkout.session.async_payment_succeeded" ->
+                    handleCheckoutCompleted(event);
                 case "payout.paid" -> handlePayoutPaid(event);
                 case "payout.failed" -> handlePayoutFailed(event);
                 default -> log.debug("Événement Stripe ignoré : {}", event.getType());
             }
         } catch (Exception e) {
-            log.error("Erreur traitement webhook Stripe {} : {}", event.getId(), e.getMessage(), e);
-            return ResponseEntity.ok("ok");
+            log.error("Erreur traitement webhook {} : {}", event.getId(), e.getMessage(), e);
         }
 
         return ResponseEntity.ok("ok");
     }
 
-    // ========================================
-    // DÉPÔT + INVESTISSEMENT
-    // ========================================
     @Transactional
-    private void handleCheckoutSessionCompleted(Event event) {
-        Session session = (Session) event.getDataObjectDeserializer().getObject().orElse(null);
-        if (session == null)
-            return;
+    public void handleCheckoutCompleted(Event event) {
+        // getObject() peut retourner vide si la version API du SDK ne correspond pas
+        // On utilise getRawJson() comme fallback
+        // Parser le JSON brut directement avec Jackson (disponible dans Spring Boot)
+        // getObject() échoue avec les nouvelles versions d'API Stripe
+        // (2025-10-29.clover)
+        String rawJson = event.getDataObjectDeserializer().getRawJson();
+        log.info("Raw JSON reçu (200 premiers chars) : {}",
+                rawJson != null ? rawJson.substring(0, Math.min(200, rawJson.length())) : "null");
 
-        String userIdStr = session.getClientReferenceId();
-        if (userIdStr == null || userIdStr.isBlank()) {
-            log.warn("client_reference_id manquant dans session {}", session.getId());
-            return;
-        }
-
-        Long userId = Long.parseLong(userIdStr);
-        String type = session.getMetadata().get("type");
-
-        // Montant total en EUR (nécessaire pour les deux types)
-        BigDecimal montantEUR = BigDecimal.valueOf(session.getAmountTotal())
-                .divide(BigDecimal.valueOf(100));
-
-        if ("INVESTISSEMENT".equals(type)) {
-            handleInvestissementPaye(session, userId, montantEUR);
-        } else {
-            // APPEL AU NOUVEAU SERVICE DE DÉPÔT
-            depositService.finaliserDepot(userId, montantEUR, session.getId(), "STRIPE_CARD");
-            log.info("DÉPÔT STRIPE CRÉDITÉ (via DepositService) → user {} +{}€", userId, montantEUR);
-        }
-    }
-
-    // Ancien handleDeposit supprimé et remplacé par l'appel à
-    // depositService.finaliserDepot
-
-    @Transactional
-    private void handleInvestissementPaye(Session session, Long userId, BigDecimal montantTotal) {
         try {
-            // ... (logique de création de l'Investissement) ...
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(rawJson);
 
-            Long projetId = Long.parseLong(session.getMetadata().get("projet_id"));
-            int nombreParts = Integer.parseInt(session.getMetadata().get("nombre_parts"));
+            String sessionId = root.path("id").asText();
+            String userIdStr = root.path("client_reference_id").asText();
+            String type = root.path("metadata").path("type").asText("DEPOSIT");
+            long amountTotal = root.path("amount_total").asLong(0);
+            String projetIdStr = root.path("metadata").path("projet_id").asText();
+            String nombrePartsStr = root.path("metadata").path("nombre_parts").asText();
 
-            User investisseur = userRepository.findById(userId).orElse(null);
-            Projet projet = projetRepository.findById(projetId).orElse(null);
+            log.info("Session parsée : id={} user={} type={} amount={}", sessionId, userIdStr, type, amountTotal);
 
-            if (investisseur == null || projet == null) {
-                log.error("Utilisateur ou projet introuvable pour investissement Stripe");
+            if (userIdStr == null || userIdStr.isBlank()) {
+                log.warn("client_reference_id manquant dans session {}", sessionId);
                 return;
             }
 
-            // 1. Créer l'investissement (similaire à avant)
-            Investissement investissement = new Investissement();
-            // ... (affectation des autres champs) ...
-            investissement.setInvestisseur(investisseur);
-            investissement.setProjet(projet);
-            investissement.setNombrePartsPris(nombreParts);
-            // ...
-            investissementRepository.save(investissement);
+            Long userId = Long.parseLong(userIdStr);
+            BigDecimal montantEUR = BigDecimal.valueOf(amountTotal)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-            // 2. Transférer l'argent DANS le wallet (crédit + blocage)
-            // Comme le paiement vient d'une source externe (Stripe), nous devons
-            // l'introduire
-            // dans le portefeuille de l'utilisateur comme disponible, puis le bloquer
-            // immédiatement
-            // Note: Si vous avez une transaction initiale EN_ATTENTE, trouvez-la et
-            // mettez-la à jour.
+            if ("INVESTISSEMENT".equals(type)) {
+                handleInvestissementPayeRaw(sessionId, userId, montantEUR, projetIdStr, nombrePartsStr);
+            } else {
+                depositService.finaliserDepot(userId, montantEUR, sessionId, "STRIPE_CARD");
+                log.info("DÉPÔT STRIPE → user={} +{}€", userId, montantEUR);
+            }
 
-            walletRepository.findByUserId(userId).ifPresent(wallet -> {
-                // Pour Stripe Investissement, les fonds sont perçus par l'application
-                // et doivent être transférés au porteur APRES validation admin.
-                // Ici, on crédite le solde bloqué directement (ou solde disponible puis on le
-                // déplace).
-
-                // OPTION A (Simplifiée si le wallet n'a pas été crédité avant)
-                wallet.setSoldeBloque(wallet.getSoldeBloque().add(montantTotal));
-                walletRepository.save(wallet);
-                log.info("INVESTISSEMENT STRIPE FOND REÇU ET BLOQUÉ → user {} → {} parts", userId, nombreParts);
-
-                // Vous devriez aussi enregistrer une Transaction type DEPOT ou INVESTISSEMENT
-                // SUCCESS ici.
-            });
-
-        } catch (Exception e) {
-            log.error("Erreur traitement investissement Stripe", e);
+        } catch (Exception ex) {
+            log.error("Erreur parsing JSON webhook Stripe : {}", ex.getMessage(), ex);
         }
     }
 
-    // ========================================
-    // RETRAIT AU PORTEUR (LOGIQUE INCHANGÉE)
-    // ========================================
     @Transactional
-    private void handlePayoutPaid(Event event) {
-        // ... (Logique existante pour mettre à jour PayoutModel à SUCCESS) ...
+    public void handleInvestissementPayeRaw(String sessionId, Long userId, BigDecimal montantEUR, String projetIdStr,
+            String nombrePartsStr) {
+        try {
+            // ── Idempotence — évite double traitement ─────────────────────
+            boolean dejaTraite = investissementRepository
+                    .existsByReferenceExterneStripe(sessionId);
+            if (dejaTraite) {
+                log.warn("Session Stripe déjà traitée : {}", sessionId);
+                return;
+            }
+
+            Long projetId = Long.parseLong(projetIdStr);
+            int nombreParts = Integer.parseInt(nombrePartsStr);
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User introuvable : " + userId));
+
+            // ── 1. Conversion EUR → FCFA ──────────────────────────────────
+            BigDecimal tauxXOF = exchangeRateRepository.findByCurrencyCode("XOF")
+                    .map(r -> r.getRateToBase())
+                    .orElse(TAUX_XOF_PAR_EUR);
+
+            BigDecimal montantFCFA = montantEUR.multiply(tauxXOF)
+                    .setScale(0, RoundingMode.HALF_UP);
+
+            log.info("Stripe investissement : {}€ = {} FCFA pour user={} projet={} parts={}",
+                    montantEUR, montantFCFA, userId, projetId, nombreParts);
+
+            // ── 2. Créditer le wallet utilisateur (argent externe Stripe) ─
+            // On crédite le solde disponible pour que investir() puisse le bloquer
+            Wallet wallet = walletRepository.findByUserId(userId)
+                    .orElseThrow(() -> new RuntimeException("Wallet introuvable pour user " + userId));
+
+            wallet.setSoldeDisponible(wallet.getSoldeDisponible().add(montantFCFA));
+            walletRepository.save(wallet);
+
+            log.info("Wallet crédité : user={} +{} FCFA (solde disponible temporaire)", userId, montantFCFA);
+
+            // ── 3. Appeler exactement le même flux que wallet interne ──────
+            // investir() va : vérifier KYC, vérifier solde, bloquer fonds,
+            // créer investissement EN_ATTENTE, enregistrer transaction
+            var investissementDTO = investissementService.investir(projetId, nombreParts, user);
+
+            // ── 4. Enregistrer la référence Stripe pour idempotence ───────
+            investissementRepository.findById(investissementDTO.id()).ifPresent(inv -> {
+                inv.setReferenceExterneStripe(sessionId);
+                investissementRepository.save(inv);
+            });
+
+            log.info("INVESTISSEMENT STRIPE EN_ATTENTE créé → id={} user={} projet={} {} FCFA",
+                    investissementDTO.id(), userId, projetId, montantFCFA);
+
+        } catch (Exception e) {
+            log.error("Erreur handleInvestissementPaye session={}", sessionId, e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Transactional
+    public void handlePayoutPaid(Event event) {
         Payout payout = (Payout) event.getDataObjectDeserializer().getObject().orElse(null);
         if (payout == null)
             return;
@@ -189,14 +203,12 @@ public class StripeWebhookController {
                     p.setPaydunyaStatus("paid");
                     p.setCompletedAt(LocalDateTime.now());
                     payoutModelRepository.save(p);
-                    log.info("RETRAIT STRIPE PAYÉ → {} ({}€)", payout.getId(), p.getMontant());
+                    log.info("RETRAIT STRIPE PAYÉ → {}", payout.getId());
                 });
     }
 
     @Transactional
-    private void handlePayoutFailed(Event event) {
-        // ... (Logique existante pour mettre à jour PayoutModel à ECHEC et
-        // potentiellement débloquer/recrediter) ...
+    public void handlePayoutFailed(Event event) {
         Payout payout = (Payout) event.getDataObjectDeserializer().getObject().orElse(null);
         if (payout == null)
             return;
@@ -206,16 +218,7 @@ public class StripeWebhookController {
                     p.setStatut(StatutTransaction.ECHEC_PAIEMENT);
                     p.setPaydunyaStatus("failed");
                     payoutModelRepository.save(p);
-                    log.warn("RETRAIT STRIPE ÉCHOUÉ → {} – raison: {}", payout.getId(), payout.getFailureMessage());
-
-                    // NOTE IMPORTANTE: Ici, si le Payout échoue, les fonds ont été débités
-                    // par WithdrawalService. On doit les recréditer si Stripe n'a pas pu les
-                    // envoyer.
-                    // Optionnel : Réactiver le solde débité dans WithdrawalService
-                    // walletRepository.findByUserId(p.getUserId()).ifPresent(wallet -> {
-                    // wallet.setSoldeRetirable(wallet.getSoldeRetirable().add(p.getMontant()));
-                    // walletRepository.save(wallet);
-                    // });
+                    log.warn("RETRAIT STRIPE ÉCHOUÉ → {}", payout.getId());
                 });
     }
 }
