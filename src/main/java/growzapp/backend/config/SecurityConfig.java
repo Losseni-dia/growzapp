@@ -82,6 +82,8 @@ public class SecurityConfig {
                                                 .hasAnyRole("ADMIN", "COMMUNICANT")
                                                 .requestMatchers(HttpMethod.PUT, "/api/news/**")
                                                 .hasAnyRole("ADMIN", "COMMUNICANT")
+                                                .requestMatchers("/api/webhook/stripe").permitAll()
+                                                .requestMatchers("/api/webhook/paydunya").permitAll()
                                                 .requestMatchers(HttpMethod.DELETE, "/api/news/**").hasAnyRole("ADMIN") // Seul
                                                 // l'admin
                                                 // supprime
