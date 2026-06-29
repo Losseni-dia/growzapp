@@ -1,21 +1,23 @@
-// src/main/java/growzapp/backend/controller/webhooks/PaydunyaWebhookController.java
-
 package growzapp.backend.module.webhooks;
 
+import growzapp.backend.module.investissement.service.InvestissementService;
 import growzapp.backend.module.paiement.model.PayoutModel;
 import growzapp.backend.module.paiement.repository.PayoutModelRepository;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.model.Transaction;
 import growzapp.backend.module.wallet.model.Wallet;
 import growzapp.backend.module.wallet.repository.TransactionRepository;
 import growzapp.backend.module.wallet.repository.WalletRepository;
-import growzapp.backend.module.wallet.service.WalletService; // Pour la logique de crédit
+import growzapp.backend.module.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -33,33 +35,48 @@ public class PaydunyaWebhookController {
     private final PayoutModelRepository payoutModelRepository;
     private final TransactionRepository transactionRepository;
     private final WalletService walletService;
-    private final WalletRepository walletRepository; // AJOUT DE L'INJECTION POUR CHERCHER LE WALLET
+    private final WalletRepository walletRepository;
+    private final UserRepository userRepository;
+    private final InvestissementService investissementService;
 
-    @PostMapping
+    // PayDunya envoie application/x-www-form-urlencoded avec data[field][subfield]
+    @PostMapping(consumes = { MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.ALL_VALUE })
     @Transactional
-    public ResponseEntity<String> handle(@RequestBody Map<String, Object> payload) {
-        // NOTE: En production, ajoutez la vérification de la signature ici !
+    public ResponseEntity<String> handle(@RequestParam Map<String, String> params) {
 
-        String token = (String) payload.get("token"); // Peut être l'ID de la facture PayDunya
-        String status = (String) payload.get("status");
+        log.info("WEBHOOK PAYDUNYA reçu : {}", params.keySet());
+
+        // PayDunya envoie data[invoice][token] et data[status]
+        String token = params.get("data[invoice][token]");
+        String status = params.getOrDefault("data[status]", params.get("status"));
+
+        // Fallback
+        if (token == null)
+            token = params.get("token");
 
         if (token == null || status == null) {
-            return ResponseEntity.badRequest().body("Missing data");
+            log.warn("Webhook PayDunya — token={} status={} — params={}", token, status, params);
+            return ResponseEntity.badRequest().body("Missing token or status");
         }
 
-        // 1. Tenter de traiter comme un RETRAIT (PayoutModel)
-        Optional<PayoutModel> payoutOpt = payoutModelRepository.findByPaydunyaToken(token);
+        log.info("WEBHOOK PAYDUNYA : token={} status={}", token, status);
 
+        // Extraire custom_data
+        String type = params.getOrDefault("data[custom_data][type]", "DEPOSIT");
+        String userIdStr = params.get("data[custom_data][user_id]");
+        String projetIdStr = params.get("data[custom_data][projet_id]");
+        String partsStr = params.get("data[custom_data][nombre_parts]");
+
+        // ── 1. RETRAIT (PayoutModel) ──────────────────────────────────────
+        Optional<PayoutModel> payoutOpt = payoutModelRepository.findByPaydunyaToken(token);
         if (payoutOpt.isPresent()) {
             PayoutModel p = payoutOpt.get();
             if ("completed".equals(status) || "paid".equals(status)) {
                 p.setStatut(StatutTransaction.SUCCESS);
-                log.info("RETRAIT PAYDUNYA PAYÉ (Payout) → {} €", p.getMontant());
+                log.info("RETRAIT PAYDUNYA PAYÉ → {}", p.getMontant());
             } else {
                 p.setStatut(StatutTransaction.ECHEC_PAIEMENT);
-                log.warn("RETRAIT PAYDUNYA ÉCHOUÉ (Payout) → {}", status);
-                // Si échec : potentiellement recréditer le solde retirable (nécessite une autre
-                // méthode dans WalletService)
+                log.warn("RETRAIT PAYDUNYA ÉCHOUÉ → {}", status);
             }
             p.setPaydunyaStatus(status);
             p.setCompletedAt(LocalDateTime.now());
@@ -67,54 +84,67 @@ public class PaydunyaWebhookController {
             return ResponseEntity.ok("Payout updated");
         }
 
-        // 2. Tenter de traiter comme un DÉPÔT (Transaction)
-        // La transaction est recherchée par la référence externe (token PayDunya)
+        // ── 2. DÉPÔT ou INVESTISSEMENT (Transaction) ─────────────────────
         Optional<Transaction> txOpt = transactionRepository.findByReferenceExterne(token);
-
         if (txOpt.isPresent()) {
             Transaction tx = txOpt.get();
+
             if (tx.getStatut() == StatutTransaction.SUCCESS) {
+                log.warn("Transaction déjà traitée : {}", token);
                 return ResponseEntity.ok("Already processed");
             }
 
             if ("completed".equals(status) || "paid".equals(status)) {
-                // CORRECTION DE LA LOGIQUE DE CRÉDIT
 
-                // Charger le Wallet pour obtenir l'ID de l'utilisateur (méthode non optimale
-                // mais fonctionnelle)
-                Wallet associatedWallet = walletRepository.findById(tx.getWalletId())
-                        .orElseThrow(() -> new IllegalStateException(
-                                "Wallet associé à la transaction non trouvé: " + tx.getWalletId()));
+                if ("INVESTISSEMENT".equals(type) && userIdStr != null && projetIdStr != null) {
+                    // ── Flux investissement Mobile Money ─────────────────
+                    Long userId = Long.parseLong(userIdStr);
+                    Long projetId = Long.parseLong(projetIdStr);
+                    int parts = Integer.parseInt(partsStr != null ? partsStr : "1");
 
-                Long userId = associatedWallet.getUser().getId();
+                    User user = userRepository.findById(userId)
+                            .orElseThrow(() -> new RuntimeException("User introuvable : " + userId));
 
-                // ** CRÉDIT DU WALLET **
-                walletService.deposerFonds(
-                        userId, // Utilisation de l'ID utilisateur réel
-                        tx.getMontant().doubleValue(),
-                        "PAYDUNYA_MM");
+                    // Créditer wallet puis bloquer via investir()
+                    Wallet wallet = walletRepository.findByUserId(userId)
+                            .orElseThrow(() -> new RuntimeException("Wallet introuvable : " + userId));
+                    wallet.setSoldeDisponible(wallet.getSoldeDisponible().add(tx.getMontant()));
+                    walletRepository.save(wallet);
 
-                // Mise à jour de la transaction (si elle n'est pas mise à jour/remplacée par
-                // deposerFonds)
-                tx.setStatut(StatutTransaction.SUCCESS);
-                tx.setCompletedAt(LocalDateTime.now());
-                transactionRepository.save(tx);
+                    investissementService.investir(projetId, parts, user);
 
-                log.info("DÉPÔT PAYDUNYA CRÉDITÉ (Transaction) → {} €", tx.getMontant());
+                    tx.setStatut(StatutTransaction.SUCCESS);
+                    tx.setCompletedAt(LocalDateTime.now());
+                    transactionRepository.save(tx);
+
+                    log.info("INVESTISSEMENT PAYDUNYA EN_ATTENTE → user={} projet={} parts={} montant={}",
+                            userId, projetId, parts, tx.getMontant());
+
+                } else {
+                    // ── Flux dépôt wallet classique ───────────────────────
+                    Wallet associatedWallet = walletRepository.findById(tx.getWalletId())
+                            .orElseThrow(() -> new IllegalStateException("Wallet introuvable"));
+                    Long userId = associatedWallet.getUser().getId();
+
+                    walletService.deposerFonds(userId, tx.getMontant().doubleValue(), "PAYDUNYA_MM");
+
+                    tx.setStatut(StatutTransaction.SUCCESS);
+                    tx.setCompletedAt(LocalDateTime.now());
+                    transactionRepository.save(tx);
+
+                    log.info("DÉPÔT PAYDUNYA CRÉDITÉ → user={} montant={}", userId, tx.getMontant());
+                }
+
             } else {
                 tx.setStatut(StatutTransaction.ECHEC_PAIEMENT);
-                log.warn("DÉPÔT PAYDUNYA ÉCHOUÉ (Transaction) → {}", status);
                 transactionRepository.save(tx);
+                log.warn("PAIEMENT PAYDUNYA ÉCHOUÉ → token={} status={}", token, status);
             }
-            return ResponseEntity.ok("Deposit updated");
+
+            return ResponseEntity.ok("Processed");
         }
 
-        log.warn("Webhook PayDunya reçu sans correspondance Payout/Transaction: {}", token);
+        log.warn("Webhook PayDunya sans correspondance : token={}", token);
         return ResponseEntity.ok("No match found");
-    }
-
-    private boolean verifySignature(Map<String, Object> payload, String signature) {
-        // En prod, implémentez la vérification HMAC
-        return true;
     }
 }
