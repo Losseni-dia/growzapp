@@ -18,6 +18,11 @@ import java.util.Optional;
 
 @Repository
 public interface InvestissementRepository extends JpaRepository<Investissement, Long> {
+            
+    boolean existsByReferenceExterneStripe(String referenceExterneStripe);
+
+    List<Investissement> findByProjetIdAndStatutPartInvestissement(
+            Long projetId, StatutPartInvestissement statut);
 
   @Query("SELECT i FROM Investissement i JOIN FETCH i.projet p JOIN FETCH i.investisseur u")
   List<Investissement> findAllWithDetails();
