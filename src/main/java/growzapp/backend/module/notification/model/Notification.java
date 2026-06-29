@@ -45,6 +45,9 @@ public class Notification {
     @Schema(description = "Slug du projet lié — utilisé pour la redirection frontend", example = "ferme-solaire-nord")
     private String projetSlug;
 
+    @Schema(description = "Motif associé à la notification (ex: motif de refus)", example = "Documents KYC insuffisants")
+    private String motif;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     @JsonIgnoreProperties({ "projets", "investissements", "roles", "wallet", "localite", "langues", "password" })
