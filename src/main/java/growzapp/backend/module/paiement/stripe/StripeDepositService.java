@@ -1,5 +1,4 @@
-// src/main/java/growzapp/backend/service/StripeDepositService.java
-
+// src/main/java/growzapp/backend/module/paiement/stripe/StripeDepositService.java
 package growzapp.backend.module.paiement.stripe;
 
 import java.math.BigDecimal;
@@ -21,7 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class StripeDepositService {
 
-  
     @Value("${stripe.secret-key}")
     private String stripeSecretKey;
 
@@ -33,20 +31,14 @@ public class StripeDepositService {
         Stripe.apiKey = stripeSecretKey;
     }
 
-    // ========================================
-    // 1. DÉPÔT SUR LE WALLET (Carte Bancaire)
-    // ========================================
+    // ── 1. DÉPÔT SUR LE WALLET (Carte Bancaire) ──────────────────────────────
     public String createCheckoutSession(Long userId, double montantEUR) {
         try {
-            long amountInCents = BigDecimal.valueOf(montantEUR).multiply(BigDecimal.valueOf(100)).longValueExact();
-
-            // CONVERSION POUR FIXER L'ERREUR 67108979
-            // Le SDK Stripe attend un objet SessionCreateParams.Locale,
-            // que nous créons ici à partir de la chaîne "fr" en majuscule.
-            SessionCreateParams.Locale locale = SessionCreateParams.Locale.valueOf("FR");
+            long amountInCents = BigDecimal.valueOf(montantEUR)
+                    .multiply(BigDecimal.valueOf(100)).longValueExact();
 
             SessionCreateParams params = SessionCreateParams.builder()
-                    .setLocale(locale) // Utilise l'énumération convertie
+                    .setLocale(SessionCreateParams.Locale.FR)
                     .setMode(SessionCreateParams.Mode.PAYMENT)
                     .setSuccessUrl(frontendUrl + "/wallet?deposit=success")
                     .setCancelUrl(frontendUrl + "/wallet?deposit=cancel")
@@ -63,7 +55,8 @@ public class StripeDepositService {
                                                     .setProductData(
                                                             SessionCreateParams.LineItem.PriceData.ProductData.builder()
                                                                     .setName("Dépôt sur GrowzApp")
-                                                                    .setDescription("Crédit de ton portefeuille")
+                                                                    .setDescription(
+                                                                            "Crédit de ton portefeuille GrowzApp")
                                                                     .build())
                                                     .build())
                                     .build())
@@ -73,38 +66,73 @@ public class StripeDepositService {
             return session.getUrl();
 
         } catch (StripeException e) {
+            log.error("Erreur Stripe dépôt wallet", e);
             throw new RuntimeException("Erreur Stripe Checkout dépôt: " + e.getMessage());
         }
     }
 
-    // ========================================
-    // 2. INVESTISSEMENT PAR CARTE
-    // ========================================
+    // ── 2. INVESTISSEMENT DIRECT PAR CARTE ───────────────────────────────────
+    // Note: Le montant Stripe est en EUR (cents). Le FCFA est converti côté
+    // backend.
+    // Taux indicatif : 1 EUR = 655.957 FCFA (taux fixe XOF/EUR)
     public String createInvestissementSession(
             Long userId,
             Long projetId,
+            String projetSlug,
             int nombreParts,
             String projetLibelle,
-            BigDecimal prixUnePart) {
+            BigDecimal prixUnePartFCFA) {
         try {
-            BigDecimal montantTotal = BigDecimal.valueOf(nombreParts).multiply(prixUnePart);
-            long amountInCents = montantTotal.multiply(BigDecimal.valueOf(100)).longValueExact();
+            // Conversion FCFA → EUR (taux fixe BCEAO)
+            BigDecimal tauxFCFAparEUR = BigDecimal.valueOf(655.957);
+            BigDecimal montantTotalFCFA = prixUnePartFCFA.multiply(BigDecimal.valueOf(nombreParts));
+            BigDecimal montantEUR = montantTotalFCFA.divide(tauxFCFAparEUR, 2, java.math.RoundingMode.HALF_UP);
+            long amountInCents = montantEUR.multiply(BigDecimal.valueOf(100)).longValue();
 
-            // NOTE: Ajoutez .setLocale(locale) ici aussi si vous utilisez l'investissement
+            // Minimum Stripe : 50 centimes EUR
+            if (amountInCents < 50) {
+                throw new RuntimeException("Montant trop faible pour Stripe (minimum 0.50 €)");
+            }
+
             SessionCreateParams params = SessionCreateParams.builder()
+                    .setLocale(SessionCreateParams.Locale.FR)
                     .setMode(SessionCreateParams.Mode.PAYMENT)
-                    .setLocale(SessionCreateParams.Locale.valueOf("FR"))
-                    // ... (reste des paramètres) ...
+                    .setSuccessUrl(frontendUrl + "/projet/" + projetSlug + "?stripe=success")
+                    .setCancelUrl(frontendUrl + "/projet/" + projetSlug + "?stripe=cancel")
+                    .setClientReferenceId(userId.toString())
+                    .putMetadata("type", "INVESTISSEMENT")
+                    .putMetadata("user_id", userId.toString())
+                    .putMetadata("projet_id", projetId.toString())
+                    .putMetadata("nombre_parts", String.valueOf(nombreParts))
+                    .addLineItem(
+                            SessionCreateParams.LineItem.builder()
+                                    .setQuantity((long) nombreParts)
+                                    .setPriceData(
+                                            SessionCreateParams.LineItem.PriceData.builder()
+                                                    .setCurrency("eur")
+                                                    .setUnitAmount(montantEUR.multiply(BigDecimal.valueOf(100))
+                                                            .divide(BigDecimal.valueOf(nombreParts), 0,
+                                                                    java.math.RoundingMode.HALF_UP)
+                                                            .longValue())
+                                                    .setProductData(
+                                                            SessionCreateParams.LineItem.PriceData.ProductData.builder()
+                                                                    .setName("Part — " + projetLibelle)
+                                                                    .setDescription(nombreParts + " part(s) × "
+                                                                            + montantTotalFCFA.toPlainString()
+                                                                            + " FCFA")
+                                                                    .build())
+                                                    .build())
+                                    .build())
                     .build();
 
             Session session = Session.create(params);
+            log.info("Session Stripe investissement créée : {} pour user={} projet={} parts={}",
+                    session.getId(), userId, projetId, nombreParts);
             return session.getUrl();
 
         } catch (StripeException e) {
-            log.error("Erreur création session investissement", e);
-            throw new RuntimeException("Impossible de créer le paiement");
+            log.error("Erreur création session investissement Stripe", e);
+            throw new RuntimeException("Impossible de créer le paiement Stripe: " + e.getMessage());
         }
     }
-
-    // 3. createBankPayoutAdmin DOIT ÊTRE DANS STRIPEPAYOUTSERVICE
 }
