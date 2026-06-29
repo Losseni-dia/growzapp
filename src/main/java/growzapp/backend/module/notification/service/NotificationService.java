@@ -22,38 +22,49 @@ public class NotificationService {
     @Autowired
     private UserRepository userRepository;
 
-    // --- LOGIQUE D'ENVOI ---
-
-    /**
-     * Notifie le porteur de projet (avec lien vers le projet)
-     */
-    public void notifyProjectOwner(User owner, String title, String content, Long projetId) {
+    // ── Helper pour créer une notification avec slug ──────────────────────────
+    private Notification buildNotif(User recipient, String title, String content,
+            Long projetId, String projetSlug) {
         Notification notif = new Notification();
-        notif.setRecipient(owner);
+        notif.setRecipient(recipient);
         notif.setTitle(title);
         notif.setContent(content);
-        notif.setProjetId(projetId); // Ajout de l'ID pour redirection
-        notificationRepository.save(notif);
+        notif.setProjetId(projetId);
+        notif.setProjetSlug(projetSlug);
+        return notif;
     }
 
-    /**
-     * Notification globale (projetId peut être null si c'est une info générale)
-     */
-    public void notifyAllUsers(String title, String content, Long projetId) {
+    public void notifyAllUsersWithSlug(String title, String content, Long projetId, String projetSlug) {
         List<User> allUsers = userRepository.findAll();
         allUsers.forEach(user -> {
-            Notification notif = new Notification();
-            notif.setRecipient(user);
-            notif.setTitle(title);
-            notif.setContent(content);
-            notif.setProjetId(projetId); // Ajout de l'ID si fourni
+            Notification notif = buildNotif(user, title, content, projetId, projetSlug);
             notificationRepository.save(notif);
         });
     }
 
-    /**
-     * Notifie les investisseurs d'un projet spécifique
-     */
+    // ── Notifie un utilisateur spécifique avec slug ───────────────────────────
+    public void notifyProjectOwner(User owner, String title, String content, Long projetId) {
+        // Compatibilité sans slug (ancien code)
+        Notification notif = buildNotif(owner, title, content, projetId, null);
+        notificationRepository.save(notif);
+    }
+
+    // Nouvelle surcharge avec slug
+    public void notifyUser(User user, String title, String content, Long projetId, String projetSlug) {
+        Notification notif = buildNotif(user, title, content, projetId, projetSlug);
+        notificationRepository.save(notif);
+    }
+
+    // ── Notification globale ──────────────────────────────────────────────────
+    public void notifyAllUsers(String title, String content, Long projetId) {
+        List<User> allUsers = userRepository.findAll();
+        allUsers.forEach(user -> {
+            Notification notif = buildNotif(user, title, content, projetId, null);
+            notificationRepository.save(notif);
+        });
+    }
+
+    // ── Notifie les investisseurs existants d'un projet ───────────────────────
     public void notifyExistingInvestors(Projet project, BigDecimal newAmount, User currentInvestor) {
         if (project.getInvestissements() == null)
             return;
@@ -63,21 +74,18 @@ public class NotificationService {
                 .distinct()
                 .filter(user -> !user.getId().equals(currentInvestor.getId()))
                 .forEach(user -> {
-                    Notification notif = new Notification();
-                    notif.setRecipient(user);
-                    notif.setTitle("Le projet avance !");
-                    notif.setContent("Un nouvel investissement de " + newAmount + " FCFA vient d'être réalisé sur "
-                            + project.getLibelle() + ".");
-
-                    // CRUCIAL : On lie l'ID du projet pour la redirection frontend
-                    notif.setProjetId(project.getId());
-
+                    Notification notif = buildNotif(
+                            user,
+                            "Le projet avance !",
+                            "Un nouvel investissement de " + newAmount
+                                    + " FCFA vient d'être réalisé sur " + project.getLibelle() + ".",
+                            project.getId(),
+                            project.getSlug());
                     notificationRepository.save(notif);
                 });
     }
 
-    // --- LOGIQUE DE LECTURE ---
-
+    // ── Lecture ───────────────────────────────────────────────────────────────
     public List<Notification> getNotificationsForUser(User user) {
         return notificationRepository.findByRecipientOrderByDateDesc(user);
     }
