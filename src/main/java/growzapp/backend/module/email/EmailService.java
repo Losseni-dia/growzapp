@@ -271,4 +271,115 @@ public class EmailService {
             log.error("Échec de l'envoi de l'email de reset à {} : {}", to, e.getMessage());
         }
     }
+
+    // AJOUTER cette méthode dans EmailService.java
+    // juste avant la dernière accolade }
+
+    // === REFUS D'INVESTISSEMENT ===
+    @Async
+    public void envoyerRefusInvestissement(
+            String emailInvestisseur,
+            String nomInvestisseur,
+            String projetLibelle,
+            String montant,
+            String motif) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(emailInvestisseur);
+            helper.setSubject("Investissement refusé — " + projetLibelle + " — GrowzApp");
+            helper.setText(
+                    """
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
+                              <h1 style="color:#1B5E20;margin:0 0 4px 0;">GrowzApp</h1>
+                              <p style="color:#888;font-size:0.85em;margin:0 0 24px 0;">Plateforme d'investissement participatif</p>
+
+                              <h2 style="color:#c62828;">Investissement refusé</h2>
+
+                              <p>Bonjour <strong>%s</strong>,</p>
+                              <p>Nous vous informons que votre investissement dans le projet <strong>%s</strong> a été refusé par notre équipe.</p>
+
+                              <div style="background:#fff5f5;border-left:4px solid #c62828;padding:16px;border-radius:0 8px 8px 0;margin:20px 0;">
+                                <p style="margin:0;font-weight:bold;color:#c62828;">Motif du refus :</p>
+                                <p style="margin:8px 0 0 0;color:#333;">%s</p>
+                              </div>
+
+                              <div style="background:#f1f8e9;border-radius:8px;padding:16px;margin:20px 0;">
+                                <p style="margin:0;color:#555;">💰 <strong>%s FCFA</strong> ont été restitués dans votre portefeuille GrowzApp.</p>
+                                <p style="margin:8px 0 0 0;color:#555;">Vous pouvez investir dans d'autres projets disponibles sur la plateforme.</p>
+                              </div>
+
+                              <p>Si vous avez des questions, n'hésitez pas à nous contacter.</p>
+                              <br>
+                              <p style="color:#555;">Cordialement,<br><strong>L'équipe GrowzApp</strong></p>
+
+                              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+                              <p style="font-size:0.78em;color:#999;text-align:center;">
+                                GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire — contact@growzapp.ci
+                              </p>
+                            </div>
+                            """
+                            .formatted(nomInvestisseur, projetLibelle, motif, montant),
+                    true);
+
+            mailSender.send(message);
+            log.info("Email refus investissement envoyé à {}", emailInvestisseur);
+
+        } catch (Exception e) {
+            log.error("Échec envoi email refus investissement à {} : {}", emailInvestisseur, e.getMessage(), e);
+        }
+    }
+
+    @Async
+    public void envoyerVersementPorteur(
+            String emailInvestisseur,
+            String nomInvestisseur,
+            String projetLibelle,
+            String montant,
+            String motif) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(emailInvestisseur);
+            helper.setSubject("Versement effectué — " + projetLibelle + " — GrowzApp");
+            helper.setText(
+                    """
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
+                              <h1 style="color:#1B5E20;margin:0 0 4px 0;">GrowzApp</h1>
+                              <p style="color:#888;font-size:0.85em;margin:0 0 24px 0;">Plateforme d'investissement participatif</p>
+
+                              <h2 style="color:#1B5E20;">💸 Versement effectué</h2>
+
+                              <p>Bonjour <strong>%s</strong>,</p>
+                              <p>Nous vous informons qu'un versement a été effectué depuis le wallet du projet <strong>%s</strong> dans lequel vous avez investi.</p>
+
+                              <div style="background:#f1f8e9;border-left:4px solid #1B5E20;padding:16px;border-radius:0 8px 8px 0;margin:20px 0;">
+                                <p style="margin:0;font-weight:bold;color:#1B5E20;">Détails du versement :</p>
+                                <p style="margin:8px 0 0 0;color:#333;">💰 Montant : <strong>%s FCFA</strong></p>
+                                <p style="margin:8px 0 0 0;color:#333;">📋 Motif : %s</p>
+                              </div>
+
+                              <p style="color:#555;">Ce versement concerne la gestion courante du projet. Pour plus de détails, connectez-vous à votre espace GrowzApp.</p>
+                              <br>
+                              <p style="color:#555;">Cordialement,<br><strong>L'équipe GrowzApp</strong></p>
+
+                              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+                              <p style="font-size:0.78em;color:#999;text-align:center;">
+                                GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire — contact@growzapp.ci
+                              </p>
+                            </div>
+                            """
+                            .formatted(nomInvestisseur, projetLibelle, montant, motif),
+                    true);
+
+            mailSender.send(message);
+            log.info("Email versement porteur envoyé à {}", emailInvestisseur);
+
+        } catch (Exception e) {
+            log.error("Échec envoi email versement porteur à {} : {}", emailInvestisseur, e.getMessage(), e);
+        }
+    }
+
 }
