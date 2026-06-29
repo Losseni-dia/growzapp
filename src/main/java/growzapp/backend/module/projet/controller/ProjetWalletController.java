@@ -19,8 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 import growzapp.backend.module.dividende.dto.DividendeHistoriqueAdminDTO;
 import growzapp.backend.module.dividende.dto.PayerDividendeGlobalRequest;
 import growzapp.backend.module.dividende.service.DividendeService;
+import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.investissement.dto.InvestissementDTO;
+import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
+import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.investissement.service.InvestissementService;
+import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.shared.ApiResponseDTO;
@@ -61,6 +65,9 @@ public class ProjetWalletController {
     private final DividendeService dividendeService;
     private final TransactionRepository transactionRepository;
     private final InvestissementService investissementService;
+    private final InvestissementRepository investissementRepository;
+    private final NotificationService notificationService;
+    private final EmailService emailService;
     private final WalletService walletService;
 
     @GetMapping("/solde-total")
@@ -226,6 +233,32 @@ public class ProjetWalletController {
 
         transactionRepository.save(tx);
         walletRepository.saveAll(List.of(walletProjet, walletPorteur));
+
+        String motifFinal = motif != null && !motif.isBlank() ? motif : "Versement au porteur";
+        String msgNotif = "Un versement de " + montant.toPlainString()
+                + " FCFA a été effectué depuis le wallet du projet « " + projet.getLibelle()
+                + " ». Motif : " + motifFinal;
+
+        investissementRepository.findByProjetIdAndStatutPartInvestissement(projetId, StatutPartInvestissement.VALIDE)
+                .stream()
+                .map(inv -> inv.getInvestisseur())
+                .distinct()
+                .forEach(investisseur -> {
+                    // Notification in-app
+                    notificationService.notifyUser(
+                            investisseur,
+                            "💸 Versement effectué — " + projet.getLibelle(),
+                            msgNotif,
+                            projet.getId(),
+                            projet.getSlug());
+                    // Email
+                    emailService.envoyerVersementPorteur(
+                            investisseur.getEmail(),
+                            investisseur.getPrenom() + " " + investisseur.getNom(),
+                            projet.getLibelle(),
+                            montant.toPlainString(),
+                            motifFinal);
+                });
 
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Versement effectué")
