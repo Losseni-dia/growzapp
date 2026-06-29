@@ -1,5 +1,3 @@
-// src/main/java/growzapp/backend/service/PayDunyaService.java
-
 package growzapp.backend.module.paiement.paydunya;
 
 import java.math.BigDecimal;
@@ -28,10 +26,13 @@ public class PayDunyaService {
 
         @Value("${paydunya.private-key}")
         private String privateKey;
+
         @Value("${paydunya.token}")
         private String token;
+
         @Value("${paydunya.mode:test}")
         private String mode;
+
         @Value("${app.frontend-url}")
         private String frontendUrl;
 
@@ -43,17 +44,33 @@ public class PayDunyaService {
                                 : "https://app.paydunya.com/api/v1";
         }
 
-        // ==================================================================
-        // 1. DÉPÔT MOBILE MONEY (COLLECTE)
-        // ==================================================================
-        public PayDunyaResponse createDepositCheckoutSession(BigDecimal montant, Long userId) {
-                String url = getBaseUrl() + "/checkout-invoice/create";
-
+        private HttpHeaders buildHeaders() {
                 HttpHeaders headers = new HttpHeaders();
                 headers.set("PAYDUNYA-MASTER-KEY", appMasterKey);
                 headers.set("PAYDUNYA-PRIVATE-KEY", privateKey);
                 headers.set("PAYDUNYA-TOKEN", token);
                 headers.setContentType(MediaType.APPLICATION_JSON);
+                return headers;
+        }
+
+        private PayDunyaResponse parseResponse(Map<String, Object> body, String context) {
+                if (body == null || !"00".equals(body.get("response_code"))) {
+                        String err = body != null ? body.toString() : "réponse vide";
+                        log.error("PayDunya échec [{}] : {}", context, err);
+                        throw new RuntimeException("Échec PayDunya [" + context + "] : " + err);
+                }
+                String invoiceUrl = (String) body.get("response_text");
+                String invoiceToken = (String) body.get("token");
+                if (invoiceUrl == null || invoiceUrl.isBlank() || invoiceToken == null) {
+                        throw new RuntimeException("URL/Token PayDunya manquant");
+                }
+                log.info("PayDunya session créée [{}] : token={}", context, invoiceToken);
+                return new PayDunyaResponse(invoiceUrl, invoiceToken);
+        }
+
+        // ── 1. DÉPÔT SUR LE WALLET (Mobile Money) ────────────────────────────────
+        public PayDunyaResponse createDepositCheckoutSession(BigDecimal montant, Long userId) {
+                String url = getBaseUrl() + "/checkout-invoice/create";
 
                 Map<String, Object> payload = Map.of(
                                 "invoice", Map.of(
@@ -66,57 +83,65 @@ public class PayDunyaService {
                                                 "cancel_url", frontendUrl + "/wallet?mm_deposit=cancel",
                                                 "return_url", frontendUrl + "/wallet?mm_deposit=success"),
                                 "custom_data", Map.of(
-                                                "user_id", userId));
+                                                "type", "DEPOSIT",
+                                                "user_id", userId.toString()));
 
                 try {
                         ResponseEntity<Map> response = restTemplate.postForEntity(
-                                        url, new HttpEntity<>(payload, headers), Map.class);
-
-                        Map<String, Object> body = response.getBody();
-
-                        // Log pour le débogage (à conserver pour l'instant)
-                        log.info("Réponse complète PayDunya: {}", body);
-
-                        if (body == null || !"00".equals(body.get("response_code"))) {
-                                String errorDetails = body != null ? body.toString() : "réponse vide";
-                                log.error("PayDunya échec: {}", errorDetails);
-                                throw new RuntimeException("Échec PayDunya: " + errorDetails);
-                        }
-
-                        // Si le code est '00', le service a réussi
-                        // 🟢 CORRECTION DÉFINITIVE: Utiliser la clé 'response_text' comme l'URL
-                        // l'indique.
-                        String invoiceUrl = (String) body.get("response_text");
-                        String invoiceToken = (String) body.get("token");
-
-                        log.info("PayDunya URL de redirection générée: {}", invoiceUrl);
-
-                        if (invoiceUrl == null || invoiceUrl.isBlank() || invoiceToken == null) {
-                                throw new RuntimeException("URL/Token de paiement PayDunya manquante");
-                        }
-
-                        // Retourne l'objet PayDunyaResponse avec la bonne URL
-                        return new PayDunyaResponse(invoiceUrl, invoiceToken);
-
+                                        url, new HttpEntity<>(payload, buildHeaders()), Map.class);
+                        log.info("Réponse PayDunya dépôt : {}", response.getBody());
+                        return parseResponse(response.getBody(), "DEPOT");
                 } catch (HttpClientErrorException e) {
-                        log.error("Erreur HTTP PayDunya : {} - Corps: {}", e.getStatusCode(),
-                                        e.getResponseBodyAsString());
-                        throw new RuntimeException("Erreur de communication PayDunya.", e);
-                } catch (Exception e) {
-                        log.error("Erreur lors de la création de la session PayDunya", e);
-                        throw new RuntimeException("Impossible de créer la session de dépôt.", e);
+                        log.error("Erreur HTTP PayDunya dépôt : {}", e.getResponseBodyAsString());
+                        throw new RuntimeException("Erreur PayDunya.", e);
                 }
         }
 
-        // ==================================================================
-        // 2. RETRAIT MOBILE MONEY (DISBURSEMENT / PAYOUT)
-        // ==================================================================
+        // ── 2. INVESTISSEMENT PAR MOBILE MONEY ───────────────────────────────────
+        public PayDunyaResponse createInvestissementSession(
+                        BigDecimal montantFCFA,
+                        Long userId,
+                        Long projetId,
+                        int nombreParts,
+                        String projetLibelle,
+                        String projetSlug) {
+
+                String url = getBaseUrl() + "/checkout-invoice/create";
+
+                Map<String, Object> payload = Map.of(
+                                "invoice", Map.of(
+                                                "total_amount", montantFCFA.doubleValue(),
+                                                "description", "Investissement — " + projetLibelle
+                                                                + " (" + nombreParts + " part(s))"),
+                                "store", Map.of(
+                                                "name", "GrowzApp",
+                                                "website_url", "https://growzapp.com"),
+                                "actions", Map.of(
+                                                "cancel_url", frontendUrl + "/projet/" + projetSlug + "?mm=cancel",
+                                                "return_url", frontendUrl + "/projet/" + projetSlug + "?mm=success"),
+                                "custom_data", Map.of(
+                                                "type", "INVESTISSEMENT",
+                                                "user_id", userId.toString(),
+                                                "projet_id", projetId.toString(),
+                                                "nombre_parts", String.valueOf(nombreParts)));
+
+                try {
+                        ResponseEntity<Map> response = restTemplate.postForEntity(
+                                        url, new HttpEntity<>(payload, buildHeaders()), Map.class);
+                        log.info("Réponse PayDunya investissement : {}", response.getBody());
+                        return parseResponse(response.getBody(), "INVESTISSEMENT");
+                } catch (HttpClientErrorException e) {
+                        log.error("Erreur HTTP PayDunya investissement : {}", e.getResponseBodyAsString());
+                        throw new RuntimeException("Erreur PayDunya.", e);
+                }
+        }
+
+        // ── 3. RETRAIT MOBILE MONEY (simulé) ─────────────────────────────────────
         public String initiatePayout(BigDecimal montant, String phone, TypeTransaction type, Long payoutId) {
-                log.warn("INFO: Utilisation d'un endpoint de Payout simulé/simplifié.");
+                log.warn("Payout PayDunya simulé.");
                 return "PD-" + type.name() + "-" + payoutId;
         }
 
-        // Classe interne simple pour retourner les deux valeurs (URL et Token)
         public record PayDunyaResponse(String redirectUrl, String invoiceToken) {
         }
 }
