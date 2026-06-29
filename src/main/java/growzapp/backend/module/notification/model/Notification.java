@@ -30,21 +30,24 @@ public class Notification {
     @Schema(description = "Titre court de la notification", example = "Dividende reçu")
     private String title;
 
-    @Schema(description = "Contenu détaillé de la notification", example = "Vous avez reçu 15 000 XOF de dividendes pour le projet Ferme Solaire Nord.")
+    @Schema(description = "Contenu détaillé de la notification")
     private String content;
 
-    @Schema(description = "Date et heure d'émission de la notification", example = "2025-06-15T14:30:00")
+    @Schema(description = "Date et heure d'émission", example = "2025-06-15T14:30:00")
     private LocalDateTime date = LocalDateTime.now();
 
-    @Schema(description = "Indique si la notification a été lue par l'utilisateur", example = "false")
+    @Schema(description = "Indique si la notification a été lue", example = "false")
     private boolean isRead = false;
 
-    @Schema(description = "Identifiant du projet lié à la notification (si applicable)", example = "7")
+    @Schema(description = "Identifiant numérique du projet lié", example = "7")
     private Long projetId;
+
+    @Schema(description = "Slug du projet lié — utilisé pour la redirection frontend", example = "ferme-solaire-nord")
+    private String projetSlug;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    @JsonIgnoreProperties({"projets", "investissements", "roles", "wallet", "localite", "langues", "password"})
+    @JsonIgnoreProperties({ "projets", "investissements", "roles", "wallet", "localite", "langues", "password" })
     @Schema(description = "Utilisateur destinataire de la notification")
     private User recipient;
 }
