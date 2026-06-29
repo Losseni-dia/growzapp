@@ -144,9 +144,13 @@ public class ProjetService {
         Projet saved = projetRepository.save(projet);
 
         if (nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE) {
-            notificationService.notifyAllUsers("🚀 Nouveau projet !",
-                    "Le projet '" + saved.getLibelle() + "' est disponible.", saved.getId());
+            notificationService.notifyAllUsersWithSlug(
+                    "🚀 Nouveau projet disponible !",
+                    "Le projet « " + saved.getLibelle() + " » vient d'être publié. Découvrez-le dès maintenant !",
+                    saved.getId(),
+                    saved.getSlug());
         }
+
         return saved;
     }
 
