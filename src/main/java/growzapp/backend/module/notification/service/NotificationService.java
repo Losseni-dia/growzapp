@@ -25,21 +25,19 @@ public class NotificationService {
     // ── Helper pour créer une notification avec slug ──────────────────────────
     private Notification buildNotif(User recipient, String title, String content,
             Long projetId, String projetSlug) {
+        return buildNotif(recipient, title, content, projetId, projetSlug, null);
+    }
+
+    private Notification buildNotif(User recipient, String title, String content,
+            Long projetId, String projetSlug, String motif) {
         Notification notif = new Notification();
         notif.setRecipient(recipient);
         notif.setTitle(title);
         notif.setContent(content);
         notif.setProjetId(projetId);
         notif.setProjetSlug(projetSlug);
+        notif.setMotif(motif);
         return notif;
-    }
-
-    public void notifyAllUsersWithSlug(String title, String content, Long projetId, String projetSlug) {
-        List<User> allUsers = userRepository.findAll();
-        allUsers.forEach(user -> {
-            Notification notif = buildNotif(user, title, content, projetId, projetSlug);
-            notificationRepository.save(notif);
-        });
     }
 
     // ── Notifie un utilisateur spécifique avec slug ───────────────────────────
@@ -51,15 +49,23 @@ public class NotificationService {
 
     // Nouvelle surcharge avec slug
     public void notifyUser(User user, String title, String content, Long projetId, String projetSlug) {
-        Notification notif = buildNotif(user, title, content, projetId, projetSlug);
+        notifyUser(user, title, content, projetId, projetSlug, null);
+    }
+
+    public void notifyUser(User user, String title, String content, Long projetId, String projetSlug, String motif) {
+        Notification notif = buildNotif(user, title, content, projetId, projetSlug, motif);
         notificationRepository.save(notif);
     }
 
     // ── Notification globale ──────────────────────────────────────────────────
     public void notifyAllUsers(String title, String content, Long projetId) {
+        notifyAllUsersWithSlug(title, content, projetId, null);
+    }
+
+    public void notifyAllUsersWithSlug(String title, String content, Long projetId, String projetSlug) {
         List<User> allUsers = userRepository.findAll();
         allUsers.forEach(user -> {
-            Notification notif = buildNotif(user, title, content, projetId, null);
+            Notification notif = buildNotif(user, title, content, projetId, projetSlug);
             notificationRepository.save(notif);
         });
     }
