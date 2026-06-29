@@ -117,7 +117,8 @@ public class InvestissementService {
                                 "Investissement refusé — " + projet.getLibelle(),
                                 messageNotif,
                                 projet.getId(),
-                                projet.getSlug());
+                                projet.getSlug(),
+                                motif);
 
                 // Email avec le motif détaillé
                 emailService.envoyerRefusInvestissement(

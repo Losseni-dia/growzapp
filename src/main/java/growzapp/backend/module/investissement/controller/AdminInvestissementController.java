@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,7 +38,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 @SecurityRequirement(name = "BearerAuth")
-@Tag(name = "Admin - Investissements", description = "Gestion avancée des investissements par l'administrateur : validation avec génération de contrat PDF, annulation et suppression")
+@Tag(name = "Admin - Investissements", description = "Gestion avancée des investissements par l'administrateur")
 public class AdminInvestissementController {
 
     private final InvestissementRepository investissementRepository;
@@ -47,61 +48,22 @@ public class AdminInvestissementController {
     private final ContratService contratService;
 
     @GetMapping
-    @Operation(
-        summary = "Lister tous les investissements",
-        description = "Retourne la liste de tous les investissements, avec filtre de recherche optionnel par nom d'investisseur ou libellé de projet.",
-        tags = {"Admin - Investissements"}
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Liste des investissements",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "403", description = "Accès refusé — rôle ADMIN requis",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
-    })
+    @Operation(summary = "Lister tous les investissements", tags = { "Admin - Investissements" })
     public ApiResponseDTO<List<InvestissementDTO>> getAll(
-            @Parameter(description = "Terme de recherche optionnel (nom investisseur, libellé projet)", example = "ferme")
-            @RequestParam(required = false) String search) {
-
+            @Parameter(description = "Terme de recherche optionnel") @RequestParam(required = false) String search) {
         List<InvestissementDTO> investissements = investissementService.getAllAdmin(search);
         return ApiResponseDTO.success(investissements);
     }
 
     @GetMapping("/{id}")
-    @Operation(
-        summary = "Détail d'un investissement",
-        description = "Retourne le détail complet d'un investissement par son identifiant.",
-        tags = {"Admin - Investissements"}
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Investissement trouvé",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "404", description = "Investissement introuvable",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
-    })
-    public ApiResponseDTO<InvestissementDTO> getById(
-            @Parameter(description = "Identifiant de l'investissement", example = "15", required = true)
-            @PathVariable Long id) {
+    @Operation(summary = "Détail d'un investissement", tags = { "Admin - Investissements" })
+    public ApiResponseDTO<InvestissementDTO> getById(@PathVariable Long id) {
         return ApiResponseDTO.success(investissementService.getInvestissementDtoById(id));
     }
 
     @PostMapping("/{id}/valider-et-envoyer")
-    @Operation(
-        summary = "Valider l'investissement et envoyer le contrat",
-        description = "Valide l'investissement, génère le contrat PDF avec numéro officiel, le sauvegarde et l'envoie par email à l'investisseur. Opération atomique.",
-        tags = {"Admin - Investissements"}
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Contrat validé et envoyé avec succès",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(example = "{\"success\": true, \"message\": \"Contrat validé et envoyé avec succès\", \"numeroContrat\": \"CONTRAT-2025-00015\", \"lienVerification\": \"https://...\"}"))),
-        @ApiResponse(responseCode = "500", description = "Erreur lors de la génération ou de l'envoi du contrat",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
-    })
-    public ResponseEntity<?> validerEtEnvoyer(
-            @Parameter(description = "Identifiant de l'investissement à valider", example = "15", required = true)
-            @PathVariable Long id) {
+    @Operation(summary = "Valider l'investissement et envoyer le contrat", tags = { "Admin - Investissements" })
+    public ResponseEntity<?> validerEtEnvoyer(@PathVariable Long id) {
         try {
             Investissement inv = investissementService.validerInvestissement(id);
 
@@ -110,9 +72,7 @@ public class AdminInvestissementController {
             investissementRepository.saveAndFlush(inv);
 
             byte[] pdfFinal = pdfReactService.genererPdfAvecVraiContrat(contrat, inv);
-
             contratService.sauvegarderPdfFinal(contrat, pdfFinal);
-
             emailService.envoyerContratParEmail(inv, pdfFinal);
 
             return ResponseEntity.ok(Map.of(
@@ -129,43 +89,26 @@ public class AdminInvestissementController {
         }
     }
 
+    // ── ANNULER AVEC MOTIF ────────────────────────────────────────────────────
     @PostMapping("/{id}/annuler")
-    @Operation(
-        summary = "Annuler un investissement",
-        description = "Annule un investissement et restitue les fonds à l'investisseur.",
-        tags = {"Admin - Investissements"}
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Investissement annulé avec succès",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "404", description = "Investissement introuvable",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
-    })
+    @Operation(summary = "Refuser un investissement avec motif", description = "Refuse l'investissement, restitue les fonds et notifie l'investisseur avec le motif.", tags = {
+            "Admin - Investissements" }, requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(schema = @Schema(example = "{\"motif\": \"Documents insuffisants\"}"))))
     public ApiResponseDTO<InvestissementDTO> annuler(
-            @Parameter(description = "Identifiant de l'investissement à annuler", example = "15", required = true)
-            @PathVariable Long id) {
-        investissementService.annulerInvestissement(id);
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body) {
+
+        String motif = (body != null && body.containsKey("motif") && !body.get("motif").isBlank())
+                ? body.get("motif")
+                : "Refusé par l'administration";
+
+        investissementService.annulerInvestissement(id, motif);
         InvestissementDTO dto = investissementService.getInvestissementDtoById(id);
-        return ApiResponseDTO.success(dto).message("Investissement annulé");
+        return ApiResponseDTO.success(dto).message("Investissement refusé — fonds restitués et investisseur notifié");
     }
 
     @DeleteMapping("/{id}")
-    @Operation(
-        summary = "Supprimer un investissement",
-        description = "Supprime définitivement un investissement. Action irréversible.",
-        tags = {"Admin - Investissements"}
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Investissement supprimé",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "404", description = "Investissement introuvable",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
-    })
-    public ApiResponseDTO<String> delete(
-            @Parameter(description = "Identifiant de l'investissement à supprimer", example = "15", required = true)
-            @PathVariable Long id) {
+    @Operation(summary = "Supprimer un investissement", tags = { "Admin - Investissements" })
+    public ApiResponseDTO<String> delete(@PathVariable Long id) {
         investissementRepository.deleteById(id);
         return ApiResponseDTO.success("Investissement supprimé");
     }
