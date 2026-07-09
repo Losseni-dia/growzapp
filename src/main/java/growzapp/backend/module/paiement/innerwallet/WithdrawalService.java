@@ -1,11 +1,12 @@
-// src/main/java/growzapp/backend/service/WithdrawalService.java
-
 package growzapp.backend.module.paiement.innerwallet;
 
+import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.paiement.model.PayoutModel;
 import growzapp.backend.module.paiement.paydunya.PayDunyaService;
 import growzapp.backend.module.paiement.repository.PayoutModelRepository;
 import growzapp.backend.module.paiement.stripe.StripePayoutService;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.model.Wallet;
@@ -23,45 +24,34 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class WithdrawalService {
 
-    private final StripePayoutService stripePayoutService; // Payout vers compte bancaire
-    private final PayDunyaService payDunyaService; // Payout vers Mobile Money
+    private final StripePayoutService stripePayoutService;
+    private final PayDunyaService payDunyaService;
     private final WalletRepository walletRepository;
     private final PayoutModelRepository payoutModelRepository;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
-    /**
-     * Outil interne pour récupérer le wallet avec verrou pessimiste.
-     */
     private Wallet getWalletWithLock(Long userId) {
         return walletRepository.findByUserIdWithPessimisticLock(userId)
                 .orElseThrow(() -> new RuntimeException("Wallet non trouvé (user ID: " + userId + ")"));
     }
 
-    // ====================================================================
-    // 1. RETRAIT BANCAIRE (via Stripe Payout)
-    // ====================================================================
-    /**
-     * Exécute un retrait direct vers un compte bancaire (via Stripe Payout).
-     * Les fonds sont DÉBITÉS du solde retirable immédiatement.
-     * * @param userId ID de l'utilisateur.
-     * 
-     * @param montant Montant à retirer.
-     * @param phone   Numéro de téléphone de l'utilisateur (utilisé pour la
-     *                trace/métadonnées).
-     * @return ID de référence du Payout Stripe.
-     */
+    // ════════════════════════════════════════════════════════════════════
+    // 1. RETRAIT BANCAIRE (Stripe Payout) — automatique, sans validation admin
+    // ════════════════════════════════════════════════════════════════════
     @Transactional
     public String executerRetraitBancaire(Long userId, BigDecimal montant, String phone) {
         Wallet wallet = getWalletWithLock(userId);
 
-        if (wallet.getSoldeRetirable().compareTo(montant) < 0) {
-            throw new IllegalArgumentException("Solde retirable insuffisant.");
+        if (wallet.getSoldeDisponible().compareTo(montant) < 0) {
+            throw new IllegalArgumentException("Solde disponible insuffisant.");
         }
 
-        // 1. DÉBIT IMMÉDIAT du solde retirable (avant l'appel API)
-        wallet.setSoldeRetirable(wallet.getSoldeRetirable().subtract(montant));
-        walletRepository.save(wallet);
+        // 1. Débit immédiat du solde disponible
+        wallet.setSoldeDisponible(wallet.getSoldeDisponible().subtract(montant));
+        walletRepository.saveAndFlush(wallet);
 
-        // 2. Créer l'objet PayoutModel (trace)
+        // 2. Trace PayoutModel
         PayoutModel payout = PayoutModel.builder()
                 .userId(userId)
                 .montant(montant)
@@ -72,79 +62,87 @@ public class WithdrawalService {
                 .build();
         payout = payoutModelRepository.save(payout);
 
-        // 3. Appel à l'API Stripe Payout
+        // 3. Appel réel Stripe Payout
         try {
-            // CORRECTION: Utilisation du nom de méthode correct avec les bons paramètres.
-            String stripePayoutId = stripePayoutService.createBankPayoutWithNewTransaction(userId, montant, phone);
+            String stripePayoutId = stripePayoutService.createBankPayoutDirect(userId, montant, payout.getId());
 
-            // Mise à jour de la trace après succès de l'appel Stripe
             payout.setExternalPayoutId(stripePayoutId);
-            // Le statut final sera mis à jour par le Webhook Stripe (SUCCESS ou FAILED).
-            // Pour l'instant, nous le laissons à EN_ATTENTE_PAIEMENT jusqu'au webhook.
+            payout.setStatut(StatutTransaction.SUCCESS);
+            payout.setCompletedAt(LocalDateTime.now());
             payoutModelRepository.save(payout);
 
+            log.info("Retrait bancaire réussi : user={} montant={} payoutId={}", userId, montant, stripePayoutId);
             return stripePayoutId;
+
         } catch (Exception e) {
-            // Si l'appel API Stripe échoue, la transaction DB précédente (débit) est
-            // annulée
-            // grâce à @Transactional.
-            log.error("Échec du Payout Stripe, rollback en cours.", e);
-            throw new RuntimeException("Échec de la transaction de retrait bancaire: " + e.getMessage());
+            // ── REMBOURSEMENT AUTOMATIQUE sur soldeDisponible ──────────────
+            rembourserEtNotifier(userId, montant, payout, e);
+            throw new RuntimeException("Échec de la transaction de retrait bancaire : " + e.getMessage(), e);
         }
     }
 
-    // ====================================================================
-    // 2. RETRAIT MOBILE MONEY (via PayDunya)
-    // ====================================================================
-    /**
-     * Exécute un retrait direct vers Mobile Money (via PayDunya Disburse/Payout).
-     * * @param userId ID de l'utilisateur.
-     * 
-     * @param montant Montant à retirer.
-     * @param mmType  Type de transaction Mobile Money (OM, MTN, Wave).
-     * @param phone   Numéro de téléphone destinataire.
-     * @return ID de référence de la transaction PayDunya.
-     */
+    // ════════════════════════════════════════════════════════════════════
+    // 2. RETRAIT MOBILE MONEY (PayDunya Disburse) — automatique
+    // ════════════════════════════════════════════════════════════════════
     @Transactional
     public String executerRetraitMobileMoney(Long userId, BigDecimal montant, TypeTransaction mmType, String phone) {
         Wallet wallet = getWalletWithLock(userId);
 
-        if (wallet.getSoldeRetirable().compareTo(montant) < 0) {
-            throw new IllegalArgumentException("Solde retirable insuffisant.");
+        if (wallet.getSoldeDisponible().compareTo(montant) < 0) {
+            throw new IllegalArgumentException("Solde disponible insuffisant.");
         }
 
-        // 1. DÉBIT IMMÉDIAT du solde retirable
-        wallet.setSoldeRetirable(wallet.getSoldeRetirable().subtract(montant));
-        walletRepository.save(wallet);
+        // 1. Débit immédiat du solde disponible
+        wallet.setSoldeDisponible(wallet.getSoldeDisponible().subtract(montant));
+        walletRepository.saveAndFlush(wallet);
 
-        // 2. Créer l'objet PayoutModel (trace)
+        // 2. Trace PayoutModel
         PayoutModel payout = PayoutModel.builder()
                 .userId(userId)
                 .montant(montant)
                 .userPhone(phone)
-                .type(mmType) // PAYOUT_OM, PAYOUT_MTN, etc.
+                .type(mmType)
                 .statut(StatutTransaction.EN_ATTENTE_PAIEMENT)
                 .createdAt(LocalDateTime.now())
                 .build();
         payout = payoutModelRepository.save(payout);
 
-        // 3. Appel à l'API PayDunya (Disbursement / Payout)
+        // 3. Appel réel PayDunya Disburse
         try {
-            // L'ID du PayoutModel est passé pour être utilisé comme référence externe dans
-            // PayDunya.
             String txId = payDunyaService.initiatePayout(montant, phone, mmType, payout.getId());
 
-            // Met à jour la référence externe PayDunya
             payout.setExternalPayoutId(txId);
+            payout.setStatut(StatutTransaction.SUCCESS);
+            payout.setCompletedAt(LocalDateTime.now());
             payoutModelRepository.save(payout);
 
-            // Le statut final sera mis à jour par le Webhook PayDunya.
+            log.info("Retrait Mobile Money réussi : user={} montant={} txId={}", userId, montant, txId);
             return txId;
+
         } catch (Exception e) {
-            // Si l'appel API PayDunya échoue, rollback de la transaction DB (débit du
-            // solde)
-            log.error("Échec du Payout Mobile Money, rollback en cours.", e);
-            throw new RuntimeException("Échec de la transaction de retrait Mobile Money: " + e.getMessage());
+            // ── REMBOURSEMENT AUTOMATIQUE sur soldeDisponible ──────────────
+            rembourserEtNotifier(userId, montant, payout, e);
+            throw new RuntimeException("Échec de la transaction de retrait Mobile Money : " + e.getMessage(), e);
         }
+    }
+
+    // ── Remboursement automatique + notification en cas d'échec ─────────────
+    private void rembourserEtNotifier(Long userId, BigDecimal montant, PayoutModel payout, Exception e) {
+        log.error("Échec payout user={} montant={} — remboursement automatique", userId, montant, e);
+
+        Wallet walletRefund = getWalletWithLock(userId);
+        walletRefund.setSoldeDisponible(walletRefund.getSoldeDisponible().add(montant));
+        walletRepository.saveAndFlush(walletRefund);
+
+        payout.setStatut(StatutTransaction.ECHEC_PAIEMENT);
+        payoutModelRepository.save(payout);
+
+        userRepository.findById(userId).ifPresent(user -> notificationService.notifyUser(
+                user,
+                "❌ Échec du retrait",
+                "Votre retrait de " + montant.toPlainString()
+                        + " FCFA a échoué. Les fonds ont été remboursés dans votre portefeuille GrowzApp.",
+                null, null,
+                e.getMessage()));
     }
 }

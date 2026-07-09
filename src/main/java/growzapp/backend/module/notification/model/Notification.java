@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import growzapp.backend.module.user.model.User;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -30,6 +31,7 @@ public class Notification {
     @Schema(description = "Titre court de la notification", example = "Dividende reçu")
     private String title;
 
+    @Column(columnDefinition = "TEXT")
     @Schema(description = "Contenu détaillé de la notification")
     private String content;
 
@@ -45,6 +47,7 @@ public class Notification {
     @Schema(description = "Slug du projet lié — utilisé pour la redirection frontend", example = "ferme-solaire-nord")
     private String projetSlug;
 
+    @Column(columnDefinition = "TEXT")
     @Schema(description = "Motif associé à la notification (ex: motif de refus)", example = "Documents KYC insuffisants")
     private String motif;
 

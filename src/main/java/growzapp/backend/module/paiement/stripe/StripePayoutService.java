@@ -37,13 +37,13 @@ public class StripePayoutService {
     }
 
     /**
-     * Retrait bancaire automatique (virement SEPA)
-     * Fonctionne en test + prod avec Stripe Connect
+     * Retrait bancaire — méthode historique (gère elle-même le wallet via
+     * soldeRetirable).
+     * Conservée pour compatibilité avec retirerDuProjetWallet().
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public String createBankPayoutWithNewTransaction(Long userId, BigDecimal montantEUR, String phone) {
 
-        // 1. Vérification et mise à jour du Wallet
         Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalStateException("Wallet introuvable"));
 
@@ -54,7 +54,6 @@ public class StripePayoutService {
         wallet.setSoldeRetirable(wallet.getSoldeRetirable().subtract(montantEUR));
         walletRepository.saveAndFlush(wallet);
 
-        // 2. Créer la trace en BDD - Utilisation EXPLICITE de PayoutModel
         PayoutModel payout = PayoutModel.builder()
                 .userId(userId)
                 .montant(montantEUR)
@@ -76,11 +75,8 @@ public class StripePayoutService {
                     .putMetadata("user_id", userId.toString())
                     .build();
 
-            // RÈGLE LA COLLISION : On utilise le nom pleinement qualifié pour Stripe
             com.stripe.model.Payout stripePayout = com.stripe.model.Payout.create(params);
 
-            // Succès → Mise à jour de NOTRE entité PayoutModel (qui possède bien les
-            // setters)
             payout.setExternalPayoutId(stripePayout.getId());
             payout.setStatut(StatutTransaction.SUCCESS);
             payout.setPaydunyaStatus(stripePayout.getStatus());
@@ -91,8 +87,31 @@ public class StripePayoutService {
             return stripePayout.getId();
 
         } catch (Exception e) {
-            // ROLLBACK AUTOMATIQUE grâce à @Transactional
             throw new RuntimeException("Échec du virement Stripe : " + e.getMessage());
+        }
+    }
+
+    /**
+     * Payout Stripe direct — NE touche PAS au wallet (déjà débité en amont
+     * par WithdrawalService.executerRetraitBancaire() sur soldeDisponible).
+     */
+    public String createBankPayoutDirect(Long userId, BigDecimal montantEUR, Long payoutId) {
+        try {
+            long amountInCents = montantEUR.multiply(BigDecimal.valueOf(100)).longValueExact();
+
+            PayoutCreateParams params = PayoutCreateParams.builder()
+                    .setAmount(amountInCents)
+                    .setCurrency("eur")
+                    .setMethod(PayoutCreateParams.Method.STANDARD)
+                    .putMetadata("payout_id", payoutId.toString())
+                    .putMetadata("user_id", userId.toString())
+                    .build();
+
+            com.stripe.model.Payout stripePayout = com.stripe.model.Payout.create(params);
+            return stripePayout.getId();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Échec du virement Stripe : " + e.getMessage(), e);
         }
     }
 }

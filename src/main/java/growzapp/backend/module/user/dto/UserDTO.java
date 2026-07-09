@@ -24,16 +24,16 @@ public class UserDTO {
     @Schema(description = "URL de la photo de profil", example = "/uploads/profiles/john-doe.jpg")
     private String image;
 
-    @Schema(description = "Identifiant de connexion", example = "john.doe")
+    @Schema(description = "Identifiant de connexion", example = "losseni")
     private String login;
 
     @Schema(hidden = true)
     private String password;
 
-    @Schema(description = "Prénom de l'utilisateur", example = "John")
+    @Schema(description = "Prénom de l'utilisateur", example = "Losseni")
     private String prenom;
 
-    @Schema(description = "Nom de famille de l'utilisateur", example = "Doe")
+    @Schema(description = "Nom de famille de l'utilisateur", example = "Dia")
     private String nom;
 
     @Schema(description = "Sexe de l'utilisateur", example = "M", allowableValues = {"M", "F", "X"})

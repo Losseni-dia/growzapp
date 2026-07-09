@@ -44,6 +44,12 @@ public class PayDunyaService {
                                 : "https://app.paydunya.com/api/v1";
         }
 
+        private String getDisburseBaseUrl() {
+                return "test".equalsIgnoreCase(mode)
+                                ? "https://app.paydunya.com/sandbox-api/v2"
+                                : "https://app.paydunya.com/api/v2";
+        }
+
         private HttpHeaders buildHeaders() {
                 HttpHeaders headers = new HttpHeaders();
                 headers.set("PAYDUNYA-MASTER-KEY", appMasterKey);
@@ -136,12 +142,103 @@ public class PayDunyaService {
                 }
         }
 
-        // ── 3. RETRAIT MOBILE MONEY (simulé) ─────────────────────────────────────
+        // ── 3. DÉCAISSEMENT MOBILE MONEY (PAYOUT RÉEL) ──────────────────────────
+        // Signature historique conservée (utilisée par WithdrawalService) — résout
+        // automatiquement le withdraw_mode PayDunya à partir du TypeTransaction.
         public String initiatePayout(BigDecimal montant, String phone, TypeTransaction type, Long payoutId) {
-                log.warn("Payout PayDunya simulé.");
-                return "PD-" + type.name() + "-" + payoutId;
+                String withdrawMode = resolveWithdrawMode(type);
+                PayDunyaDisburseResponse res = initiatePayoutDetailed(montant, phone, withdrawMode, payoutId);
+                return res.disburseTxId() != null ? res.disburseTxId() : res.disburseToken();
+        }
+
+        // Nouvelle surcharge utilisée par WalletService — accepte un withdraw_mode
+        // explicite
+        public PayDunyaDisburseResponse initiatePayoutDetailed(
+                        BigDecimal montantFCFA,
+                        String phone,
+                        String withdrawMode,
+                        Long referenceId) {
+
+                // Étape 1 : Obtenir un token de facture de décaissement
+                String invoiceUrl = getDisburseBaseUrl() + "/disburse/get-invoice";
+                Map<String, Object> invoicePayload = Map.of(
+                                "disburse_amount", montantFCFA.intValue(),
+                                "disburse_id", "GROWZAPP-" + referenceId);
+
+                try {
+                        ResponseEntity<Map> invoiceResponse = restTemplate.postForEntity(
+                                        invoiceUrl, new HttpEntity<>(invoicePayload, buildHeaders()), Map.class);
+
+                        Map<String, Object> invoiceBody = invoiceResponse.getBody();
+                        log.info("Réponse PayDunya disburse invoice : {}", invoiceBody);
+
+                        if (invoiceBody == null) {
+                                throw new RuntimeException("Réponse vide PayDunya disburse invoice");
+                        }
+
+                        String responseCode = String.valueOf(invoiceBody.get("response_code"));
+                        if (!"00".equals(responseCode)) {
+                                throw new RuntimeException("Échec création facture de décaissement : " + invoiceBody);
+                        }
+
+                        String disburseToken = (String) invoiceBody.get("disburse_token");
+                        if (disburseToken == null) {
+                                throw new RuntimeException("Token de décaissement manquant dans la réponse PayDunya");
+                        }
+
+                        // Étape 2 : Soumettre le décaissement
+                        String submitUrl = getDisburseBaseUrl() + "/disburse/submit";
+                        Map<String, Object> submitPayload = Map.of(
+                                        "account_alias", phone,
+                                        "disburse_token", disburseToken,
+                                        "withdraw_mode", withdrawMode);
+
+                        ResponseEntity<Map> submitResponse = restTemplate.postForEntity(
+                                        submitUrl, new HttpEntity<>(submitPayload, buildHeaders()), Map.class);
+
+                        Map<String, Object> submitBody = submitResponse.getBody();
+                        log.info("Réponse PayDunya disburse submit : {}", submitBody);
+
+                        if (submitBody == null) {
+                                throw new RuntimeException("Réponse vide de PayDunya disburse submit");
+                        }
+
+                        String status = (String) submitBody.get("status");
+                        String disburseTxId = (String) submitBody.get("disburse_tx_id");
+
+                        if (status == null) {
+                                String errMsg = (String) submitBody.getOrDefault("response_text",
+                                                submitBody.toString());
+                                throw new RuntimeException("Échec soumission décaissement : " + errMsg);
+                        }
+
+                        log.info("Décaissement PayDunya : token={} txId={} status={}", disburseToken, disburseTxId,
+                                        status);
+
+                        return new PayDunyaDisburseResponse(disburseToken, disburseTxId, status);
+
+                } catch (HttpClientErrorException e) {
+                        log.error("Erreur HTTP PayDunya disburse : {}", e.getResponseBodyAsString());
+                        throw new RuntimeException("Erreur PayDunya Disburse : " + e.getResponseBodyAsString(), e);
+                }
+        }
+
+        /**
+         * Mappe le TypeTransaction interne vers le withdraw_mode attendu par PayDunya
+         * (Côte d'Ivoire)
+         */
+        private String resolveWithdrawMode(TypeTransaction type) {
+                return switch (type) {
+                        case PAYOUT_OM -> "orange-money-ci";
+                        case PAYOUT_MTN -> "mtn-ci";
+                        case PAYOUT_WAVE -> "wave-ci";
+                        default -> "orange-money-ci";
+                };
         }
 
         public record PayDunyaResponse(String redirectUrl, String invoiceToken) {
+        }
+
+        public record PayDunyaDisburseResponse(String disburseToken, String disburseTxId, String status) {
         }
 }

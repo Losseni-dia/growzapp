@@ -8,12 +8,16 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import growzapp.backend.module.notification.service.NotificationService;
+import growzapp.backend.module.paiement.innerwallet.WithdrawalService;
 import growzapp.backend.module.paiement.paydunya.PayDunyaService;
+import growzapp.backend.module.paiement.paydunya.PayDunyaService.PayDunyaDisburseResponse;
 import growzapp.backend.module.paiement.paydunya.PayDunyaService.PayDunyaResponse;
 import growzapp.backend.module.paiement.stripe.StripePayoutService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -32,9 +36,13 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final ProjetRepository projetRepository;
+    private final UserRepository userRepository;
     private final StripePayoutService stripePayoutService;
     private final PayDunyaService payDunyaService;
+    private final NotificationService notificationService;
+    private final WithdrawalService withdrawalService;
 
+    // ── DÉPÔT MOBILE MONEY ───────────────────────────────────────────────────
     @Transactional
     public String initierDepotMobileMoney(Long userId, BigDecimal montant) {
         if (montant.compareTo(BigDecimal.ZERO) <= 0) {
@@ -60,6 +68,7 @@ public class WalletService {
         return payDunyaRes.redirectUrl();
     }
 
+    // ── DÉPÔT MANUEL / EXTERNE ────────────────────────────────────────────────
     @Transactional
     public Wallet deposerFonds(Long userId, double montantDouble, String source) {
         BigDecimal montant = BigDecimal.valueOf(montantDouble);
@@ -75,6 +84,7 @@ public class WalletService {
             case "ORANGE_MONEY" -> "Dépôt via Orange Money";
             case "WAVE" -> "Dépôt via Wave";
             case "MTN_MOMO" -> "Dépôt via MTN Mobile Money";
+            case "PAYDUNYA_MM" -> "Dépôt via Mobile Money (PayDunya)";
             case "WALLET" -> "Dépôt depuis le portefeuille";
             default -> "Dépôt externe via " + source;
         };
@@ -86,6 +96,7 @@ public class WalletService {
                 .type(TypeTransaction.DEPOT)
                 .statut(StatutTransaction.SUCCESS)
                 .description(description)
+                .createdAt(LocalDateTime.now())
                 .build();
 
         transactionRepository.save(tx);
@@ -93,35 +104,29 @@ public class WalletService {
         return wallet;
     }
 
-    @Transactional
-    public Transaction demanderRetrait(Long userId, double montantDouble) {
-        BigDecimal montant = BigDecimal.valueOf(montantDouble);
-        if (montant.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Montant invalide");
+    // ── RETRAIT AUTOMATIQUE (délègue à WithdrawalService) ───────────────────
+    public String retirerFonds(Long userId, BigDecimal montant, String methode, String phone) {
+        if ("STRIPE".equalsIgnoreCase(methode)) {
+            // ── DÉSACTIVÉ TEMPORAIREMENT ─────────────────────────────────────
+            // Payout.create() de Stripe envoie les fonds vers le compte bancaire
+            // de la plateforme GrowzApp, PAS vers celui de l'utilisateur.
+            // Voir STRIPE_PAYOUT_ROADMAP.md pour le détail et la roadmap (Stripe
+            // Connect ou partenaire de virement tiers). Ne pas réactiver avant.
+            throw new IllegalStateException(
+                    "Le retrait vers un compte bancaire n'est pas encore disponible. "
+                            + "Utilisez le retrait Mobile Money en attendant.");
+        } else if ("MOBILE_MONEY".equalsIgnoreCase(methode)) {
+            TypeTransaction mmType = resolveMobileMoneyType(phone);
+            return withdrawalService.executerRetraitMobileMoney(userId, montant, mmType, phone);
         }
-
-        Wallet wallet = getWalletWithLock(userId);
-
-        if (wallet.getSoldeDisponible().compareTo(montant) < 0) {
-            throw new IllegalArgumentException("Solde disponible insuffisant");
-        }
-
-        wallet.bloquerFonds(montant);
-
-        Transaction tx = Transaction.builder()
-                .walletId(wallet.getId())
-                .walletType(WalletType.USER)
-                .montant(montant)
-                .type(TypeTransaction.RETRAIT)
-                .statut(StatutTransaction.EN_ATTENTE_VALIDATION)
-                .description("Demande de retrait en attente")
-                .build();
-
-        transactionRepository.save(tx);
-        walletRepository.save(wallet);
-        return tx;
+        throw new IllegalArgumentException("Méthode de retrait inconnue : " + methode);
     }
 
+    private TypeTransaction resolveMobileMoneyType(String phone) {
+        return TypeTransaction.PAYOUT_OM;
+    }
+
+    // ── TRANSFERT ENTRE UTILISATEURS ─────────────────────────────────────────
     @Transactional
     public void transfererFonds(Long expediteurId, Long destinataireUserId, double montantDouble, String source) {
         BigDecimal montant = BigDecimal.valueOf(montantDouble);
@@ -134,24 +139,14 @@ public class WalletService {
 
         Wallet walletExp = walletRepository.findByUserIdWithPessimisticLock(expediteurId)
                 .orElseThrow(() -> new IllegalStateException("Wallet expéditeur non trouvé"));
-
         Wallet walletDest = walletRepository.findByUserIdWithPessimisticLock(destinataireUserId)
                 .orElseThrow(() -> new IllegalStateException("Wallet destinataire non trouvé"));
 
-        BigDecimal soldeSource = "RETIRABLE".equalsIgnoreCase(source)
-                ? walletExp.getSoldeRetirable()
-                : walletExp.getSoldeDisponible();
-
-        if (soldeSource.compareTo(montant) < 0) {
-            throw new IllegalStateException("Solde " + source.toLowerCase() + " insuffisant");
+        if (walletExp.getSoldeDisponible().compareTo(montant) < 0) {
+            throw new IllegalStateException("Solde disponible insuffisant");
         }
 
-        if ("RETIRABLE".equalsIgnoreCase(source)) {
-            walletExp.setSoldeRetirable(walletExp.getSoldeRetirable().subtract(montant));
-        } else {
-            walletExp.setSoldeDisponible(walletExp.getSoldeDisponible().subtract(montant));
-        }
-
+        walletExp.setSoldeDisponible(walletExp.getSoldeDisponible().subtract(montant));
         walletDest.setSoldeDisponible(walletDest.getSoldeDisponible().add(montant));
 
         Transaction txOut = Transaction.builder()
@@ -161,6 +156,7 @@ public class WalletService {
                 .type(TypeTransaction.TRANSFER_OUT)
                 .statut(StatutTransaction.SUCCESS)
                 .description("Transfert vers utilisateur " + destinataireUserId)
+                .createdAt(LocalDateTime.now())
                 .build();
 
         Transaction txIn = Transaction.builder()
@@ -169,21 +165,35 @@ public class WalletService {
                 .montant(montant)
                 .type(TypeTransaction.TRANSFER_IN)
                 .statut(StatutTransaction.SUCCESS)
-                .description("Réception de transfert")
+                .description("Réception de transfert depuis utilisateur " + expediteurId)
+                .createdAt(LocalDateTime.now())
                 .build();
 
         transactionRepository.save(txOut);
         transactionRepository.save(txIn);
         walletRepository.save(walletExp);
         walletRepository.save(walletDest);
+
+        userRepository.findById(destinataireUserId).ifPresent(dest -> notificationService.notifyUser(
+                dest,
+                "💰 Vous avez reçu un transfert",
+                "Vous avez reçu " + montant.toPlainString() + " FCFA sur votre portefeuille GrowzApp.",
+                null, null, null));
     }
 
+    // ── WALLET PROJET (admin) ────────────────────────────────────────────────
     @PreAuthorize("hasRole('ADMIN')")
     public Wallet getProjetWallet(Long projetId) {
         return walletRepository.findByProjetId(projetId)
                 .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable pour le projet " + projetId));
     }
 
+    // NOTE : Cette méthode n'est plus utilisée par le flux principal.
+    // Le vrai endpoint /api/admin/projet-wallet/{id}/verser-porteur est géré
+    // directement par ProjetWalletController.verserAuPorteur(), qui contient
+    // la logique complète (transactions liées au projet, notif+email porteur
+    // ET investisseurs). Conservée ici en simple fallback / réutilisation
+    // potentielle, sans dupliquer la logique de notification.
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public void verserAuPorteur(Long projetId, BigDecimal montant, String motif) {
@@ -209,15 +219,20 @@ public class WalletService {
         Wallet walletPorteur = walletRepository.findByUserIdWithPessimisticLock(porteur.getId())
                 .orElseThrow(() -> new IllegalStateException("Wallet porteur non trouvé"));
 
+        String motifFinal = motif != null && !motif.isBlank() ? motif : "Versement au porteur du projet";
+
         walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().subtract(montant));
-        walletPorteur.setSoldeRetirable(walletPorteur.getSoldeRetirable().add(montant));
+        walletPorteur.setSoldeDisponible(walletPorteur.getSoldeDisponible().add(montant));
 
         Transaction tx = Transaction.builder()
                 .walletId(walletProjet.getId())
+                .walletType(WalletType.PROJET)
                 .montant(montant)
                 .type(TypeTransaction.VERSEMENT_PORTEUR)
                 .statut(StatutTransaction.SUCCESS)
-                .description(motif != null && !motif.isBlank() ? motif : "Versement au porteur du projet")
+                .description(motifFinal)
+                .referenceType("PROJET")
+                .referenceId(projetId)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -257,21 +272,34 @@ public class WalletService {
                 Projet projet = projetRepository.findById(projetId)
                         .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
                 User porteur = projet.getPorteur();
-                if (porteur == null) throw new IllegalStateException("Porteur non trouvé");
+                if (porteur == null)
+                    throw new IllegalStateException("Porteur non trouvé");
 
-                stripePayoutService.createBankPayoutWithNewTransaction(porteur.getId(), montant, phone);
+                String payoutId = stripePayoutService.createBankPayoutDirect(porteur.getId(), montant, tx.getId());
+                tx.setReferenceExterne(payoutId);
+
             } else if ("MOBILE_MONEY".equalsIgnoreCase(methode)) {
                 if (phone == null || phone.trim().isEmpty()) {
                     throw new IllegalArgumentException("Téléphone requis");
                 }
-                payDunyaService.initiatePayout(montant, phone, TypeTransaction.PAYOUT_OM, tx.getId());
+                PayDunyaDisburseResponse res = payDunyaService.initiatePayoutDetailed(
+                        montant, phone, "orange-money-ci", tx.getId());
+                tx.setReferenceExterne(res.disburseTxId());
             }
 
             tx.markAsSuccess();
+
         } catch (Exception e) {
+            Wallet walletRefund = walletRepository
+                    .findByProjetIdAndWalletType(projetId, WalletType.PROJET)
+                    .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+            walletRefund.setSoldeDisponible(walletRefund.getSoldeDisponible().add(montant));
+            walletRepository.saveAndFlush(walletRefund);
+
             tx.markAsFailed();
-            tx.setDescription("Échec payout : " + e.getMessage().substring(0, Math.min(490, e.getMessage().length())));
-            log.error("Payout échoué : {}", e.getMessage());
+            tx.setDescription("Échec payout — fonds remboursés au projet. Raison : "
+                    + e.getMessage().substring(0, Math.min(400, e.getMessage().length())));
+            log.error("Payout projet échoué : {}", e.getMessage());
         } finally {
             transactionRepository.save(tx);
         }
@@ -293,5 +321,10 @@ public class WalletService {
 
     public BigDecimal getSoldeBloque(Long userId) {
         return getWalletByUserId(userId).getSoldeBloque();
+    }
+
+    public List<Transaction> getHistoriqueTransactions(Long userId) {
+        Wallet wallet = getWalletByUserId(userId);
+        return transactionRepository.findByWalletTypeAndWalletIdOrderByCreatedAtDesc(wallet.getId());
     }
 }

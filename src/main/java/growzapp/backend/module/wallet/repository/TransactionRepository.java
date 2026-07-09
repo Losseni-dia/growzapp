@@ -1,6 +1,3 @@
-// src/main/java/growzapp/backend/repository/TransactionRepository.java
-// VERSION FINALE ULTIME – 100 % COMPATIBLE wallet_id + wallet_type
-
 package growzapp.backend.module.wallet.repository;
 
 import growzapp.backend.module.wallet.enums.StatutTransaction;
@@ -24,19 +21,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         // MÉTHODES DE RECHERCHE PAR RÉFÉRENCE (POUR WEBHOOKS ET LIENS INTERNES)
         // =========================================================================
 
-        /**
-         * Recherche par l'identifiant unique fourni par un service externe (Stripe,
-         * PayDunya).
-         * EX: PayDunya Invoice Token ou Stripe Session ID.
-         * Utilisé principalement par les contrôleurs de webhooks pour finaliser une
-         * transaction EN_ATTENTE_PAIEMENT.
-         */
         Optional<Transaction> findByReferenceExterne(String referenceExterne);
 
-        /**
-         * Recherche par référence interne (Utilisé pour lier une transaction à un
-         * Investissement ou un Projet).
-         */
         Optional<Transaction> findByReferenceTypeAndReferenceId(String referenceType, Long referenceId);
 
         // =========================================================================
@@ -73,5 +59,4 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
         // Toutes les transactions (admin)
         List<Transaction> findAllByOrderByCreatedAtDesc();
-
 }
