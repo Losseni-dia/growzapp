@@ -84,6 +84,9 @@ public class SecurityConfig {
                                                 .hasAnyRole("ADMIN", "COMMUNICANT")
                                                 .requestMatchers("/api/webhook/stripe").permitAll()
                                                 .requestMatchers("/api/webhook/paydunya").permitAll()
+                                                .requestMatchers("/api/kyc/webhook/voveid").permitAll()
+                                                .requestMatchers(HttpMethod.POST, "/api/kyc/start-voveid")
+                                                .authenticated()
                                                 .requestMatchers(HttpMethod.DELETE, "/api/news/**").hasAnyRole("ADMIN") // Seul
                                                 // l'admin
                                                 // supprime
@@ -97,6 +100,7 @@ public class SecurityConfig {
 
                                                 // KYC : Soumission (Accessible à tout utilisateur connecté)
                                                 .requestMatchers("/api/kyc/soumettre").authenticated()
+                                                .requestMatchers("/api/kyc/start-voveid").authenticated()
                                                 // KYC : Administration (Uniquement ROLE_ADMIN)
                                                 .requestMatchers("/api/kyc/admin/**").hasAuthority("ROLE_ADMIN")
 
