@@ -105,8 +105,9 @@ public class DepositService {
                 .statut(StatutTransaction.SUCCESS)
                 .description("Dépôt réussi via " + source)
                 .referenceType(source)
-                .referenceId(reference != null ? Long.valueOf(reference) : null) // si PayDunya/Stripe donne un ID
+                .referenceExterne(reference) // sessionId Stripe / token PayDunya — String, pas Long
                 .build();
+
         transactionRepository.save(tx);
     }
 }

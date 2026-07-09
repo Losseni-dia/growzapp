@@ -16,12 +16,12 @@ public class UserCreateDTO {
 
     @NotBlank(message = "Le login est obligatoire")
     @Size(min = 3, max = 60)
-    @Schema(description = "Identifiant unique de connexion", example = "john.doe", minLength = 3, maxLength = 60)
+    @Schema(description = "Identifiant unique de connexion", example = "losseni", minLength = 3, maxLength = 60)
     private String login;
 
     @NotBlank(message = "Le mot de passe est obligatoire")
     @Size(min = 6)
-    @Schema(description = "Mot de passe (minimum 6 caractères)", example = "motDePasse123!", format = "password", minLength = 6)
+    @Schema(description = "Mot de passe (minimum 6 caractères)", example = "123", format = "password", minLength = 6)
     private String password;
 
     @NotBlank(message = "La confirmation du mot de passe est obligatoire")

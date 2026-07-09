@@ -4,18 +4,26 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import growzapp.backend.module.news.model.News;
 import growzapp.backend.module.news.model.NewsCategory;
 import growzapp.backend.module.news.repository.NewsRepository;
+import growzapp.backend.module.notification.service.NotificationService;
 
 @Service
 public class NewsService {
 
     @Autowired
     private NewsRepository newsRepository;
+
+    @Autowired
+    private NotificationService notificationService;
+
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
 
     public List<News> getNews(NewsCategory category) {
         if (category != null) {
@@ -31,13 +39,22 @@ public class NewsService {
 
     @Transactional
     public News createNews(News news) {
-        // Ici, on pourra ajouter de la logique (ex: formater le titre, vérifier
-        // l'image)
-        return newsRepository.save(news);
+        News saved = newsRepository.save(news);
+
+        // Notifier tous les utilisateurs de la nouvelle actualité
+        String extrait = saved.getContent() != null && saved.getContent().length() > 120
+                ? saved.getContent().substring(0, 120) + "..."
+                : saved.getContent();
+
+        notificationService.notifyAllUsersWithSlug(
+                "📰 " + saved.getTitle(),
+                extrait,
+                null,
+                "/news/" + saved.getId() // lien vers l'article
+        );
+
+        return saved;
     }
-
-
-    // Dans growzapp.backend.news.service.NewsService
 
     @Transactional
     public News updateNews(Long id, News newsDetails) {
@@ -46,7 +63,6 @@ public class NewsService {
         news.setContent(newsDetails.getContent());
         news.setImageUrl(newsDetails.getImageUrl());
         news.setCategory(newsDetails.getCategory());
-        // On ne change pas le createdAt
         return newsRepository.save(news);
     }
 
@@ -55,9 +71,6 @@ public class NewsService {
         News news = getNewsById(id);
         newsRepository.delete(news);
     }
-
-    // On prépare la méthode pour le flux RSS (on la remplira plus tard)
-    // src/main/java/growzapp/backend/news/service/NewsService.java
 
     public String generateRssFeed() {
         List<News> allNews = newsRepository.findAllByOrderByCreatedAtDesc();
@@ -73,7 +86,7 @@ public class NewsService {
         for (News news : allNews) {
             rss.append("<item>");
             rss.append("<title>").append(news.getTitle()).append("</title>");
-            rss.append("<link>https://growzapp.com/news/").append(news.getId()).append("</link>");
+            rss.append("<link>").append(frontendUrl).append("/news/").append(news.getId()).append("</link>");
             rss.append("<description>")
                     .append(news.getContent().substring(0, Math.min(news.getContent().length(), 150)))
                     .append("...</description>");
@@ -90,6 +103,20 @@ public class NewsService {
 
     public News saveNews(News news) {
         news.setCreatedAt(LocalDateTime.now());
-        return newsRepository.save(news);
+        News saved = newsRepository.save(news);
+
+        // Notifier tous les utilisateurs
+        String extrait = saved.getContent() != null && saved.getContent().length() > 120
+                ? saved.getContent().substring(0, 120) + "..."
+                : saved.getContent();
+
+        notificationService.notifyAllUsersWithSlug(
+                "📰 " + saved.getTitle(),
+                extrait,
+                null,
+                "/news/" + saved.getId() // lien vers l'article
+        );
+
+        return saved;
     }
 }

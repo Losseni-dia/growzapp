@@ -91,9 +91,6 @@ public class StripeWebhookController {
     public void handleCheckoutCompleted(Event event) {
         // getObject() peut retourner vide si la version API du SDK ne correspond pas
         // On utilise getRawJson() comme fallback
-        // Parser le JSON brut directement avec Jackson (disponible dans Spring Boot)
-        // getObject() échoue avec les nouvelles versions d'API Stripe
-        // (2025-10-29.clover)
         String rawJson = event.getDataObjectDeserializer().getRawJson();
         log.info("Raw JSON reçu (200 premiers chars) : {}",
                 rawJson != null ? rawJson.substring(0, Math.min(200, rawJson.length())) : "null");
@@ -123,8 +120,31 @@ public class StripeWebhookController {
             if ("INVESTISSEMENT".equals(type)) {
                 handleInvestissementPayeRaw(sessionId, userId, montantEUR, projetIdStr, nombrePartsStr);
             } else {
-                depositService.finaliserDepot(userId, montantEUR, sessionId, "STRIPE_CARD");
-                log.info("DÉPÔT STRIPE → user={} +{}€", userId, montantEUR);
+                // ── Source de vérité : le montant FCFA d'ORIGINE saisi par l'utilisateur ──
+                // (stocké en metadata lors de la création de session, voir
+                // StripeDepositService)
+                // On ne recalcule JAMAIS depuis le montant EUR arrondi par Stripe : cela
+                // évite toute perte due au double arrondi FCFA → EUR → FCFA.
+                String montantFcfaMetadata = root.path("metadata").path("montant_fcfa").asText(null);
+
+                BigDecimal montantFCFA;
+                if (montantFcfaMetadata != null && !montantFcfaMetadata.isBlank()) {
+                    montantFCFA = new BigDecimal(montantFcfaMetadata);
+                    log.info("DÉPÔT STRIPE → montant FCFA d'origine utilisé (depuis metadata) : {}", montantFCFA);
+                } else {
+                    // Fallback de sécurité si la metadata est absente (sessions créées avant ce
+                    // fix)
+                    BigDecimal tauxXOF = exchangeRateRepository.findByCurrencyCode("XOF")
+                            .map(r -> r.getRateToBase())
+                            .orElse(TAUX_XOF_PAR_EUR);
+                    montantFCFA = montantEUR.multiply(tauxXOF).setScale(0, RoundingMode.HALF_UP);
+                    log.warn("DÉPÔT STRIPE → metadata montant_fcfa absente, fallback reconversion : {} FCFA",
+                            montantFCFA);
+                }
+
+                depositService.finaliserDepot(userId, montantFCFA, sessionId, "STRIPE_CARD");
+                log.info("DÉPÔT STRIPE → user={} {}€ payés = {} FCFA crédités (montant exact, sans perte d'arrondi)",
+                        userId, montantEUR, montantFCFA);
             }
 
         } catch (Exception ex) {
@@ -162,7 +182,6 @@ public class StripeWebhookController {
                     montantEUR, montantFCFA, userId, projetId, nombreParts);
 
             // ── 2. Créditer le wallet utilisateur (argent externe Stripe) ─
-            // On crédite le solde disponible pour que investir() puisse le bloquer
             Wallet wallet = walletRepository.findByUserId(userId)
                     .orElseThrow(() -> new RuntimeException("Wallet introuvable pour user " + userId));
 
@@ -172,8 +191,6 @@ public class StripeWebhookController {
             log.info("Wallet crédité : user={} +{} FCFA (solde disponible temporaire)", userId, montantFCFA);
 
             // ── 3. Appeler exactement le même flux que wallet interne ──────
-            // investir() va : vérifier KYC, vérifier solde, bloquer fonds,
-            // créer investissement EN_ATTENTE, enregistrer transaction
             var investissementDTO = investissementService.investir(projetId, nombreParts, user);
 
             // ── 4. Enregistrer la référence Stripe pour idempotence ───────

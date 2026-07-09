@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,6 +23,7 @@ import growzapp.backend.module.dividende.service.DividendeService;
 import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.investissement.dto.InvestissementDTO;
 import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
+import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.investissement.service.InvestissementService;
 import growzapp.backend.module.notification.service.NotificationService;
@@ -111,20 +113,71 @@ public class ProjetWalletController {
         return ResponseEntity.ok(total);
     }
 
+ // ═══════════════════════════════════════════════════════════════════
+// PATCH ProjetWalletController.java — endpoint /list
+// Ajoute la date du dernier investissement par projet, et trie les
+// wallets du plus récent investissement au plus ancien.
+// ═══════════════════════════════════════════════════════════════════
+
+// AJOUTER cet import en haut du fichier :
+// import growzapp.backend.module.investissement.model.Investissement;
+// import java.util.Comparator;
+// import java.util.stream.Collectors;
+
+// REMPLACER la méthode getAllProjectWallets() par :
+
     @GetMapping("/list")
     @Operation(
         summary = "Liste de tous les wallets projet",
-        description = "Retourne la liste complète des wallets de type PROJET avec leurs soldes.",
+        description = "Retourne la liste complète des wallets de type PROJET avec leurs soldes, triée du projet ayant reçu l'investissement le plus récent au plus ancien.",
         tags = {"Admin - Trésorerie Projets"}
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Liste des wallets projet",
+        @ApiResponse(responseCode = "200", description = "Liste des wallets projet triée par investissement récent",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ApiResponseDTO.class)))
     })
-    public ResponseEntity<List<Wallet>> getAllProjectWallets() {
+    public ResponseEntity<List<Map<String, Object>>> getAllProjectWallets() {
         List<Wallet> wallets = walletRepository.findByWalletType(WalletType.PROJET);
-        return ResponseEntity.ok(wallets);
+
+        List<Map<String, Object>> enriched = wallets.stream()
+                .map(w -> {
+                    Map<String, Object> entry = new HashMap<>();
+                    entry.put("id", w.getId());
+                    entry.put("projetId", w.getProjetId());
+                    entry.put("soldeDisponible", w.getSoldeDisponible());
+                    entry.put("soldeBloque", w.getSoldeBloque());
+                    entry.put("soldeRetirable", w.getSoldeRetirable());
+                    entry.put("walletType", w.getWalletType());
+
+                    LocalDateTime dernierInvestissement = null;
+                    if (w.getProjetId() != null) {
+                        dernierInvestissement = investissementRepository
+                                .findByProjetIdAndStatutPartInvestissement(
+                                        w.getProjetId(), StatutPartInvestissement.VALIDE)
+                                .stream()
+                                .map(Investissement::getDate)
+                                .filter(Objects::nonNull)
+                                .max(LocalDateTime::compareTo)
+                                .orElse(null);
+                    }
+                    entry.put("dernierInvestissement", dernierInvestissement);
+
+                    return entry;
+                })
+                // Tri : projets avec investissement récent en premier,
+                // puis ceux sans aucun investissement (null) à la fin.
+                .sorted((a, b) -> {
+                    LocalDateTime dateA = (LocalDateTime) a.get("dernierInvestissement");
+                    LocalDateTime dateB = (LocalDateTime) b.get("dernierInvestissement");
+                    if (dateA == null && dateB == null) return 0;
+                    if (dateA == null) return 1;
+                    if (dateB == null) return -1;
+                    return dateB.compareTo(dateA); // plus récent d'abord
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(enriched);
     }
 
     @GetMapping("/{projetId}")
@@ -169,29 +222,18 @@ public class ProjetWalletController {
         return ResponseEntity.ok(solde);
     }
 
+
     @PostMapping("/{projetId}/verser-porteur")
     @Transactional
-    @Operation(
-        summary = "Virer des fonds vers le porteur de projet",
-        description = "Transfère un montant depuis le wallet du projet vers le solde disponible du porteur (propriétaire du projet). Une transaction de type VERSEMENT_PORTEUR est enregistrée.",
-        tags = {"Admin - Trésorerie Projets"},
-        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            description = "Montant et motif du versement",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(example = "{\"montant\": 5000.00, \"motif\": \"Versement trimestriel T4 2025\"}")))
-    )
+    @Operation(summary = "Virer des fonds vers le porteur de projet", description = "Transfère un montant depuis le wallet du projet vers le solde disponible du porteur (propriétaire du projet). Une transaction de type VERSEMENT_PORTEUR est enregistrée des deux côtés (projet et porteur), liée au projet via referenceId. Le porteur et tous les investisseurs actifs sont notifiés (in-app + email).", tags = {
+            "Admin - Trésorerie Projets" }, requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Montant et motif du versement", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"montant\": 5000.00, \"motif\": \"Versement trimestriel T4 2025\"}"))))
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Versement effectué avec succès",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "400", description = "Montant invalide ou fonds insuffisants",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "404", description = "Wallet projet ou porteur introuvable",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
+            @ApiResponse(responseCode = "200", description = "Versement effectué avec succès", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Montant invalide ou fonds insuffisants", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Wallet projet ou porteur introuvable", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ResponseEntity<ApiResponseDTO<String>> verserAuPorteur(
-            @Parameter(description = "Identifiant du projet", example = "7", required = true)
-            @PathVariable Long projetId,
+            @Parameter(description = "Identifiant du projet", example = "7", required = true) @PathVariable Long projetId,
             @RequestBody Map<String, Object> body) {
 
         BigDecimal montant = new BigDecimal(body.get("montant").toString());
@@ -218,40 +260,81 @@ public class ProjetWalletController {
         Wallet walletPorteur = walletRepository.findByUserIdWithPessimisticLock(porteur.getId())
                 .orElseThrow(() -> new IllegalStateException("Wallet porteur introuvable"));
 
+        String motifFinal = motif != null && !motif.isBlank() ? motif : "Versement au porteur";
+
         walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().subtract(montant));
         walletPorteur.setSoldeDisponible(walletPorteur.getSoldeDisponible().add(montant));
 
-        Transaction tx = Transaction.builder()
+        // ── Transaction côté wallet PROJET (sortie) ────────────────────────
+        Transaction txProjet = Transaction.builder()
                 .walletId(walletProjet.getId())
                 .walletType(WalletType.PROJET)
                 .montant(montant)
                 .type(TypeTransaction.VERSEMENT_PORTEUR)
                 .statut(StatutTransaction.SUCCESS)
-                .description(motif != null && !motif.isBlank() ? motif : "Versement au porteur")
+                .description(motifFinal)
+                .referenceType("PROJET")
+                .referenceId(projetId)
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        transactionRepository.save(tx);
+        // ── Transaction côté wallet PORTEUR (entrée) ───────────────────────
+        // Le porteur voit dans SON historique perso que ce virement est lié à
+        // CE projet précis — utile s'il a plusieurs projets en cours.
+        Transaction txPorteur = Transaction.builder()
+                .walletId(walletPorteur.getId())
+                .walletType(WalletType.USER)
+                .montant(montant)
+                .type(TypeTransaction.VERSEMENT_PORTEUR)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Versement reçu — " + projet.getLibelle() + " — " + motifFinal)
+                .referenceType("PROJET")
+                .referenceId(projetId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        transactionRepository.save(txProjet);
+        transactionRepository.save(txPorteur);
         walletRepository.saveAll(List.of(walletProjet, walletPorteur));
 
-        String motifFinal = motif != null && !motif.isBlank() ? motif : "Versement au porteur";
-        String msgNotif = "Un versement de " + montant.toPlainString()
+        String msgNotifInvestisseur = "Un versement de " + montant.toPlainString()
                 + " FCFA a été effectué depuis le wallet du projet « " + projet.getLibelle()
                 + " ». Motif : " + motifFinal;
 
+        // ── 1. Notifier + emailer le PORTEUR lui-même ──────────────────────
+        notificationService.notifyUser(
+                porteur,
+                "💸 Versement reçu — " + projet.getLibelle(),
+                "Vous avez reçu un versement de " + montant.toPlainString()
+                        + " FCFA pour le projet « " + projet.getLibelle() + " ». Motif : " + motifFinal,
+                projet.getId(),
+                projet.getSlug(),
+                motifFinal);
+
+        if (porteur.getEmail() != null && !porteur.getEmail().isBlank()) {
+            emailService.envoyerVersementPorteur(
+                    porteur.getEmail(),
+                    porteur.getPrenom() + " " + porteur.getNom(),
+                    projet.getLibelle(),
+                    montant.toPlainString(),
+                    motifFinal);
+        }
+
+        // ── 2. Notifier + emailer TOUS LES INVESTISSEURS actifs ────────────
         investissementRepository.findByProjetIdAndStatutPartInvestissement(projetId, StatutPartInvestissement.VALIDE)
                 .stream()
                 .map(inv -> inv.getInvestisseur())
+                .filter(u -> u != null && !u.getId().equals(porteur.getId()))
                 .distinct()
                 .forEach(investisseur -> {
-                    // Notification in-app
                     notificationService.notifyUser(
                             investisseur,
                             "💸 Versement effectué — " + projet.getLibelle(),
-                            msgNotif,
+                            msgNotifInvestisseur,
                             projet.getId(),
-                            projet.getSlug());
-                    // Email
+                            projet.getSlug(),
+                            motifFinal);
+
                     emailService.envoyerVersementPorteur(
                             investisseur.getEmail(),
                             investisseur.getPrenom() + " " + investisseur.getNom(),
@@ -263,7 +346,7 @@ public class ProjetWalletController {
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Versement effectué")
                         .message("Versement de " + montant.stripTrailingZeros().toPlainString()
-                                + " € effectué avec succès"));
+                                + " FCFA effectué avec succès"));
     }
 
     @GetMapping("/{projetId}/investissements")
