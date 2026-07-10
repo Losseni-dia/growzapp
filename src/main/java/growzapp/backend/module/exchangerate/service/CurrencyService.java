@@ -12,14 +12,30 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class CurrencyService {
+
     private final ExchangeRateRepository repository;
 
-    @PostConstruct // S'exécute au démarrage de l'app
+    @PostConstruct
     public void initDefaultRates() {
         if (repository.count() == 0) {
-            saveRate("EUR", BigDecimal.ONE); // Monnaie pivot
-            saveRate("XOF", new BigDecimal("655.957"));
-            saveRate("USD", new BigDecimal("1.09"));
+
+            // ── Monnaie pivot ─────────────────────────────────────────
+            saveRate("EUR", BigDecimal.ONE);
+
+            // ── Zone Franc CFA (taux fixe légal garanti par la France) ─
+            saveRate("XOF", new BigDecimal("655.957")); // Franc CFA Ouest
+            saveRate("XAF", new BigDecimal("655.957")); // Franc CFA Centre
+
+            // ── Grandes devises mondiales ──────────────────────────────
+            saveRate("USD", new BigDecimal("1.08"));
+            saveRate("GBP", new BigDecimal("0.86"));
+
+            // ── Devises africaines stables ─────────────────────────────
+            saveRate("MAD", new BigDecimal("10.85"));
+            saveRate("GHS", new BigDecimal("14.50"));
+            saveRate("KES", new BigDecimal("140.00"));
+            saveRate("NGN", new BigDecimal("1650.00"));
+            saveRate("GNF", new BigDecimal("9300.00"));
         }
     }
 
@@ -27,6 +43,15 @@ public class CurrencyService {
         ExchangeRate er = new ExchangeRate();
         er.setCurrencyCode(code);
         er.setRateToBase(rate);
+        er.setLastUpdated(LocalDateTime.now());
+        repository.save(er);
+    }
+
+    public void updateRate(String code, BigDecimal newRate) {
+        ExchangeRate er = repository.findById(code)
+                .orElse(new ExchangeRate());
+        er.setCurrencyCode(code);
+        er.setRateToBase(newRate);
         er.setLastUpdated(LocalDateTime.now());
         repository.save(er);
     }
