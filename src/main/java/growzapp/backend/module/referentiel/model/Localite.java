@@ -1,5 +1,6 @@
 package growzapp.backend.module.referentiel.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import growzapp.backend.module.user.model.User;
@@ -30,9 +31,11 @@ public class Localite {
     @JoinColumn(name = "pays_id")
     private Pays pays;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "localite")
     private List<Localisation> localisations = new ArrayList<>();
 
-    @OneToMany(mappedBy = "localite", cascade = CascadeType.ALL)
+    @JsonIgnore
+    @OneToMany(mappedBy = "localite")
     private List<User> users = new ArrayList<>();
 }
