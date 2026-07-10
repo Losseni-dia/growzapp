@@ -51,6 +51,10 @@ public class UserDTO {
     @Schema(description = "Code de la langue d'interface préférée", example = "fr")
     private String interfaceLanguage;
 
+    @Schema(description = "Devise préférée de l'utilisateur", example = "XOF", allowableValues = { "XOF", "XAF", "USD",
+            "EUR", "GBP", "GNF", "MAD", "NGN", "GHS", "KES" })
+    private String devisePreferee;
+
     @Schema(description = "Rôles de sécurité attribués à l'utilisateur", example = "[\"ROLE_USER\"]")
     private List<String> roles = new ArrayList<>();
 
