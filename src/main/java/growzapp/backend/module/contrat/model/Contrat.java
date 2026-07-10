@@ -28,8 +28,13 @@ public class Contrat {
     private String numeroContrat;
 
     private String fichierUrl;
-
+    
     private String lienVerification;
+
+    @Column(unique = true)
+    private String tokenVerification;
+
+    private String hashSha256;
 
     private LocalDateTime dateGeneration = LocalDateTime.now();
 }
