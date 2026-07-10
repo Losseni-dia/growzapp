@@ -20,6 +20,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import growzapp.backend.module.referentiel.model.Langue;
 import growzapp.backend.module.referentiel.model.Localite;
+import growzapp.backend.module.referentiel.repository.LangueRepository;
+import growzapp.backend.module.referentiel.repository.LocaliteRepository;
 import growzapp.backend.module.user.dto.UserCreateDTO;
 import growzapp.backend.module.user.dto.UserDTO;
 import growzapp.backend.module.user.dto.UserUpdateDTO;
@@ -41,6 +43,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final EntityManager entityManager;
+    private final LocaliteRepository localiteRepository;
+    private final LangueRepository langueRepository;
 
     private final String AVATAR_DIR = System.getProperty("user.dir") + "/uploads/avatars/";
 
@@ -74,11 +78,16 @@ public class UserService {
             throw new IllegalArgumentException("Cet email est déjà utilisé");
         }
 
-        if (dto.getPrenom() != null) current.setPrenom(dto.getPrenom());
-        if (dto.getNom() != null) current.setNom(dto.getNom());
-        if (dto.getEmail() != null) current.setEmail(dto.getEmail());
-        if (dto.getContact() != null) current.setContact(dto.getContact());
-        if (dto.getSexe() != null) current.setSexe(dto.getSexe());
+        if (dto.getPrenom() != null)
+            current.setPrenom(dto.getPrenom());
+        if (dto.getNom() != null)
+            current.setNom(dto.getNom());
+        if (dto.getEmail() != null)
+            current.setEmail(dto.getEmail());
+        if (dto.getContact() != null)
+            current.setContact(dto.getContact());
+        if (dto.getSexe() != null)
+            current.setSexe(dto.getSexe());
 
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             current.setPassword(passwordEncoder.encode(dto.getPassword()));
@@ -236,23 +245,44 @@ public class UserService {
 
     @Transactional
     public UserDTO registerUser(UserCreateDTO dto, MultipartFile imageFile) throws IOException {
-        if (userRepository.existsByLogin(dto.getLogin())) {
+
+        // ── NORMALISATION EN MINUSCULES ──────────────────────────────────
+        String loginNormalized = dto.getLogin().trim().toLowerCase();
+        String emailNormalized = (dto.getEmail() != null && !dto.getEmail().isBlank())
+                ? dto.getEmail().trim().toLowerCase()
+                : null;
+        String contactNormalized = dto.getContact().trim();
+        // ────────────────────────────────────────────────────────────────
+
+        // ── VÉRIFICATIONS UNICITÉ ────────────────────────────────────────
+        if (userRepository.existsByLoginIgnoreCase(loginNormalized)) {
             throw new IllegalArgumentException("Ce login est déjà utilisé");
         }
-        if (userRepository.existsByEmail(dto.getEmail())) {
+        if (emailNormalized != null && userRepository.existsByEmailIgnoreCase(emailNormalized)) {
             throw new IllegalArgumentException("Cet email est déjà utilisé");
         }
+        if (userRepository.existsByContact(contactNormalized)) {
+            throw new IllegalArgumentException("Ce numéro de téléphone est déjà utilisé");
+        }
+        // ────────────────────────────────────────────────────────────────
 
         User user = new User();
-        user.setLogin(dto.getLogin());
+        user.setLogin(loginNormalized); // toujours en minuscules
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setPrenom(dto.getPrenom());
-        user.setNom(dto.getNom());
+        user.setPrenom(dto.getPrenom().trim());
+        user.setNom(dto.getNom().trim());
         user.setSexe(dto.getSexe());
-        user.setEmail(dto.getEmail());
-        user.setContact(dto.getContact());
+        user.setEmail(emailNormalized); // toujours en minuscules ou null
+        user.setContact(contactNormalized);
         user.setEnabled(true);
-        user.setInterfaceLanguage("fr");
+        user.setInterfaceLanguage(
+                dto.getInterfaceLanguage() != null && !dto.getInterfaceLanguage().isBlank()
+                        ? dto.getInterfaceLanguage().trim().toLowerCase()
+                        : "fr");
+        user.setDevisePreferee(
+                dto.getDevisePreferee() != null && !dto.getDevisePreferee().isBlank()
+                        ? dto.getDevisePreferee().trim().toUpperCase()
+                        : "XOF");
 
         if (imageFile != null && !imageFile.isEmpty()) {
             user.setImage(saveImageLocally(imageFile));
@@ -267,13 +297,59 @@ public class UserService {
                 .build();
         user.setWallet(wallet);
 
-        if (dto.getLocalite() != null && dto.getLocalite().id() != null) {
-            user.setLocalite(entityManager.getReference(Localite.class, dto.getLocalite().id()));
+        // ── LOCALITE : récupère ou crée ──────────────────────────────
+        if (dto.getLocalite() != null) {
+            Localite localite;
+            if (dto.getLocalite().id() != null) {
+                // ID fourni → on cherche en base
+                localite = localiteRepository.findById(dto.getLocalite().id())
+                        .orElseGet(() -> {
+                            Localite l = new Localite();
+                            l.setNom(dto.getLocalite().nom() != null ? dto.getLocalite().nom() : "Inconnue");
+                            l.setCodePostal("00000");
+                            return localiteRepository.save(l);
+                        });
+            } else if (dto.getLocalite().nom() != null && !dto.getLocalite().nom().isBlank()) {
+                // Pas d'ID mais nom fourni → cherche par nom ou crée
+                localite = localiteRepository.findByNomIgnoreCase(dto.getLocalite().nom().trim())
+                        .orElseGet(() -> {
+                            Localite l = new Localite();
+                            l.setNom(dto.getLocalite().nom().trim());
+                            l.setCodePostal("00000");
+                            return localiteRepository.save(l);
+                        });
+            } else {
+                localite = null;
+            }
+            user.setLocalite(localite);
         }
 
+        // ── LANGUES : récupère ou crée ───────────────────────────────
         if (dto.getLangues() != null && !dto.getLangues().isEmpty()) {
             List<Langue> langues = dto.getLangues().stream()
-                    .map(l -> entityManager.getReference(Langue.class, l.id()))
+                    .map(l -> {
+                        if (l.id() != null) {
+                            return langueRepository.findById(l.id())
+                                    .orElseGet(() -> {
+                                        Langue langue = new Langue();
+                                        langue.setNom(l.nom() != null ? l.nom() : "Inconnu");
+                                        return langueRepository.save(langue);
+                                    });
+                        } else if (l.nom() != null && !l.nom().isBlank()) {
+                            // Cherche par nom ou crée
+                            return langueRepository.findAll().stream()
+                                    .filter(lang -> lang.getNom().equalsIgnoreCase(l.nom().trim()))
+                                    .findFirst()
+                                    .orElseGet(() -> {
+                                        Langue langue = new Langue();
+                                        langue.setNom(l.nom().trim());
+                                        return langueRepository.save(langue);
+                                    });
+                        } else {
+                            return null;
+                        }
+                    })
+                    .filter(l -> l != null)
                     .toList();
             user.setLangues(langues);
         }
