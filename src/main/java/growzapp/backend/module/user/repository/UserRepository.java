@@ -88,4 +88,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         "localite", "langues", "roles"
         })
         Optional<User> findWithProfileByEmail(String email);
+
+        // ── UNICITÉ INSENSIBLE À LA CASSE ────────────────────────────────
+        boolean existsByLoginIgnoreCase(String login);
+
+        boolean existsByEmailIgnoreCase(String email);
+
+        boolean existsByContact(String contact);
+        // ─────────────────────────────────────────────────────────────────
 }
