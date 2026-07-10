@@ -2,6 +2,7 @@ package growzapp.backend.module.notification.model;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import growzapp.backend.module.user.model.User;
@@ -53,7 +54,7 @@ public class Notification {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    @JsonIgnoreProperties({ "projets", "investissements", "roles", "wallet", "localite", "langues", "password" })
+    @JsonIgnore
     @Schema(description = "Utilisateur destinataire de la notification")
     private User recipient;
 }
