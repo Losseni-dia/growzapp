@@ -3,6 +3,8 @@ package growzapp.backend.module.projet.controller;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -46,6 +48,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -67,6 +71,7 @@ public class ProjetRestController {
     private final PayDunyaService payDunyaService;
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final Validator validator;
 
     // ── LISTE PUBLIQUE ────────────────────────────────────────────────────────
     @Operation(summary = "Lister les projets validés")
@@ -84,7 +89,6 @@ public class ProjetRestController {
     }
 
     // ── CRÉATION ──────────────────────────────────────────────────────────────
-    @Operation(summary = "Soumettre un nouveau projet", security = @SecurityRequirement(name = "BearerAuth"))
     @PostMapping(consumes = "multipart/form-data")
     @PreAuthorize("isAuthenticated()")
     public ApiResponseDTO<ProjetDTO> create(
@@ -95,6 +99,34 @@ public class ProjetRestController {
         User currentUser = getCurrentUser(authentication);
         try {
             ProjetCreateDTO createDto = objectMapper.readValue(projetJson, ProjetCreateDTO.class);
+
+            // ── VALIDATION MANUELLE ──────────────────────────────────────
+            Set<ConstraintViolation<ProjetCreateDTO>> violations = validator.validate(createDto);
+            if (!violations.isEmpty()) {
+                String errors = violations.stream()
+                        .map(v -> v.getPropertyPath() + " : " + v.getMessage())
+                        .collect(Collectors.joining(", "));
+                return ApiResponseDTO.error(errors);
+            }
+
+            // Vérification dates
+            if (createDto.dateDebut() != null && createDto.dateFin() != null
+                    && createDto.dateFin().isBefore(createDto.dateDebut())) {
+                return ApiResponseDTO.error("La date de fin doit être après la date de début");
+            }
+
+            // Vérification cohérence parts/prix/objectif
+            if (createDto.prixUnePart() != null && createDto.partsDisponible() > 0
+                    && createDto.objectifFinancement() != null) {
+                BigDecimal totalParts = createDto.prixUnePart()
+                        .multiply(BigDecimal.valueOf(createDto.partsDisponible()));
+                if (totalParts.compareTo(createDto.objectifFinancement()) != 0) {
+                    return ApiResponseDTO.error(
+                            "Incohérence : prix/part × nombre de parts doit être égal à l'objectif de financement");
+                }
+            }
+            // ────────────────────────────────────────────────────────────
+
             Projet projetInitial = projetMapper.toEntity(createDto);
             Projet saved = projetService.create(projetInitial, createDto.secteurNom(),
                     createDto.localiteNom(), currentUser);
@@ -106,8 +138,10 @@ public class ProjetRestController {
                 saved.setPoster(posterUrl);
                 saved = projetService.update(saved);
             }
+
             return ApiResponseDTO.success(projetMapper.toDto(saved))
                     .message("Projet soumis avec succès !");
+
         } catch (Exception e) {
             log.error("Erreur création projet", e);
             return ApiResponseDTO.error("Erreur : " + e.getMessage());
