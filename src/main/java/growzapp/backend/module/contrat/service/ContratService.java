@@ -10,6 +10,8 @@ import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,9 +24,13 @@ import com.google.zxing.qrcode.QRCodeWriter;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +42,14 @@ public class ContratService {
     private final UserService userService;
     private final ContratPdfService contratPdfService;
 
+    @Value("${contrat.secret-key:growzapp-secret-2026}")
+    private String secretKey;
+
+
+    public Optional<Contrat> findByToken(String token) {
+        return contratRepository.findByTokenVerification(token);
+    }
+    
     // ========================================================================
     // 1. RECHERCHE & SÉCURITÉ
     // ========================================================================
@@ -132,11 +146,26 @@ public class ContratService {
     public Contrat genererEtSauvegarderContrat(Investissement investissement) {
         long count = contratRepository.count() + 1;
         String numeroContrat = "CTR-" + Year.now().getValue() + "-" + String.format("%06d", count);
-        String lienVerification = "https://growzapp.com/verifier-contrat?code=" + numeroContrat;
+
+        // ── Token UUID unique ─────────────────────────────────────────────────
+        String token = UUID.randomUUID().toString();
+
+        // ── Hash SHA-256 anti-falsification ───────────────────────────────────
+        String hashSha256 = genererHash(
+                numeroContrat,
+                investissement.getMontantInvesti().toString(),
+                investissement.getDate().toString(),
+                investissement.getInvestisseur().getId().toString(),
+                investissement.getProjet().getId().toString());
+
+        // ── Lien avec token UUID ──────────────────────────────────────────────
+        String lienVerification = "https://my-growzapp.com/verifier-contrat?token=" + token;
 
         Contrat contrat = Contrat.builder()
                 .investissement(investissement)
                 .numeroContrat(numeroContrat)
+                .tokenVerification(token)
+                .hashSha256(hashSha256)
                 .lienVerification(lienVerification)
                 .dateGeneration(LocalDateTime.now())
                 .fichierUrl("")
@@ -144,6 +173,25 @@ public class ContratService {
 
         return contratRepository.save(contrat);
     }
+
+    // ── Génération du hash SHA-256 ────────────────────────────────────────────
+    public String genererHash(String... elements) {
+        try {
+            StringBuilder data = new StringBuilder();
+            for (String element : elements)
+                data.append(element);
+            data.append(secretKey);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(data.toString().getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes)
+                hexString.append(String.format("%02x", b));
+            return hexString.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur génération hash SHA-256", e);
+        }
+    }
+
 
     public void sauvegarderPdfFinal(Contrat contrat, byte[] pdfBytes) throws IOException {
         if (pdfBytes == null || pdfBytes.length == 0) {
