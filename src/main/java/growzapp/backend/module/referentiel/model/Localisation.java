@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Entity
 @Table(name = "localisations")
 @Data
@@ -41,8 +43,10 @@ public class Localisation {
 
     @ManyToOne
     @JoinColumn(name = "localite_id")
+    @JsonIgnore
     private Localite localite;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "siteProjet")
     private List<Projet> projets = new ArrayList<>();
 
