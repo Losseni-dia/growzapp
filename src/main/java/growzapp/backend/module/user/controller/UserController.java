@@ -2,6 +2,8 @@ package growzapp.backend.module.user.controller;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -55,7 +57,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.security.PermitAll;
+import jakarta.validation.ConstraintViolation;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Validator;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -72,6 +76,7 @@ public class UserController {
     private final PasswordResetTokenService tokenService;
     private final EmailSenderService emailService;
     private final PasswordEncoder passwordEncoder;
+    private final Validator validator;
 
     @PostMapping("/login")
     @Operation(
@@ -101,44 +106,59 @@ public class UserController {
         return ResponseEntity.ok(new LoginResponse(token, userDTO));
     }
 
-    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PermitAll
-    @Operation(
-        summary = "Inscription d'un nouvel utilisateur",
-        description = "Crée un nouveau compte utilisateur. Le champ 'user' doit contenir un JSON sérialisé de type UserCreateDTO. Le champ 'image' est optionnel (photo de profil).",
-        tags = {"Authentication"}
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Inscription réussie",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "500", description = "Erreur serveur interne",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)))
-    })
-    public ResponseEntity<ApiResponseDTO<UserDTO>> register(
-            @Parameter(description = "Données de l'utilisateur au format JSON (UserCreateDTO sérialisé)",
-                schema = @Schema(implementation = UserCreateDTO.class))
-            @RequestPart("user") String userJson,
-            @Parameter(description = "Photo de profil (optionnel)",
-                schema = @Schema(type = "string", format = "binary"))
-            @RequestPart(value = "image", required = false) MultipartFile image) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+   @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+@PermitAll
+@Operation(
+    summary = "Inscription d'un nouvel utilisateur",
+    description = "Crée un nouveau compte utilisateur. Le champ 'user' doit contenir un JSON sérialisé de type UserCreateDTO. Le champ 'image' est optionnel (photo de profil).",
+    tags = {"Authentication"}
+)
+@ApiResponses(value = {
+    @ApiResponse(responseCode = "200", description = "Inscription réussie",
+        content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ApiResponseDTO.class))),
+    @ApiResponse(responseCode = "400", description = "Données invalides — erreurs de validation",
+        content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ApiResponseDTO.class))),
+    @ApiResponse(responseCode = "500", description = "Erreur serveur interne",
+        content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ApiResponseDTO.class)))
+})
+public ResponseEntity<ApiResponseDTO<UserDTO>> register(
+        @Parameter(description = "Données de l'utilisateur au format JSON (UserCreateDTO sérialisé)",
+            schema = @Schema(implementation = UserCreateDTO.class))
+        @RequestPart("user") String userJson,
+        @Parameter(description = "Photo de profil (optionnel)",
+            schema = @Schema(type = "string", format = "binary"))
+        @RequestPart(value = "image", required = false) MultipartFile image) {
+    try {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-            UserCreateDTO dto = mapper.readValue(userJson, UserCreateDTO.class);
-            UserDTO created = userService.registerUser(dto, image);
+        UserCreateDTO dto = mapper.readValue(userJson, UserCreateDTO.class);
 
-            return ResponseEntity.ok(ApiResponseDTO.success(created)
-                    .message("Inscription réussie !"));
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponseDTO.error("Erreur serveur : " + e.getMessage()));
+        // ── VALIDATION MANUELLE ──────────────────────────────────────────
+        Set<ConstraintViolation<UserCreateDTO>> violations = validator.validate(dto);
+        if (!violations.isEmpty()) {
+            String errors = violations.stream()
+                .map(v -> v.getPropertyPath() + " : " + v.getMessage())
+                .collect(Collectors.joining(", "));
+            return ResponseEntity.badRequest()
+                .body(ApiResponseDTO.error(errors));
         }
+        // ────────────────────────────────────────────────────────────────
+
+        UserDTO created = userService.registerUser(dto, image);
+
+        return ResponseEntity.ok(ApiResponseDTO.success(created)
+                .message("Inscription réussie !"));
+
+    } catch (Exception e) {
+        e.printStackTrace();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponseDTO.error("Erreur serveur : " + e.getMessage()));
     }
+}
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
