@@ -20,6 +20,7 @@ import growzapp.backend.module.referentiel.model.Secteur;
 import growzapp.backend.module.referentiel.repository.LocalisationRepository;
 import growzapp.backend.module.referentiel.repository.LocaliteRepository;
 import growzapp.backend.module.referentiel.repository.SecteurRepository;
+import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.wallet.enums.WalletType;
 import growzapp.backend.module.wallet.model.Wallet;
@@ -41,6 +42,7 @@ public class ProjetService {
     private final WalletRepository walletRepository;
     private final NotificationService notificationService;
     private final FileUploadService fileUploadService;
+    private final DeepLTranslationService deepLTranslationService;
 
 
     // ========================
@@ -117,6 +119,14 @@ public class ProjetService {
 
         // 5. Initialisation du Wallet Projet
         initializeWallet(saved.getId());
+
+        // 6. Traduction automatique via DeepL (EN + ES)
+        try {
+            deepLTranslationService.traduireProjet(saved);
+        } catch (Exception e) {
+            log.warn("Traduction automatique échouée pour le projet {} — le projet est quand même créé : {}",
+                    saved.getId(), e.getMessage());
+        }
 
         return saved;
     }
