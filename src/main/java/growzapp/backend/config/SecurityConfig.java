@@ -85,6 +85,7 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/webhook/stripe").permitAll()
                                                 .requestMatchers("/api/webhook/paydunya").permitAll()
                                                 .requestMatchers("/api/kyc/webhook/voveid").permitAll()
+                                                .requestMatchers("/api/contrats/verifier-token").permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/kyc/start-voveid")
                                                 .authenticated()
                                                 .requestMatchers(HttpMethod.DELETE, "/api/news/**").hasAnyRole("ADMIN") // Seul
