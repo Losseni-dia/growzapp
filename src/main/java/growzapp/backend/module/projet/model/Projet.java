@@ -8,6 +8,8 @@ import java.util.List;
 import java.text.Normalizer; // Ajouté pour gérer les accents
 import java.util.Locale; // Ajouté pour la mise en minuscule
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import growzapp.backend.module.document.model.Document;
 import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.projet.enums.StatutProjet;
@@ -93,6 +95,7 @@ public class Projet {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User porteur;
@@ -101,6 +104,7 @@ public class Projet {
     @JoinColumn(name = "site_id")
     private Localisation siteProjet;
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "secteur_id")
     private Secteur secteur;
@@ -111,6 +115,7 @@ public class Projet {
     @OneToMany(mappedBy = "projet", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Document> documents = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "projet", cascade = CascadeType.ALL)
     private List<Investissement> investissements = new ArrayList<>();
 
