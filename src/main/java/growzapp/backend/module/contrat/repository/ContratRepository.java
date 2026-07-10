@@ -19,6 +19,8 @@ public interface ContratRepository
         extends JpaRepository<Contrat, Long>,
         JpaSpecificationExecutor<Contrat> {
 
+    Optional<Contrat> findByTokenVerification(String token);
+
     List<Contrat> findByInvestissement(Investissement investissement);
 
     long count();
