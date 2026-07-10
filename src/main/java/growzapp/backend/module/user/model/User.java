@@ -140,5 +140,7 @@ public class User {
 
    @Column(name = "kyc_commentaire_rejet")
    private String kycCommentaireRejet;
-   
+
+   @Column(name = "devise_preferee", length = 10)
+   private String devisePreferee = "XOF";
 }
