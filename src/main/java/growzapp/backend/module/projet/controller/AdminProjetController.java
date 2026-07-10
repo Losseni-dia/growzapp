@@ -1,9 +1,24 @@
 package growzapp.backend.module.projet.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 
-import growzapp.backend.module.files.FileUploadService;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.dto.ProjetDTO;
 import growzapp.backend.module.projet.enums.StatutProjet;
@@ -11,6 +26,7 @@ import growzapp.backend.module.projet.mapper.ProjetMapper;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.service.ProjetService;
 import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -20,13 +36,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.List;
-
+@Slf4j
 @RestController
 @RequestMapping("/api/admin/projets")
 @RequiredArgsConstructor
@@ -37,8 +49,26 @@ public class AdminProjetController {
 
     private final ProjetService projetService;
     private final ProjetMapper projetMapper;
-    private final FileUploadService fileUploadService;
-    private final ObjectMapper objectMapper;
+    private final DeepLTranslationService deepLTranslationService;
+  
+
+    @PostMapping("/admin/traduire-tous")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Traduire tous les projets existants", security = @SecurityRequirement(name = "BearerAuth"))
+    public ApiResponseDTO<String> traduireTousLesProjets() {
+        List<Projet> projets = projetService.getAllAdmin(null);
+        int count = 0;
+        for (Projet projet : projets) {
+            try {
+                deepLTranslationService.traduireProjet(projet);
+                count++;
+            } catch (Exception e) {
+                log.warn("Erreur traduction projet {} : {}", projet.getId(), e.getMessage());
+            }
+        }
+        return ApiResponseDTO.<String>success(null)
+                .message(count + " projets traduits avec succès");
+    }
 
     @GetMapping
     @Operation(
