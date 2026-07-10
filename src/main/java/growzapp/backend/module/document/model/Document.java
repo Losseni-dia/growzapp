@@ -1,5 +1,6 @@
 package growzapp.backend.module.document.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import growzapp.backend.module.projet.model.Projet;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -29,6 +30,7 @@ public class Document {
 
     private LocalDateTime uploadedAt = LocalDateTime.now();
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "projet_id")
     private Projet projet;
