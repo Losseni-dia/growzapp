@@ -35,7 +35,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/api/contrats")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 @Tag(name = "Contrats", description = "Vérification publique et consultation des contrats d'investissement au format PDF")
 public class ContratRestController {
 
@@ -43,6 +42,47 @@ public class ContratRestController {
     private final ContratService contratService;
 
     private final Map<String, long[]> failureTracker = new ConcurrentHashMap<>();
+
+
+    // ── VÉRIFICATION PAR TOKEN (QR Code) — PUBLIC ────────────────────────────
+    @GetMapping("/verifier-token")
+    @Operation(summary = "Vérifier un contrat via son token QR code — accès public")
+    public ResponseEntity<ContratPublicDTO> verifierParToken(
+            @RequestParam String token) {
+
+        Contrat contrat = contratService.findByToken(token)
+                .orElse(null);
+
+        if (contrat == null) {
+            return ResponseEntity.ok(new ContratPublicDTO(
+                    false, "Introuvable", "—", "—", 0, "—"));
+        }
+
+        Investissement inv = contrat.getInvestissement();
+
+        // Recalcul du hash
+        String hashRecalcule = contratService.genererHash(
+                contrat.getNumeroContrat(),
+                inv.getMontantInvesti().toString(),
+                inv.getDate().toString(),
+                inv.getInvestisseur().getId().toString(),
+                inv.getProjet().getId().toString());
+
+        boolean integre = hashRecalcule.equals(contrat.getHashSha256());
+
+        // Masquage RGPD
+        String nom = inv.getInvestisseur().getPrenom() + " "
+                + inv.getInvestisseur().getNom().substring(0, 1).toUpperCase() + ".";
+
+        return ResponseEntity.ok(new ContratPublicDTO(
+                integre,
+                contrat.getNumeroContrat(),
+                inv.getProjet().getLibelle(),
+                nom,
+                inv.getMontantInvesti().doubleValue(),
+                contrat.getDateGeneration().format(
+                        java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
+    }
 
     @PostMapping("/public/verifier-securise")
     @Operation(
