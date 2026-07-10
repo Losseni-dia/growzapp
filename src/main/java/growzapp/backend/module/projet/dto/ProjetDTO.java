@@ -1,98 +1,137 @@
 package growzapp.backend.module.projet.dto;
 
-
-import growzapp.backend.module.document.dto.DocumentDTO;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import growzapp.backend.module.investissement.dto.InvestissementDTO;
-import growzapp.backend.module.projet.enums.StatutProjet;
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
-@Schema(description = "Représentation complète d'un projet pour l'affichage")
-public record ProjetDTO(
-                Long id,
+@Data
+@JsonIgnoreProperties(ignoreUnknown = true)
+@Schema(description = "Représentation complète d'un projet d'investissement")
+public class ProjetDTO {
 
-                @Schema(example = "or-blanc-coton-bio", description = "Slug unique pour l'URL SEO") String slug,
+        @Schema(description = "Identifiant unique du projet", example = "1")
+        private Long id;
 
-                @Schema(example = "/uploads/posters/15_poster.jpg") String poster,
+        @Schema(description = "Slug unique pour l'URL", example = "ferme-avicole-de-korhogo")
+        private String slug;
 
-                Integer reference,
-                String libelle,
-                String description,
+        @Schema(description = "URL du poster du projet")
+        private String poster;
 
-                @Schema(type = "number", format = "double", example = "90000.0") BigDecimal valuation,
+        @Schema(description = "Référence unique du projet")
+        private Integer reference;
 
-                @Schema(example = "15.5", description = "ROI projeté en pourcentage") double roiProjete,
+        @Schema(description = "Titre du projet", example = "Ferme avicole de Korhogo")
+        private String libelle;
 
-                @Schema(example = "300") int partsDisponible,
+        @Schema(description = "Description détaillée du projet")
+        private String description;
 
-                @Schema(example = "7") int partsPrises,
+        @Schema(description = "Valorisation totale du projet", example = "12500000")
+        private BigDecimal valuation;
 
-                @Schema(type = "number", format = "double", example = "150.0") BigDecimal prixUnePart,
+        @Schema(description = "ROI projeté en pourcentage", example = "15.5")
+        private double roiProjete;
 
-                @Schema(type = "number", format = "double", example = "45000.0") BigDecimal objectifFinancement,
+        @Schema(description = "Nombre de parts disponibles", example = "500")
+        private int partsDisponible;
 
-                @Schema(type = "number", format = "double", example = "1050.0") BigDecimal montantCollecte,
+        @Schema(description = "Nombre de parts prises", example = "0")
+        private int partsPrises;
 
-                @Schema(example = "XOF") String currencyCode,
+        @Schema(description = "Prix d'une part", example = "10000")
+        private BigDecimal prixUnePart;
 
-                @Schema(example = "2026-01-01") LocalDate dateDebut,
+        @Schema(description = "Objectif de financement", example = "5000000")
+        private BigDecimal objectifFinancement;
 
-                @Schema(example = "2026-06-01") LocalDate dateFin,
+        @Schema(description = "Montant collecté", example = "0")
+        private BigDecimal montantCollecte;
 
-                @Schema(example = "36", defaultValue = "36") Integer dureeMois,
+        @Schema(description = "Code de la devise", example = "XOF")
+        private String currencyCode;
 
-                @Schema(description = "Pourcentage de l'equity total représenté par les parts", example = "50.0") double valeurTotalePartsEnPourcent,
+        @Schema(description = "Date de début du financement", example = "2026-08-01")
+        private LocalDate dateDebut;
 
-                @Schema(example = "VALIDE") StatutProjet statutProjet,
+        @Schema(description = "Date de fin du financement", example = "2028-08-01")
+        private LocalDate dateFin;
 
-                LocalDateTime createdAt,
-                LocalDateTime certifiedAt,
+        @Schema(description = "Durée du projet en mois", example = "24")
+        private Integer dureeMois;
 
-                // IDs des relations
-                Long localiteId,
-                Long porteurId,
-                Long siteId,
-                Long secteurId,
-                Long paysId,
+        @Schema(description = "Pourcentage des parts à lever", example = "40")
+        private int valeurTotalePartsEnPourcent;
 
-                // Libellés (Flattening pour le Front)
-                @Schema(example = "Côte d'Ivoire") String paysNom,
-                @Schema(example = "Abidjan") String localiteNom,
-                @Schema(example = "Losseni Dia") String porteurNom,
-                @Schema(example = "Centrale Coton Bio Sud") String siteNom,
-                @Schema(example = "Agro-Industrie") String secteurNom,
+        @Schema(description = "Statut du projet", example = "SOUMIS")
+        private String statutProjet;
 
-                // Données Géo
-                @Schema(example = "5.3484") BigDecimal latitude,
-                @Schema(example = "-4.0305") BigDecimal longitude,
-                @Schema(example = "maïs.fonds.récolte") String what3words,
+        @Schema(description = "Date de création du projet")
+        private LocalDateTime createdAt;
 
-                @Schema(example = "https://maps.google.com/?q=5.34,-4.02") String googleMapsUrl,
+        @Schema(description = "Date de certification du projet")
+        private LocalDateTime certifiedAt;
 
-                List<DocumentDTO> documents,
-                List<InvestissementDTO> investissements) {
+        // ── Relations ─────────────────────────────────────────────────────────
+        @Schema(description = "ID de la localité")
+        private Long localiteId;
 
-        public ProjetDTO withPoster(String newPoster) {
-                return new ProjetDTO(id, slug, newPoster, reference, libelle, description, valuation, roiProjete,
-                                partsDisponible, partsPrises, prixUnePart, objectifFinancement, montantCollecte,
-                                currencyCode,
-                                dateDebut, dateFin, dureeMois, valeurTotalePartsEnPourcent, statutProjet, createdAt,
-                                certifiedAt, localiteId, porteurId, siteId, secteurId, paysId, paysNom, localiteNom,
-                                porteurNom, siteNom, secteurNom, latitude, longitude, what3words, googleMapsUrl,
-                                documents, investissements);
-        }
+        @Schema(description = "ID du porteur")
+        private Long porteurId;
 
-        public ProjetDTO withId(Long newId) {
-                return new ProjetDTO(newId, slug, poster, reference, libelle, description, valuation, roiProjete,
-                                partsDisponible, partsPrises, prixUnePart, objectifFinancement, montantCollecte,
-                                currencyCode,
-                                dateDebut, dateFin, dureeMois, valeurTotalePartsEnPourcent, statutProjet, createdAt,
-                                certifiedAt, localiteId, porteurId, siteId, secteurId, paysId, paysNom, localiteNom,
-                                porteurNom, siteNom, secteurNom, latitude, longitude, what3words, googleMapsUrl,
-                                documents, investissements);
-        }
+        @Schema(description = "ID du site")
+        private Long siteId;
+
+        @Schema(description = "ID du secteur")
+        private Long secteurId;
+
+        @Schema(description = "ID du pays")
+        private Long paysId;
+
+        @Schema(description = "Nom du pays", example = "Côte d'Ivoire")
+        private String paysNom;
+
+        @Schema(description = "Nom de la localité", example = "Korhogo")
+        private String localiteNom;
+
+        @Schema(description = "Nom complet du porteur", example = "Losseni Diakité")
+        private String porteurNom;
+
+        @Schema(description = "Nom du site du projet")
+        private String siteNom;
+
+        @Schema(description = "Nom du secteur", example = "Agriculture")
+        private String secteurNom;
+
+        @Schema(description = "Latitude du site")
+        private Double latitude;
+
+        @Schema(description = "Longitude du site")
+        private Double longitude;
+
+        @Schema(description = "Adresse What3Words du site")
+        private String what3words;
+
+        @Schema(description = "URL Google Maps du site")
+        private String googleMapsUrl;
+
+        @Schema(description = "Documents associés au projet")
+        private List<Object> documents = new ArrayList<>();
+
+        @Schema(description = "Investissements réalisés sur ce projet")
+        private List<InvestissementDTO> investissements = new ArrayList<>();
+
+        // ── Traductions ───────────────────────────────────────────────────────
+        @Schema(description = "Libellé traduit selon la langue de l'utilisateur")
+        private String libelleTradu;
+
+        @Schema(description = "Description traduite selon la langue de l'utilisateur")
+        private String descriptionTradu;
 }
