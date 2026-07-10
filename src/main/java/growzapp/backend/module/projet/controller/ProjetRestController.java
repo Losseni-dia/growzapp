@@ -3,6 +3,7 @@ package growzapp.backend.module.projet.controller;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -34,6 +35,10 @@ import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.projet.service.ProjetService;
 import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.traduction.DeepL.model.ProjetTraduction;
+import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection;
+import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
+import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.wallet.model.Wallet;
@@ -72,20 +77,27 @@ public class ProjetRestController {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final Validator validator;
+    private final ProjetTraductionRepository traductionRepository;
+    private final DeepLTranslationService deepLTranslationService;
 
     // ── LISTE PUBLIQUE ────────────────────────────────────────────────────────
     @Operation(summary = "Lister les projets validés")
     @GetMapping
-    public ApiResponseDTO<List<ProjetDTO>> getAllPublic() {
-        return ApiResponseDTO.success(projetMapper.toDtoList(projetService.getAllValid()));
+    public ApiResponseDTO<List<ProjetDTO>> getAllPublic(
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
+        List<ProjetDTO> dtos = projetMapper.toDtoList(projetService.getAllValid());
+        return ApiResponseDTO.success(applyTraductions(dtos, langue));
     }
 
     // ── DÉTAIL PAR ID ─────────────────────────────────────────────────────────
     @Operation(summary = "Détail d'un projet par ID")
     @ApiResponse(responseCode = "200", description = "Projet trouvé")
     @GetMapping("/{id}")
-    public ApiResponseDTO<ProjetDTO> getById(@PathVariable Long id) {
-        return ApiResponseDTO.success(projetMapper.toDto(projetService.getById(id)));
+    public ApiResponseDTO<ProjetDTO> getById(
+            @PathVariable Long id,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
+        ProjetDTO dto = projetMapper.toDto(projetService.getById(id));
+        return ApiResponseDTO.success(applyTraduction(dto, langue));
     }
 
     // ── CRÉATION ──────────────────────────────────────────────────────────────
@@ -151,26 +163,35 @@ public class ProjetRestController {
     // ── MES PROJETS ───────────────────────────────────────────────────────────
     @GetMapping("/mes-projets")
     @PreAuthorize("isAuthenticated()")
-    public ApiResponseDTO<List<ProjetDTO>> getMyProjects(Authentication auth) {
-        return ApiResponseDTO.success(
-                projetMapper.toDtoList(projetService.getByPorteurId(getCurrentUser(auth).getId())));
+    public ApiResponseDTO<List<ProjetDTO>> getMyProjects(
+            Authentication auth,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
+        List<ProjetDTO> dtos = projetMapper.toDtoList(
+                projetService.getByPorteurId(getCurrentUser(auth).getId()));
+        return ApiResponseDTO.success(applyTraductions(dtos, langue));
     }
 
     // ── GÉO-RECHERCHE ─────────────────────────────────────────────────────────
     @Operation(summary = "Recherche géographique")
     @GetMapping("/proche-de-moi")
     public ApiResponseDTO<List<ProjetDTO>> getProjetsProches(
-            @RequestParam double lat, @RequestParam double lon,
-            @RequestParam(defaultValue = "100") double rayon) {
-        return ApiResponseDTO.success(
-                projetMapper.toDtoList(projetService.findProjetsProches(lat, lon, rayon)));
+            @RequestParam double lat,
+            @RequestParam double lon,
+            @RequestParam(defaultValue = "100") double rayon,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
+        List<ProjetDTO> dtos = projetMapper.toDtoList(
+                projetService.findProjetsProches(lat, lon, rayon));
+        return ApiResponseDTO.success(applyTraductions(dtos, langue));
     }
 
     // ── PAR SLUG ──────────────────────────────────────────────────────────────
     @Operation(summary = "Récupérer un projet par slug")
     @GetMapping("/slug/{slug}")
-    public ApiResponseDTO<ProjetDTO> getBySlug(@PathVariable String slug) {
-        return ApiResponseDTO.success(projetMapper.toDto(projetService.getBySlug(slug)));
+    public ApiResponseDTO<ProjetDTO> getBySlug(
+            @PathVariable String slug,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
+        ProjetDTO dto = projetMapper.toDto(projetService.getBySlug(slug));
+        return ApiResponseDTO.success(applyTraduction(dto, langue));
     }
 
     // ── INVESTIR — WALLET INTERNE ─────────────────────────────────────────────
@@ -279,5 +300,32 @@ public class ProjetRestController {
     private User getCurrentUser(Authentication authentication) {
         return userRepository.findByLoginForAuth(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+    }
+
+    // ── Helper : appliquer traduction sur un ProjetDTO ───────────────────────
+    private ProjetDTO applyTraduction(ProjetDTO dto, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr"))
+            return dto;
+
+        Optional<ProjetTraductionProjection> traduction = traductionRepository
+                .findProjectionByProjetIdAndLangue(dto.getId(), langue);
+
+        traduction.ifPresent(t -> {
+            if (t.getLibelle() != null && !t.getLibelle().isBlank())
+                dto.setLibelleTradu(t.getLibelle());
+            if (t.getDescription() != null && !t.getDescription().isBlank())
+                dto.setDescriptionTradu(t.getDescription());
+        });
+
+        return dto;
+    }
+
+    // ── Helper : appliquer traduction sur une liste ──────────────────────────
+    private List<ProjetDTO> applyTraductions(List<ProjetDTO> dtos, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr"))
+            return dtos;
+        return dtos.stream()
+                .map(dto -> applyTraduction(dto, langue))
+                .collect(Collectors.toList());
     }
 }
