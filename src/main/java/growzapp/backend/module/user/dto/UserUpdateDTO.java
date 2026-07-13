@@ -51,4 +51,9 @@ public class UserUpdateDTO {
 
     @Schema(description = "Nouvelles langues parlées (remplace intégralement les anciennes)")
     private List<LangueDTO> langues = new ArrayList<>();
+
+    @Schema(description = "Langue préférée de l'interface", example = "fr", allowableValues = {"fr", "en", "es"})
+   private String interfaceLanguage;
+    @Schema(description = "Devise préférée pour l'affichage des montants", example = "XOF")
+   private String devisePreferee;
 }
