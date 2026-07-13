@@ -90,9 +90,9 @@ public class AdminDividendeController {
             @Parameter(description = "Identifiant du dividende à modifier", example = "33", required = true)
             @PathVariable Long id,
             @Valid @RequestBody DividendeDTO dto) {
-        dto = new DividendeDTO(id, dto.montantParPart(), dto.statutDividende(), dto.moyenPaiement(),
-                dto.datePaiement(), dto.investissementId(), dto.investissementInfo(),
-                dto.montantTotal(), dto.fileName(), dto.factureUrl(), dto.facture(), dto.motif());
+      dto = dto.toBuilder()
+               .id(id)
+              .build();
         return ApiResponseDTO.success(dividendeService.save(dto)).message("Dividende mis à jour");
     }
 
