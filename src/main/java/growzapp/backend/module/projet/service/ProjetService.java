@@ -12,6 +12,7 @@ import growzapp.backend.module.files.FileUploadService;
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.enums.StatutProjet;
+import growzapp.backend.module.projet.enums.TypeEvenementValorisation;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.referentiel.model.Localisation;
@@ -43,6 +44,7 @@ public class ProjetService {
     private final NotificationService notificationService;
     private final FileUploadService fileUploadService;
     private final DeepLTranslationService deepLTranslationService;
+    private final ProjetValorisationService projetValorisationService;
 
 
     // ========================
@@ -117,6 +119,8 @@ public class ProjetService {
 
         Projet saved = projetRepository.save(projet);
 
+        projetValorisationService.enregistrerSnapshot(saved, TypeEvenementValorisation.CREATION, null);
+
         // 5. Initialisation du Wallet Projet
         initializeWallet(saved.getId());
 
@@ -152,6 +156,10 @@ public class ProjetService {
         projet.setStatutProjet(nouveauStatut);
 
         Projet saved = projetRepository.save(projet);
+
+        if (nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE) {
+            projetValorisationService.enregistrerSnapshot(saved, TypeEvenementValorisation.VALIDATION, null);
+        }
 
         if (nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE) {
             notificationService.notifyAllUsersWithSlug(
