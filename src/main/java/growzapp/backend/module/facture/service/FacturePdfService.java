@@ -13,6 +13,7 @@ import growzapp.backend.module.dividende.model.Dividende;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Base64;
 import java.util.Locale;
 
 @Slf4j
@@ -25,7 +26,7 @@ public class FacturePdfService {
         this.templateEngine = templateEngine;
     }
 
-    public byte[] generateDividendeFacture(Dividende dividende, Locale locale)
+    public byte[] generateDividendeFacture(Dividende dividende, byte[] barcodePng, Locale locale)
             throws IOException, com.lowagie.text.DocumentException {
 
         if (dividende.getInvestissement() == null) {
@@ -40,6 +41,11 @@ public class FacturePdfService {
         context.setVariable("investissement", dividende.getInvestissement());
         context.setVariable("facture", dividende.getFacture());
         context.setVariable("investisseur", dividende.getInvestissement().getInvestisseur());
+
+        if (barcodePng != null) {
+            String barcodeBase64 = Base64.getEncoder().encodeToString(barcodePng);
+            context.setVariable("barcodeBase64", barcodeBase64);
+        }
 
         String htmlContent = templateEngine.process("facture/pdf-template", context);
 
@@ -66,8 +72,8 @@ public class FacturePdfService {
         return outputStream.toByteArray();
     }
 
-    public byte[] generateDividendeFacture(Dividende dividende)
+    public byte[] generateDividendeFacture(Dividende dividende, byte[] barcodePng)
             throws IOException, com.lowagie.text.DocumentException {
-        return generateDividendeFacture(dividende, Locale.FRENCH);
+        return generateDividendeFacture(dividende, barcodePng, Locale.FRENCH);
     }
 }

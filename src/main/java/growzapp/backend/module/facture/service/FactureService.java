@@ -1,5 +1,6 @@
 package growzapp.backend.module.facture.service;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.Locale;
@@ -9,6 +10,11 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.oned.Code128Writer;
 
 import growzapp.backend.module.dividende.model.Dividende;
 import growzapp.backend.module.dividende.repository.DividendeRepository;
@@ -20,6 +26,7 @@ import growzapp.backend.module.facture.model.Facture;
 import growzapp.backend.module.facture.repository.FactureRepository;
 import growzapp.backend.module.files.FileStorageService;
 import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.user.model.User;
 import jakarta.persistence.EntityNotFoundException;
@@ -37,6 +44,7 @@ public class FactureService {
     private final FactureRepository factureRepository;
     private final DividendeRepository dividendeRepository;
     private final FactureMapper factureMapper;
+    private final NotificationService notificationService;
 
     @Async
     @Transactional
@@ -78,7 +86,8 @@ public class FactureService {
 
             dividende.setFacture(facture);
 
-            byte[] pdfBytes = facturePdfService.generateDividendeFacture(dividende);
+            byte[] barcodeBytes = generateBarcode(facture.getNumeroFacture());
+            byte[] pdfBytes = facturePdfService.generateDividendeFacture(dividende, barcodeBytes);
             log.info("PDF généré avec succès (taille: {})", pdfBytes.length);
 
             String fileName = "facture-dividende-" + dividende.getId() + ".pdf";
@@ -89,6 +98,12 @@ public class FactureService {
             log.info("URL mise à jour en base : {}", fichierUrl);
 
             emailService.envoyerFactureParEmail(facture, pdfBytes);
+
+            notificationService.notifyFactureEmise(
+                    investisseur,
+                    "Nouvelle facture disponible",
+                    "Votre facture " + facture.getNumeroFacture() + " a été émise suite au versement de dividendes.",
+                    facture.getId());
 
             log.info("Processus terminé avec succès pour dividende {}", dividendeId);
 
@@ -113,7 +128,7 @@ public class FactureService {
         if ("en".equalsIgnoreCase(lang))
             locale = Locale.ENGLISH;
         else if ("es".equalsIgnoreCase(lang))
-            locale = new Locale("es");
+            locale = Locale.forLanguageTag("es");
 
         if (locale.equals(Locale.FRENCH)) {
             try {
@@ -123,6 +138,21 @@ public class FactureService {
             }
         }
 
-        return facturePdfService.generateDividendeFacture(facture.getDividende(), locale);
+        byte[] barcodeBytes = generateBarcode(facture.getNumeroFacture());
+        return facturePdfService.generateDividendeFacture(facture.getDividende(), barcodeBytes, locale);
+    }
+
+    // ── Génération du code-barres (encode le numéro de facture) ─────────────
+    public byte[] generateBarcode(String text) {
+        try {
+            Code128Writer writer = new Code128Writer();
+            BitMatrix bitMatrix = writer.encode(text, BarcodeFormat.CODE_128, 400, 120);
+
+            ByteArrayOutputStream pngOutputStream = new ByteArrayOutputStream();
+            MatrixToImageWriter.writeToStream(bitMatrix, "PNG", pngOutputStream);
+            return pngOutputStream.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("Impossible de générer le code-barres", e);
+        }
     }
 }
