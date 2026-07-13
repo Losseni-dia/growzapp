@@ -91,6 +91,16 @@ public class NotificationService {
                 });
     }
 
+    // ── Notifie un utilisateur qu'une facture a été émise ─────────────────────
+    public void notifyFactureEmise(User user, String title, String content, Long factureId) {
+        Notification notif = new Notification();
+        notif.setRecipient(user);
+        notif.setTitle(title);
+        notif.setContent(content);
+        notif.setFactureId(factureId);
+        notificationRepository.save(notif);
+    }
+
     // ── Lecture ───────────────────────────────────────────────────────────────
     public List<Notification> getNotificationsForUser(User user) {
         return notificationRepository.findByRecipientOrderByDateDesc(user);
@@ -106,5 +116,12 @@ public class NotificationService {
             notif.setRead(true);
             notificationRepository.save(notif);
         });
+    }
+
+    @Transactional
+    public void markAllAsRead(User user) {
+        List<Notification> unread = notificationRepository.findByRecipientAndIsReadFalse(user);
+        unread.forEach(notif -> notif.setRead(true));
+        notificationRepository.saveAll(unread);
     }
 }

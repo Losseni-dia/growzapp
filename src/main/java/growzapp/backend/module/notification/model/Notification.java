@@ -48,6 +48,9 @@ public class Notification {
     @Schema(description = "Slug du projet lié — utilisé pour la redirection frontend", example = "ferme-solaire-nord")
     private String projetSlug;
 
+    @Schema(description = "Identifiant de la facture liée — utilisé pour la redirection frontend vers le téléchargement direct", example = "22")
+   private Long factureId;
+
     @Column(columnDefinition = "TEXT")
     @Schema(description = "Motif associé à la notification (ex: motif de refus)", example = "Documents KYC insuffisants")
     private String motif;
