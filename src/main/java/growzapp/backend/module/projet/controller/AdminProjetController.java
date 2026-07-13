@@ -1,6 +1,8 @@
 package growzapp.backend.module.projet.controller;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +28,8 @@ import growzapp.backend.module.projet.mapper.ProjetMapper;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.service.ProjetService;
 import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection;
+import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -47,9 +51,11 @@ import lombok.extern.slf4j.Slf4j;
 @Tag(name = "Admin - Projets", description = "Gestion complète des projets de financement par l'administrateur : liste, modification, changement de statut et suppression")
 public class AdminProjetController {
 
-    private final ProjetService projetService;
+   private final ProjetService projetService;
     private final ProjetMapper projetMapper;
     private final DeepLTranslationService deepLTranslationService;
+    private final ProjetTraductionRepository traductionRepository;
+    
   
 
     @PostMapping("/admin/traduire-tous")
@@ -84,12 +90,13 @@ public class AdminProjetController {
             content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ApiResponseDTO<List<ProjetDTO>> getAll(
-            @Parameter(description = "Terme de recherche optionnel (libellé, description)", example = "solaire")
-            @RequestParam(required = false) String search) {
+            @Parameter(description = "Terme de recherche optionnel (libellé, description)", example = "solaire") @RequestParam(required = false) String search,
+            @Parameter(description = "Langue de traduction souhaitée", example = "es") @RequestParam(required = false, defaultValue = "fr") String langue) {
         List<Projet> entities = projetService.getAllAdmin(search);
         List<ProjetDTO> dtos = projetMapper.toDtoList(entities);
-        return ApiResponseDTO.success(dtos)
-                .message(dtos.isEmpty() ? "Aucun projet trouvé" : "Projets récupérés avec succès");
+        List<ProjetDTO> traduits = applyTraductionsAdmin(dtos, langue);
+        return ApiResponseDTO.success(traduits)
+                .message(traduits.isEmpty() ? "Aucun projet trouvé" : "Projets récupérés avec succès");
     }
 
     @GetMapping("/{id}")
@@ -219,5 +226,32 @@ public class AdminProjetController {
             p.setPartsDisponible(node.get("partsDisponible").asInt());
         if (node.has("roiProjete"))
             p.setRoiProjete(node.get("roiProjete").asDouble());
+    }
+
+       // ── Helper : appliquer traduction sur un ProjetDTO ───────────────────────
+    private ProjetDTO applyTraductionAdmin(ProjetDTO dto, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr"))
+            return dto;
+
+        Optional<ProjetTraductionProjection> traduction = traductionRepository
+                .findProjectionByProjetIdAndLangue(dto.getId(), langue);
+
+        traduction.ifPresent(t -> {
+            if (t.getLibelle() != null && !t.getLibelle().isBlank())
+                dto.setLibelleTradu(t.getLibelle());
+            if (t.getDescription() != null && !t.getDescription().isBlank())
+                dto.setDescriptionTradu(t.getDescription());
+        });
+
+        return dto;
+    }
+
+    // ── Helper : appliquer traduction sur une liste ──────────────────────────
+    private List<ProjetDTO> applyTraductionsAdmin(List<ProjetDTO> dtos, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr"))
+            return dtos;
+        return dtos.stream()
+                .map(dto -> applyTraductionAdmin(dto, langue))
+                .collect(Collectors.toList());
     }
 }
