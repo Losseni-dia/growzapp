@@ -7,348 +7,425 @@
     <style>
         @page {
             size: A4;
-            margin-top: 0;
-            margin-left: 0;
-            margin-right: 0;
-            margin-bottom: 25mm;
-            /* Espace pour le footer */
+            margin: 0;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 9.5pt;
+            color: #2d2d2d;
+            line-height: 1.45;
             margin: 0;
             padding: 0;
-            color: #1e293b;
-            background-color: #ffffff;
-            font-size: 10pt;
-            line-height: 1.4;
         }
 
-        /* --- HEADER --- */
-        .header-bg {
-            background-color: #064e3b;
-            /* Vert émeraude */
-            height: 160px;
-            /* Agrandit le fond vert pour tout contenir */
+        /* ── HEADER VERT (identique au contrat) ── */
+        .header-band {
+            background-color: #1B5E20;
             width: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: -1;
+            padding: 10mm 12mm 8mm 12mm;
         }
 
-        .header-content {
-            padding: 40px 50px 0 50px;
+        .header-band table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .header-title {
             color: #ffffff;
-            width: 100%;
-            border-spacing: 0;
-        }
-
-        .logo {
             font-size: 24pt;
-            font-weight: 800;
-            letter-spacing: -1px;
-            color: #fff;
-            line-height: 1;
-            display: block;
-            /* Force le bloc */
-        }
-
-        .logo span {
-            color: #fbbf24;
-        }
-
-        /* NOUVEAU STYLE POUR LE TITRE */
-        .invoice-title-block {
-            font-size: 20pt;
-            /* Taille ajustée pour éviter les retours à la ligne */
-            font-weight: 900;
-            color: rgba(255, 255, 255, 0.25);
-            /* Blanc transparent */
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-top: 15px;
-            /* ESPACE FORCÉ SOUS LE LOGO */
-            display: block;
-            /* Force le passage à la ligne */
-        }
-
-        .company-details {
-            font-size: 8pt;
-            color: #a7f3d0;
-            text-align: right;
-            line-height: 1.4;
-            vertical-align: top;
-        }
-
-        /* --- CORPS --- */
-        .container {
-            padding: 20px 50px;
-            margin-top: 20px;
-            /* Espace après le header vert */
-        }
-
-        /* GRID CLIENT */
-        .meta-table {
-            width: 100%;
-            margin-bottom: 40px;
-            border-spacing: 0;
-        }
-
-        .meta-table td {
-            vertical-align: top;
-            padding: 0;
-        }
-
-        .section-title {
-            font-size: 8pt;
             font-weight: bold;
             text-transform: uppercase;
-            color: #64748b;
+            line-height: 1.1;
+        }
+
+        .header-subtitle {
+            color: #FFC107;
+            font-size: 10.5pt;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+
+        .ref-box {
+            background-color: rgba(255, 255, 255, 0.12);
+            color: white;
+            padding: 8px 10px;
+            border-radius: 5px;
+            text-align: right;
+            font-size: 8pt;
+            line-height: 1.7;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        /* ── CORPS ── */
+        .body-content {
+            padding: 6mm 12mm 6mm 12mm;
+        }
+
+        h3 {
+            color: #2E7D32;
+            font-size: 9.5pt;
+            margin: 0 0 6px 0;
+            font-weight: bold;
+        }
+
+        .summary-box {
+            background: #f1f8e9;
+            border: 1px solid #c5e1a5;
+            border-radius: 6px;
+            padding: 8px 10px;
             margin-bottom: 8px;
+        }
+
+        .finance-box {
+            background: #fffde7;
+            border: 1px solid #ffe082;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .summary-table td {
+            padding: 3px 4px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 8.5pt;
+        }
+
+        .summary-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #558b2f;
+            width: 45%;
+        }
+
+        .value {
+            font-weight: bold;
+            color: #1a1a1a;
+            text-align: right;
+        }
+
+        .highlight-amount {
+            text-align: center;
+            margin: 6px 0 10px 0;
+        }
+
+        .highlight-amount .amount-label {
+            font-size: 7.5pt;
+            color: #888;
+            text-transform: uppercase;
             letter-spacing: 1px;
         }
 
-        .client-box {
-            background: #f8fafc;
-            border-left: 4px solid #fbbf24;
-            padding: 15px;
-            border-radius: 0 4px 4px 0;
+        .highlight-amount .amount-value {
+            color: #1B5E20;
+            font-size: 26pt;
+            font-weight: 900;
+            line-height: 1.1;
         }
 
-        .client-name {
-            font-size: 12pt;
+        .highlight-amount .amount-currency {
+            font-size: 13pt;
             font-weight: bold;
-            color: #0f172a;
-            margin-bottom: 4px;
         }
 
-        .client-email {
-            font-size: 9pt;
-            color: #475569;
-        }
-
-        .details-box table {
-            width: 100%;
-        }
-
-        .details-label {
-            color: #64748b;
-            font-size: 9pt;
-            padding-bottom: 5px;
-        }
-
-        .details-value {
-            font-weight: bold;
-            color: #0f172a;
-            font-size: 10pt;
-            text-align: right;
-            padding-bottom: 5px;
-        }
-
-        /* TABLEAU */
-        .items-table {
+        /* ── TABLEAU LIGNE DE FACTURATION ── */
+        .fin-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
+            margin: 10px 0;
+            font-size: 8.5pt;
         }
 
-        .items-table th {
+        .fin-table th {
+            background: #1B5E20;
+            color: white;
+            padding: 6px 10px;
             text-align: left;
-            padding: 12px 0;
-            border-bottom: 2px solid #e2e8f0;
             font-size: 8pt;
-            text-transform: uppercase;
-            color: #64748b;
-            font-weight: bold;
         }
 
-        .items-table td {
-            padding: 15px 0;
-            border-bottom: 1px solid #f1f5f9;
-            vertical-align: top;
+        .fin-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e0e0e0;
         }
 
-        .amount-col {
+        .fin-table .amount-col {
             text-align: right;
             font-weight: bold;
-            font-size: 11pt;
-            color: #0f172a;
         }
 
-        /* TOTAL */
-        .total-container {
+        .fin-table tr:last-child td {
+            border-bottom: 2px solid #1B5E20;
+        }
+
+        /* ── SOUS-TOTAL / TOTAL ── */
+        .totals-box {
+            width: 55%;
+            margin-left: 45%;
+            margin-top: 4px;
+        }
+
+        .totals-box table {
             width: 100%;
+            border-collapse: collapse;
         }
 
-        .total-card {
-            float: right;
-            width: 200px;
-            background-color: #064e3b;
-            color: #ffffff;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .total-label {
+        .totals-box td {
+            padding: 5px 8px;
             font-size: 9pt;
-            text-transform: uppercase;
-            opacity: 0.8;
-            margin-bottom: 5px;
         }
 
-        .total-amount {
-            font-size: 18pt;
-            font-weight: bold;
-            color: #fbbf24;
+        .totals-box .subtotal-row td {
+            color: #666;
+            border-bottom: 1px solid #e0e0e0;
         }
 
-        /* STAMP */
-        .stamp {
+        .totals-box .total-row td {
+            background: #1B5E20;
+            color: white;
+            font-weight: 900;
+            font-size: 12pt;
+            border-radius: 4px;
+        }
+
+        /* ── TAMPON PAYÉ ── */
+        .stamp-paid {
             position: absolute;
-            top: 38%;
-            right: 50px;
-            color: #10b981;
-            border: 3px solid #10b981;
-            padding: 10px 20px;
+            top: 75mm;
+            right: 18mm;
+            display: inline-block;
+            border: 3px solid #4CAF50;
+            color: #4CAF50;
+            border-radius: 6px;
+            padding: 8px 20px;
             font-size: 16pt;
             font-weight: 900;
             text-transform: uppercase;
-            transform: rotate(-15deg);
-            opacity: 0.3;
-            letter-spacing: 4px;
-            border-radius: 10px;
+            transform: rotate(-12deg);
+            opacity: 0.35;
+            letter-spacing: 3px;
         }
 
-        /* --- FOOTER FIXE --- */
-        .footer {
-            position: fixed;
-            bottom: -20mm;
-            left: 0;
-            right: 0;
-            height: 20mm;
+        /* ── CODE-BARRES ── */
+        .barcode-section {
             text-align: center;
-            border-top: 1px solid #e2e8f0;
+            margin-top: 18px;
+            padding-top: 12px;
+            border-top: 1px dashed #c5e1a5;
+        }
+
+        .barcode-section img {
+            height: 55px;
+        }
+
+        .barcode-number {
             font-size: 8pt;
-            color: #94a3b8;
-            padding-top: 10px;
-            background-color: #ffffff;
+            letter-spacing: 3px;
+            color: #444;
+            margin-top: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .barcode-hint {
+            font-size: 6.5pt;
+            color: #999;
+            margin-top: 2px;
+        }
+
+        /* ── FOOTER ── */
+        .footer {
+            text-align: center;
+            font-size: 6.5pt;
+            color: #888;
+            border-top: 1px solid #e0e0e0;
+            padding: 4px 0 6px 0;
+            margin-top: 14px;
+        }
+
+        .thanks-note {
+            text-align: center;
+            color: #558b2f;
+            font-weight: bold;
+            font-size: 9pt;
+            margin-top: 16px;
         }
     </style>
 </head>
 
 <body>
 
-    <div class="header-bg"></div>
-
-    <table class="header-content">
-        <tr>
-            <td width="60%" style="vertical-align: top;">
-                <div class="logo">Growz<span>app</span></div>
-                <div class="invoice-title-block" th:text="#{invoice.title}">INVOICE</div>
-            </td>
-
-            <td width="40%" class="company-details">
-                <strong>Growzapp International</strong><br />
-                Abidjan, Côte d'Ivoire<br />
-                contact@growzapp.com<br />
-                N° SIRET: 123 456 789
-            </td>
-        </tr>
-    </table>
-
-    <div class="container">
-
-        <div style="height: 10px;"></div>
-
-        <table class="meta-table">
+    <div class="header-band">
+        <table>
             <tr>
-                <td width="55%" style="padding-right: 40px;">
-                    <div class="section-title" th:text="#{invoice.billed_to}">PAYÉ À</div>
-                    <div class="client-box">
-                        <div class="client-name" th:text="${investisseur.prenom + ' ' + investisseur.nom}">Jean Dupont
-                        </div>
-                        <div class="client-email" th:text="${investisseur.email}">jean@email.com</div>
-                        <div class="client-email" th:if="${investisseur.localite != null}"
-                            th:text="${investisseur.localite.nom}">Abidjan</div>
-                    </div>
+                <td style="width:65%">
+                    <div class="header-title" th:text="#{invoice.title}">FACTURE<br />DE DIVIDENDE</div>
+                    <div class="header-subtitle" th:text="${investissement.projet.libelle}">Projet X</div>
                 </td>
-                <td width="45%">
-                    <div class="section-title">DÉTAILS</div>
-                    <div class="details-box">
-                        <table>
-                            <tr>
-                                <td class="details-label" th:text="#{invoice.ref}">N° FACTURE</td>
-                                <td class="details-value" th:text="${facture.numeroFacture}">FAC-001</td>
-                            </tr>
-                            <tr>
-                                <td class="details-label" th:text="#{invoice.date_payment}">DATE</td>
-                                <td class="details-value"
-                                    th:text="${#temporals.format(facture.datePaiement, 'dd MMM yyyy')}">12 Dec</td>
-                            </tr>
-                            <tr>
-                                <td class="details-label" th:text="#{invoice.project}">PROJET</td>
-                                <td class="details-value" style="color: #059669;"
-                                    th:text="${investissement.projet.libelle}">Solaire</td>
-                            </tr>
-                        </table>
+                <td style="width:35%; vertical-align:top; padding-top:4mm">
+                    <div class="ref-box">
+                        <strong th:text="#{invoice.ref} + ' :'">N° FACTURE :</strong>
+                        <span th:text="${facture.numeroFacture}">FAC-2026-000033</span><br />
+                        <strong th:text="#{invoice.date_emission} + ' :'">DATE D'ÉMISSION :</strong>
+                        <span th:text="${#temporals.format(facture.dateEmission,'dd/MM/yyyy')}">10/09/2026</span><br />
+                        <strong th:text="#{invoice.date_payment} + ' :'">DATE DE PAIEMENT :</strong>
+                        <span th:text="${#temporals.format(facture.datePaiement,'dd/MM/yyyy')}">15/09/2026</span>
                     </div>
                 </td>
             </tr>
         </table>
+    </div>
 
-        <div class="stamp">PAYÉ</div>
+    <div class="body-content">
 
-        <table class="items-table">
+        <div class="stamp-paid" th:text="#{invoice.paid_stamp}">PAYÉ</div>
+
+        <table style="width:100%; border-collapse:collapse">
+            <tr>
+                <td style="width:49%; padding-right:1%; vertical-align:top">
+
+                    <div class="summary-box">
+                        <h3 th:text="#{invoice.billed_to}">FACTURÉ À</h3>
+                        <table class="summary-table">
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.fullname}">Nom complet</td>
+                                <td class="value"
+                                    th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">
+                                    Losseni Diakité</td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.email}">Email</td>
+                                <td class="value" th:text="${investissement.investisseur.email}">email@ex.com</td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.account_id}">ID Compte</td>
+                                <td class="value" th:text="${'USR-' + investissement.investisseur.id}">USR-1</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="summary-box">
+                        <h3 th:text="#{invoice.project}">PROJET</h3>
+                        <table class="summary-table">
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.project_name}">Libellé</td>
+                                <td class="value" th:text="${investissement.projet.libelle}">Projet X</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Parts détenues</td>
+                                <td class="value" th:text="${investissement.nombrePartsPris}">10</td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{pdf.label.equity}">Équité acquise</td>
+                                <td class="value" th:text="${investissement.valeurPartsPrisEnPourcent + ' %'}">2.5 %
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                </td>
+                <td style="width:49%; padding-left:1%; vertical-align:top">
+
+                    <div class="finance-box" style="height:100%">
+                        <div class="highlight-amount">
+                            <div class="amount-label" th:text="#{invoice.total}">TOTAL PAYÉ</div>
+                            <div class="amount-value">
+                                <span
+                                    th:text="${#numbers.formatDecimal(facture.montantTTC,0,'DEFAULT',0,'DEFAULT')}">150
+                                    000</span>
+                                <span class="amount-currency"> FCFA</span>
+                            </div>
+                        </div>
+
+                        <table class="summary-table">
+                            <tr>
+                                <td class="label">Montant / part</td>
+                                <td class="value"
+                                    th:text="${#numbers.formatDecimal(dividende.montantParPart,0,'DEFAULT',0,'DEFAULT') + ' FCFA'}">
+                                    15 000 FCFA</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Motif</td>
+                                <td class="value" th:text="${dividende.motif}">Dividendes T4</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                </td>
+            </tr>
+        </table>
+
+        <!-- Ligne de facturation détaillée -->
+        <table class="fin-table">
             <thead>
                 <tr>
-                    <th width="70%" th:text="#{invoice.table.desc}">DESCRIPTION</th>
-                    <th width="30%" class="amount-col" th:text="#{invoice.table.amount}">MONTANT</th>
+                    <th th:text="#{invoice.table.desc}">DESCRIPTION</th>
+                    <th style="text-align:right" th:text="#{invoice.table.amount}">MONTANT</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td>
-                        <span style="font-weight: 600; font-size: 10pt;"
-                            th:text="#{invoice.desc.dividend}">Versement</span>
-                        <br />
-                        <span style="font-size: 9pt; color: #64748b;">
+                        <strong th:text="#{invoice.desc.dividend}">Versement de dividendes</strong><br />
+                        <span style="font-size:8pt; color:#666">
                             <span th:text="${investissement.nombrePartsPris}">10</span> parts ×
-                            <span th:text="${#numbers.formatDecimal(dividende.montantParPart, 1, 2, 'POINT')} + ' €'">15
-                                €</span>
+                            <span
+                                th:text="${#numbers.formatDecimal(dividende.montantParPart,0,'DEFAULT',0,'DEFAULT')} + ' FCFA'">15
+                                000 FCFA</span>
                         </span>
-                        <br />
-                        <span style="font-style: italic; color: #94a3b8; font-size: 8pt;"
-                            th:text="'Ref: ' + ${dividende.motif}">Ref: Q4</span>
                     </td>
-                    <td class="amount-col">
-                        <span th:text="${#numbers.formatDecimal(facture.montantHT, 1, 2, 'POINT')} + ' €'">150 €</span>
-                    </td>
+                    <td class="amount-col"
+                        th:text="${#numbers.formatDecimal(facture.montantHT,0,'DEFAULT',0,'DEFAULT')} + ' FCFA'">
+                        150 000 FCFA</td>
                 </tr>
             </tbody>
         </table>
 
-        <div class="total-container">
-            <div class="total-card">
-                <div class="total-label" th:text="#{invoice.total}">TOTAL PAYÉ</div>
-                <div class="total-amount" th:text="${#numbers.formatDecimal(facture.montantTTC, 1, 2, 'POINT')} + ' €'">
-                    150 €</div>
-            </div>
+        <div class="totals-box">
+            <table>
+                <tr class="subtotal-row">
+                    <td th:text="#{invoice.subtotal}">SOUS-TOTAL</td>
+                    <td style="text-align:right"
+                        th:text="${#numbers.formatDecimal(facture.montantHT,0,'DEFAULT',0,'DEFAULT')} + ' FCFA'">150 000
+                        FCFA</td>
+                </tr>
+                <tr class="total-row">
+                    <td th:text="#{invoice.total}">TOTAL PAYÉ</td>
+                    <td style="text-align:right"
+                        th:text="${#numbers.formatDecimal(facture.montantTTC,0,'DEFAULT',0,'DEFAULT')} + ' FCFA'">150
+                        000
+                        FCFA</td>
+                </tr>
+            </table>
         </div>
 
-        <div style="clear: both;"></div>
+        <div class="thanks-note" th:text="#{invoice.footer.thanks}">Merci de votre confiance !</div>
 
-        <div style="margin-top: 60px; font-size: 8pt; color: #64748b; line-height: 1.5;">
-            <p><strong>Note :</strong> <span th:text="#{invoice.footer.notice}">Document généré électroniquement.</span>
-            </p>
-            <p>Aucun taux de TVA n'est applicable (Art. 261-C du CGI).</p>
+        <!-- ── CODE-BARRES (unique, encode le numéro de facture) ── -->
+        <div class="barcode-section">
+            <img th:if="${barcodeBase64 != null}" th:src="@{'data:image/png;base64,' + ${barcodeBase64}}"
+                alt="Code-barres facture" />
+            <div class="barcode-number" th:text="${facture.numeroFacture}">FAC-2026-000033</div>
+            <div class="barcode-hint">Scannable pour retrouver cette facture dans nos systèmes</div>
         </div>
 
     </div>
 
     <div class="footer">
-        GrowzApp SAS • Capital de 10.000.000 FCFA • Abidjan, Cocody • www.growzapp.com
+        GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire — RC: CI-ABJ-2025-B-12345 — contact@growzapp.ci<br />
+        <span th:text="#{invoice.footer.notice}">Ce document est une preuve comptable générée électroniquement par la
+            plateforme GrowzApp.</span>
     </div>
 
 </body>
