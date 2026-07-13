@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import growzapp.backend.module.dividende.dto.DividendeHistoriqueAdminDTO;
@@ -30,6 +32,8 @@ import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection;
+import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.wallet.dto.RetraitProjetRequest;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
@@ -71,6 +75,7 @@ public class ProjetWalletController {
     private final NotificationService notificationService;
     private final EmailService emailService;
     private final WalletService walletService;
+    private final ProjetTraductionRepository traductionRepository;
 
     @GetMapping("/solde-total")
     @Operation(
@@ -508,9 +513,10 @@ public class ProjetWalletController {
         @ApiResponse(responseCode = "404", description = "Projet ou wallet introuvable",
             content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
-    public ResponseEntity<Map<String, Object>> getFullFinanceReport(
+  public ResponseEntity<Map<String, Object>> getFullFinanceReport(
             @Parameter(description = "Identifiant du projet", example = "7", required = true)
-            @PathVariable Long projetId) {
+            @PathVariable Long projetId,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         Projet projet = projetRepository.findById(projetId)
                 .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
 
@@ -520,6 +526,16 @@ public class ProjetWalletController {
         Map<String, Object> report = new HashMap<>();
 
         report.put("projetLibelle", projet.getLibelle());
+
+        if (langue != null && !langue.isBlank() && !langue.equals("fr")) {
+            Optional<ProjetTraductionProjection> traduction = traductionRepository
+                    .findProjectionByProjetIdAndLangue(projetId, langue);
+            traduction.ifPresent(t -> {
+                if (t.getLibelle() != null && !t.getLibelle().isBlank())
+                    report.put("projetLibelleTradu", t.getLibelle());
+            });
+        }
+
         report.put("montantCollectePublic",
                 projet.getMontantCollecte() != null ? projet.getMontantCollecte() : BigDecimal.ZERO);
         report.put("tresorerieReelle",
@@ -541,4 +557,6 @@ public class ProjetWalletController {
 
         return ResponseEntity.ok(report);
     }
+
+    
 }
