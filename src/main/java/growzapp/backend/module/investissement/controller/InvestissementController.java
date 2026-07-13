@@ -7,6 +7,8 @@ import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.investissement.service.InvestissementService;
 import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection;
+import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +28,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -39,6 +43,7 @@ public class InvestissementController {
     private final InvestissementService investissementService;
     private final UserRepository userRepository;
     private final InvestissementMapper investissementMapper;
+    private final ProjetTraductionRepository traductionRepository;
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
@@ -88,11 +93,12 @@ public class InvestissementController {
             @ApiResponse(responseCode = "200", description = "Liste des investissements de l'utilisateur", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
             @ApiResponse(responseCode = "401", description = "Token JWT manquant ou invalide", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
-    public ApiResponseDTO<List<InvestissementDTO>> getMyInvestments(Authentication authentication) {
+    public ApiResponseDTO<List<InvestissementDTO>> getMyInvestments(Authentication authentication,
+           @RequestParam(required = false, defaultValue = "fr") String langue) {
         User user = userRepository.findByLoginForAuth(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
         List<InvestissementDTO> mesInvestissements = investissementService.getByInvestisseurId(user.getId());
-        return ApiResponseDTO.success(mesInvestissements);
+        return ApiResponseDTO.success(applyTraductionsInvestissements(mesInvestissements, langue));
     }
 
     @GetMapping
@@ -174,5 +180,32 @@ public class InvestissementController {
             @Parameter(description = "Identifiant de l'investissement à supprimer", example = "15", required = true) @PathVariable Long id) {
         investissementRepository.deleteById(id);
         return ApiResponseDTO.success("Investissement supprimé");
+    }
+
+    // ── Helper : appliquer traduction sur un InvestissementDTO ──────────────
+    private InvestissementDTO applyTraductionInvestissement(InvestissementDTO dto, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr") || dto.projetId() == null)
+            return dto;
+
+        Optional<ProjetTraductionProjection> traduction = traductionRepository
+                .findProjectionByProjetIdAndLangue(dto.projetId(), langue);
+
+        if (traduction.isPresent() && traduction.get().getLibelle() != null
+                && !traduction.get().getLibelle().isBlank()) {
+            return dto.toBuilder()
+                    .projetLibelleTradu(traduction.get().getLibelle())
+                    .build();
+        }
+
+        return dto;
+    }
+
+    // ── Helper : appliquer traduction sur une liste ──────────────────────────
+    private List<InvestissementDTO> applyTraductionsInvestissements(List<InvestissementDTO> dtos, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr"))
+            return dtos;
+        return dtos.stream()
+                .map(dto -> applyTraductionInvestissement(dto, langue))
+                .collect(Collectors.toList());
     }
 }
