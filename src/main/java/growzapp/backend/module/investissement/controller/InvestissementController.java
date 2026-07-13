@@ -2,6 +2,8 @@ package growzapp.backend.module.investissement.controller;
 
 import growzapp.backend.module.investissement.dto.InvestissementCreateDTO;
 import growzapp.backend.module.investissement.dto.InvestissementDTO;
+import growzapp.backend.module.investissement.dto.PortefeuilleDTO;
+import growzapp.backend.module.investissement.dto.PortefeuilleLigneDTO;
 import growzapp.backend.module.investissement.mapper.InvestissementMapper;
 import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
@@ -88,17 +90,63 @@ public class InvestissementController {
     @PreAuthorize("isAuthenticated()")
     @SecurityRequirement(name = "BearerAuth")
     @Operation(summary = "Mes investissements", description = "Retourne la liste de tous les investissements de l'utilisateur connecté, avec le détail des dividendes et du ROI.", tags = {
-            "Investissements" })
+                    "Investissements" })
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Liste des investissements de l'utilisateur", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-            @ApiResponse(responseCode = "401", description = "Token JWT manquant ou invalide", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
+                    @ApiResponse(responseCode = "200", description = "Liste des investissements de l'utilisateur", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+                    @ApiResponse(responseCode = "401", description = "Token JWT manquant ou invalide", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ApiResponseDTO<List<InvestissementDTO>> getMyInvestments(Authentication authentication,
-           @RequestParam(required = false, defaultValue = "fr") String langue) {
-        User user = userRepository.findByLoginForAuth(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-        List<InvestissementDTO> mesInvestissements = investissementService.getByInvestisseurId(user.getId());
-        return ApiResponseDTO.success(applyTraductionsInvestissements(mesInvestissements, langue));
+                    @RequestParam(required = false, defaultValue = "fr") String langue) {
+            User user = userRepository.findByLoginForAuth(authentication.getName())
+                            .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+            List<InvestissementDTO> mesInvestissements = investissementService.getByInvestisseurId(user.getId());
+            return ApiResponseDTO.success(applyTraductionsInvestissements(mesInvestissements, langue));
+    }
+
+    @GetMapping("/mon-portefeuille")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "Mon portefeuille", description = "Retourne le portefeuille complet de l'investisseur connecté : positions, valorisation actuelle, performance et historique par projet.", tags = {
+                    "Investissements" })
+    @ApiResponses(value = {
+                    @ApiResponse(responseCode = "200", description = "Portefeuille de l'investisseur", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+                    @ApiResponse(responseCode = "401", description = "Token JWT manquant ou invalide", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
+    })
+    public ApiResponseDTO<PortefeuilleDTO> getMonPortefeuille(
+                    Authentication authentication,
+                    @RequestParam(required = false, defaultValue = "fr") String langue) {
+            User user = userRepository.findByLoginForAuth(authentication.getName())
+                            .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+            PortefeuilleDTO portefeuille = investissementService
+                            .getPortefeuille(user.getId());
+
+            List<PortefeuilleLigneDTO> lignesTraduites = portefeuille
+                            .lignes()
+                            .stream()
+                            .map(ligne -> {
+                                    if (langue == null || langue.isBlank() || langue.equals("fr"))
+                                            return ligne;
+                                    Optional<ProjetTraductionProjection> traduction = traductionRepository
+                                                    .findProjectionByProjetIdAndLangue(ligne.projetId(), langue);
+                                    if (traduction.isPresent() && traduction.get().getLibelle() != null
+                                                    && !traduction.get().getLibelle().isBlank()) {
+                                            return ligne.toBuilder()
+                                                            .projetLibelleTradu(traduction.get().getLibelle())
+                                                            .build();
+                                    }
+                                    return ligne;
+                            })
+                            .collect(Collectors.toList());
+
+            PortefeuilleDTO resultat = new PortefeuilleDTO(
+                            portefeuille.totalInvesti(),
+                            portefeuille.valeurActuelleTotale(),
+                            portefeuille.totalDividendesPercus(),
+                            portefeuille.performanceGlobalePourcent(),
+                            portefeuille.nombrePositions(),
+                            lignesTraduites);
+
+            return ApiResponseDTO.success(resultat);
     }
 
     @GetMapping
