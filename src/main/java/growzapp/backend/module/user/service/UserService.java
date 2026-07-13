@@ -88,11 +88,13 @@ public class UserService {
             current.setContact(dto.getContact());
         if (dto.getSexe() != null)
             current.setSexe(dto.getSexe());
-
+          if (dto.getInterfaceLanguage() != null && !dto.getInterfaceLanguage().isBlank())
+           current.setInterfaceLanguage(dto.getInterfaceLanguage());
+       if (dto.getDevisePreferee() != null && !dto.getDevisePreferee().isBlank())
+           current.setDevisePreferee(dto.getDevisePreferee());
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             current.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
-
         if (imageFile != null && !imageFile.isEmpty()) {
             if (current.getImage() != null && !current.getImage().startsWith("http")) {
                 Files.deleteIfExists(Paths.get(AVATAR_DIR + current.getImage()));
