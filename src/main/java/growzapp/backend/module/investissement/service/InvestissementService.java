@@ -2,6 +2,8 @@ package growzapp.backend.module.investissement.service;
 
 import growzapp.backend.module.investissement.dto.InvestissementCreateDTO;
 import growzapp.backend.module.investissement.dto.InvestissementDTO;
+import growzapp.backend.module.investissement.dto.PortefeuilleDTO;
+import growzapp.backend.module.investissement.dto.PortefeuilleLigneDTO;
 import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.investissement.mapper.InvestissementMapper;
 import growzapp.backend.module.investissement.model.Investissement;
@@ -9,8 +11,13 @@ import growzapp.backend.module.investissement.repository.InvestissementRepositor
 import growzapp.backend.module.kyc.enums.KycStatus;
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.email.EmailService;
+import growzapp.backend.module.projet.dto.ValorisationSnapshotDTO;
+import growzapp.backend.module.projet.enums.TypeEvenementValorisation;
 import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.projet.model.ProjetValorisation;
 import growzapp.backend.module.projet.repository.ProjetRepository;
+import growzapp.backend.module.projet.repository.ProjetValorisationRepository;
+import growzapp.backend.module.projet.service.ProjetValorisationService;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
@@ -48,6 +55,100 @@ public class InvestissementService {
         private final TransactionRepository transactionRepository;
         private final NotificationService notificationService;
         private final EmailService emailService;
+        private final ProjetValorisationService projetValorisationService;
+        private final ProjetValorisationRepository projetValorisationRepository;
+
+
+        public PortefeuilleDTO getPortefeuille(Long investisseurId) {
+                List<Investissement> positions = investissementRepository.findByInvestisseurId(investisseurId).stream()
+                                .filter(inv -> inv.getStatutPartInvestissement() == StatutPartInvestissement.VALIDE)
+                                .toList();
+
+                BigDecimal totalInvesti = BigDecimal.ZERO;
+                BigDecimal valeurActuelleTotale = BigDecimal.ZERO;
+                BigDecimal totalDividendesPercus = BigDecimal.ZERO;
+
+                List<PortefeuilleLigneDTO> lignes = new java.util.ArrayList<>();
+
+                for (Investissement inv : positions) {
+                        Projet projet = inv.getProjet();
+                        InvestissementDTO invDto = investissementMapper.toDto(inv);
+
+                        BigDecimal valorisationActuelle = projet.getValuation() != null ? projet.getValuation()
+                                        : BigDecimal.ZERO;
+                        double pourcentageDetenu = inv.getValeurPartsPrisEnPourcent();
+
+                        BigDecimal valeurPosition = valorisationActuelle
+                                        .multiply(BigDecimal.valueOf(pourcentageDetenu))
+                                        .divide(BigDecimal.valueOf(100), java.math.MathContext.DECIMAL128);
+
+                        BigDecimal montantInvesti = inv.getMontantInvesti() != null ? inv.getMontantInvesti()
+                                        : BigDecimal.ZERO;
+
+                        double performance = montantInvesti.compareTo(BigDecimal.ZERO) > 0
+                                        ? valeurPosition.subtract(montantInvesti)
+                                                        .divide(montantInvesti, java.math.MathContext.DECIMAL128)
+                                                        .multiply(BigDecimal.valueOf(100))
+                                                        .doubleValue()
+                                        : 0.0;
+
+                        List<ProjetValorisation> historique = projetValorisationRepository
+                                        .findByProjetIdOrderByDateSnapshotAsc(projet.getId());
+
+                        List<ValorisationSnapshotDTO> historiqueDto = historique
+                                        .stream()
+                                        .map(v -> new growzapp.backend.module.projet.dto.ValorisationSnapshotDTO(
+                                                        v.getDateSnapshot(),
+                                                        v.getMontantValorisation(),
+                                                        v.getMontantCollecte(),
+                                                        v.getTypeEvenement(),
+                                                        v.getMontantEvenement()))
+                                        .toList();
+
+                        PortefeuilleLigneDTO ligne = PortefeuilleLigneDTO
+                                        .builder()
+                                        .investissementId(inv.getId())
+                                        .projetId(projet.getId())
+                                        .projetLibelle(projet.getLibelle())
+                                        .projetPoster(projet.getPoster())
+                                        .statutProjet(projet.getStatutProjet() != null
+                                                        ? projet.getStatutProjet().name()
+                                                        : null)
+                                        .dateInvestissement(inv.getDate())
+                                        .nombrePartsPris(inv.getNombrePartsPris())
+                                        .pourcentageDetenu(pourcentageDetenu)
+                                        .montantInvesti(montantInvesti)
+                                        .valorisationActuelle(valorisationActuelle)
+                                        .valeurPositionActuelle(valeurPosition)
+                                        .performancePourcent(performance)
+                                        .dividendesPercus(invDto.montantTotalPercu())
+                                        .historiqueValorisation(historiqueDto)
+                                        .build();
+
+                        lignes.add(ligne);
+
+                        totalInvesti = totalInvesti.add(montantInvesti);
+                        valeurActuelleTotale = valeurActuelleTotale.add(valeurPosition);
+                        totalDividendesPercus = totalDividendesPercus.add(
+                                        invDto.montantTotalPercu() != null ? invDto.montantTotalPercu()
+                                                        : BigDecimal.ZERO);
+                }
+
+                double performanceGlobale = totalInvesti.compareTo(BigDecimal.ZERO) > 0
+                                ? valeurActuelleTotale.subtract(totalInvesti)
+                                                .divide(totalInvesti, java.math.MathContext.DECIMAL128)
+                                                .multiply(BigDecimal.valueOf(100))
+                                                .doubleValue()
+                                : 0.0;
+
+                return new growzapp.backend.module.investissement.dto.PortefeuilleDTO(
+                                totalInvesti,
+                                valeurActuelleTotale,
+                                totalDividendesPercus,
+                                performanceGlobale,
+                                lignes.size(),
+                                lignes);
+        }
 
         public List<InvestissementDTO> getAll() {
                 return investissementRepository.findAll().stream()
@@ -262,6 +363,11 @@ public class InvestissementService {
                 projet.setPartsPrises(projet.getPartsPrises() + inv.getNombrePartsPris());
                 projet.setMontantCollecte(projet.getMontantCollecte().add(montant));
                 projetRepository.save(projet);
+
+                projetValorisationService.enregistrerSnapshot(
+                                projet,
+                                TypeEvenementValorisation.INVESTISSEMENT,
+                                montant);
 
                 inv.setStatutPartInvestissement(StatutPartInvestissement.VALIDE);
                 walletRepository.save(walletUser);
