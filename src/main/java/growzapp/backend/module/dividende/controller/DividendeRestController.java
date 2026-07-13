@@ -96,20 +96,9 @@ public class DividendeRestController {
             @Parameter(description = "Identifiant du dividende à modifier", example = "33", required = true)
             @PathVariable Long id,
             @RequestBody DividendeDTO dto) {
-        DividendeDTO updated = new DividendeDTO(
-                id,
-                dto.montantParPart(),
-                dto.statutDividende(),
-                dto.moyenPaiement(),
-                dto.datePaiement(),
-                dto.investissementId(),
-                dto.investissementInfo(),
-                dto.montantTotal(),
-                dto.fileName(),
-                dto.factureUrl(),
-                dto.facture(),
-                dto.motif()
-        );
+   DividendeDTO updated = dto.toBuilder()
+               .id(id)
+               .build();
         return ApiResponseDTO.success(dividendeService.save(updated));
     }
 
