@@ -31,12 +31,11 @@ public class NotificationController {
     private UserService userService;
 
     @GetMapping
-    @Operation(summary = "Mes notifications", description = "Retourne toutes les notifications de l'utilisateur connecté, triées du plus récent au plus ancien.", tags = {"Notifications"})
+    @Operation(summary = "Mes notifications", description = "Retourne toutes les notifications de l'utilisateur connecté, triées du plus récent au plus ancien.", tags = {
+            "Notifications" })
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Liste des notifications",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "401", description = "Non authentifié",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
+            @ApiResponse(responseCode = "200", description = "Liste des notifications", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Non authentifié", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ApiResponseDTO<List<Notification>> getMyNotifications() {
         User currentUser = userService.getCurrentUser();
@@ -45,12 +44,10 @@ public class NotificationController {
     }
 
     @GetMapping("/unread-count")
-    @Operation(summary = "Nombre de notifications non lues", tags = {"Notifications"})
+    @Operation(summary = "Nombre de notifications non lues", tags = { "Notifications" })
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Compteur de notifications non lues",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "401", description = "Non authentifié",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
+            @ApiResponse(responseCode = "200", description = "Compteur de notifications non lues", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Non authentifié", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ApiResponseDTO<Long> getUnreadCount() {
         User currentUser = userService.getCurrentUser();
@@ -58,19 +55,27 @@ public class NotificationController {
     }
 
     @PatchMapping("/{id}/read")
-    @Operation(summary = "Marquer une notification comme lue", tags = {"Notifications"})
+    @Operation(summary = "Marquer une notification comme lue", tags = { "Notifications" })
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Notification marquée comme lue",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "401", description = "Non authentifié",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "404", description = "Notification introuvable",
-            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
+            @ApiResponse(responseCode = "200", description = "Notification marquée comme lue", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Non authentifié", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Notification introuvable", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ApiResponseDTO<Void> markAsRead(
-            @Parameter(description = "Identifiant de la notification", example = "42", required = true)
-            @PathVariable Long id) {
+            @Parameter(description = "Identifiant de la notification", example = "42", required = true) @PathVariable Long id) {
         notificationService.markAsRead(id);
         return ApiResponseDTO.<Void>success(null).message("Notification marquée comme lue");
+    }
+
+    @PatchMapping("/read-all")
+    @Operation(summary = "Marquer toutes les notifications comme lues", tags = { "Notifications" })
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Toutes les notifications marquées comme lues", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Non authentifié", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))) })
+
+    public ApiResponseDTO<Void> markAllAsRead() {
+        User currentUser = userService.getCurrentUser();
+        notificationService.markAllAsRead(currentUser);
+        return ApiResponseDTO.<Void>success(null).message("Toutes les notifications marquées comme lues");
     }
 }
