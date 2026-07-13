@@ -30,9 +30,12 @@ import growzapp.backend.module.paiement.paydunya.PayDunyaService;
 import growzapp.backend.module.paiement.stripe.StripeDepositService;
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.dto.ProjetDTO;
+import growzapp.backend.module.projet.dto.ValorisationSnapshotDTO;
 import growzapp.backend.module.projet.mapper.ProjetMapper;
 import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.projet.model.ProjetValorisation;
 import growzapp.backend.module.projet.repository.ProjetRepository;
+import growzapp.backend.module.projet.repository.ProjetValorisationRepository;
 import growzapp.backend.module.projet.service.ProjetService;
 import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.traduction.DeepL.model.ProjetTraduction;
@@ -79,6 +82,7 @@ public class ProjetRestController {
     private final Validator validator;
     private final ProjetTraductionRepository traductionRepository;
     private final DeepLTranslationService deepLTranslationService;
+    private final ProjetValorisationRepository projetValorisationRepository;
 
     // ── LISTE PUBLIQUE ────────────────────────────────────────────────────────
     @Operation(summary = "Lister les projets validés")
@@ -192,6 +196,26 @@ public class ProjetRestController {
             @RequestParam(required = false, defaultValue = "fr") String langue) {
         ProjetDTO dto = projetMapper.toDto(projetService.getBySlug(slug));
         return ApiResponseDTO.success(applyTraduction(dto, langue));
+    }
+
+    // ── HISTORIQUE DE VALORISATION ─────────────────────────────────────────────
+    @Operation(summary = "Historique de valorisation d'un projet")
+    @GetMapping("/{id}/historique-valorisation")
+    public ApiResponseDTO<List<ValorisationSnapshotDTO>> getHistoriqueValorisation(
+            @PathVariable Long id) {
+        List<ProjetValorisation> historique = projetValorisationRepository
+                .findByProjetIdOrderByDateSnapshotAsc(id);
+
+        List<ValorisationSnapshotDTO> dtos = historique.stream()
+                .map(v -> new ValorisationSnapshotDTO(
+                        v.getDateSnapshot(),
+                        v.getMontantValorisation(),
+                        v.getMontantCollecte(),
+                        v.getTypeEvenement(),
+                        v.getMontantEvenement()))
+                .collect(Collectors.toList());
+
+        return ApiResponseDTO.success(dtos);
     }
 
     // ── INVESTIR — WALLET INTERNE ─────────────────────────────────────────────
