@@ -28,6 +28,9 @@ import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.paiement.enums.MoyenPaiement;
+import growzapp.backend.module.projet.enums.TypeEvenementValorisation;
+import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.projet.service.ProjetValorisationService;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -48,6 +51,7 @@ public class DividendeService {
     private final FactureService factureService;
     private final EmailService emailService;
     private final DividendeMapper dividendeMapper;
+    private final ProjetValorisationService projetValorisationService;
 
     private static final Logger log = LoggerFactory.getLogger(DividendeService.class);
 
@@ -174,6 +178,9 @@ public class DividendeService {
 
         log.info("Distribution des dividendes terminée avec succès - projetId={}, montant distribué={}",
                 projetId, montantTotal);
+
+        Projet projet = investissements.get(0).getProjet();
+        projetValorisationService.enregistrerSnapshot(projet, TypeEvenementValorisation.DIVIDENDE, montantTotal);
     }
 
     @Transactional(readOnly = true)
