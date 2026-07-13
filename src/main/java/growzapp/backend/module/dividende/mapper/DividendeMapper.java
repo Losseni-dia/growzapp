@@ -35,6 +35,9 @@ public abstract class DividendeMapper {
         String investissementInfo = "Investissement inconnu";
         BigDecimal montantTotal = BigDecimal.ZERO;
         Long investissementId = null;
+        Long projetId = null;
+        String projetLibelle = null;
+        String investisseurNomValue = null;
         String factureUrl = null;
         String fileName = null;
         FactureDTO factureDto = null;
@@ -52,6 +55,9 @@ public abstract class DividendeMapper {
                     : "Investisseur inconnu";
 
             investissementInfo = projetNom + " - " + investisseurNom;
+            projetId = projet != null ? projet.getId() : null;
+            projetLibelle = projetNom;
+            investisseurNomValue = investisseurNom;
 
             if (dividende.getMontantParPart() != null) {
                 montantTotal = dividende.getMontantParPart()
@@ -86,6 +92,9 @@ public abstract class DividendeMapper {
                 datePaiementLocal,
                 investissementId,
                 investissementInfo,
+                projetId,
+                projetLibelle,
+                investisseurNomValue,
                 montantTotal,
                 fileName,
                 factureUrl,
@@ -104,6 +113,9 @@ public abstract class DividendeMapper {
     @Mapping(target = "datePaiement", source = "datePaiement")
     @Mapping(target = "investissementId", source = "investissementId")
     @Mapping(target = "investissementInfo", source = "investissementInfo")
+    @Mapping(target = "projetId", source = "projetId")
+    @Mapping(target = "projetLibelle", source = "projetLibelle")
+    @Mapping(target = "investisseurNom", source = "investisseurNomValue")
     @Mapping(target = "montantTotal", source = "montantTotal")
     @Mapping(target = "fileName", source = "fileName")
     @Mapping(target = "factureUrl", source = "factureUrl")
@@ -115,6 +127,9 @@ public abstract class DividendeMapper {
             LocalDate datePaiement,
             Long investissementId,
             String investissementInfo,
+            Long projetId,
+            String projetLibelle,
+            String investisseurNomValue,
             BigDecimal montantTotal,
             String fileName,
             String factureUrl,
