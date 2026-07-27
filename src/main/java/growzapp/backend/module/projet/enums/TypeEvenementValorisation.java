@@ -4,5 +4,6 @@ public enum TypeEvenementValorisation {
     CREATION,
     VALIDATION,
     INVESTISSEMENT,
-    DIVIDENDE
+    DIVIDENDE,
+    REEVALUATION
 }

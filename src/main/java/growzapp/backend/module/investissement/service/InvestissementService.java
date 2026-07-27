@@ -10,6 +10,9 @@ import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.kyc.enums.KycStatus;
 import growzapp.backend.module.notification.service.NotificationService;
+import growzapp.backend.module.dividende.dto.DividendeSnapshotDTO;
+import growzapp.backend.module.dividende.model.Dividende;
+import growzapp.backend.module.dividende.repository.DividendeRepository;
 import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.projet.dto.ValorisationSnapshotDTO;
 import growzapp.backend.module.projet.enums.TypeEvenementValorisation;
@@ -57,6 +60,8 @@ public class InvestissementService {
         private final EmailService emailService;
         private final ProjetValorisationService projetValorisationService;
         private final ProjetValorisationRepository projetValorisationRepository;
+        private final DividendeRepository dividendeRepository;
+
 
 
         public PortefeuilleDTO getPortefeuille(Long investisseurId) {
@@ -95,14 +100,39 @@ public class InvestissementService {
                         List<ProjetValorisation> historique = projetValorisationRepository
                                         .findByProjetIdOrderByDateSnapshotAsc(projet.getId());
 
-                        List<ValorisationSnapshotDTO> historiqueDto = historique
-                                        .stream()
-                                        .map(v -> new growzapp.backend.module.projet.dto.ValorisationSnapshotDTO(
+                      List<ValorisationSnapshotDTO> historiqueDto = historique.stream()
+                                        .map(v -> new ValorisationSnapshotDTO(
                                                         v.getDateSnapshot(),
                                                         v.getMontantValorisation(),
                                                         v.getMontantCollecte(),
                                                         v.getTypeEvenement(),
                                                         v.getMontantEvenement()))
+                                        .toList();
+
+                      List<Dividende> dividendes = dividendeRepository
+                                      .findByInvestissementId(inv.getId())
+                                      .stream()
+                                      .sorted(java.util.Comparator.comparing(
+                                                      Dividende::getDatePaiement,
+                                                      java.util.Comparator
+                                                                      .nullsLast(java.util.Comparator.naturalOrder())))
+                                      .toList();
+
+                        List<DividendeSnapshotDTO> dividendesDetail = dividendes.stream()
+                                        .map(d -> new DividendeSnapshotDTO(
+                                                        d.getId(),
+                                                        d.getDatePaiement() != null
+                                                                        ? d.getDatePaiement().toLocalDate()
+                                                                        : null,
+                                                        d.getMontantParPart() != null
+                                                                        ? d.getMontantParPart().multiply(
+                                                                                        java.math.BigDecimal.valueOf(
+                                                                                                        inv.getNombrePartsPris()))
+                                                                        : java.math.BigDecimal.ZERO,
+                                                        d.getStatutDividende() != null
+                                                                        ? d.getStatutDividende().name()
+                                                                        : null,
+                                                        d.getMotif()))
                                         .toList();
 
                         PortefeuilleLigneDTO ligne = PortefeuilleLigneDTO
@@ -123,6 +153,7 @@ public class InvestissementService {
                                         .performancePourcent(performance)
                                         .dividendesPercus(invDto.montantTotalPercu())
                                         .historiqueValorisation(historiqueDto)
+                                        .dividendesDetail(dividendesDetail)
                                         .build();
 
                         lignes.add(ligne);

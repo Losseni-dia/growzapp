@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.dto.ProjetDTO;
+import growzapp.backend.module.projet.dto.RevalorisationRequestDTO;
 import growzapp.backend.module.projet.enums.StatutProjet;
 import growzapp.backend.module.projet.mapper.ProjetMapper;
 import growzapp.backend.module.projet.model.Projet;
@@ -244,6 +245,16 @@ public class AdminProjetController {
         });
 
         return dto;
+    }
+
+    @Operation(summary = "Revaloriser un projet", description = "Permet à un administrateur de mettre à jour manuellement la valorisation d'un projet et d'en garder un historique traçable.")
+    @PatchMapping("/{id}/revaloriser")
+    public ApiResponseDTO<ProjetDTO> revaloriser(
+            @PathVariable Long id,
+            @RequestBody RevalorisationRequestDTO request) {
+        Projet projet = projetService.revaloriser(id, request.nouvelleValorisation(), request.motif());
+        ProjetDTO dto = projetMapper.toDto(projet);
+        return ApiResponseDTO.success(dto).message("Projet revalorisé avec succès");
     }
 
     // ── Helper : appliquer traduction sur une liste ──────────────────────────

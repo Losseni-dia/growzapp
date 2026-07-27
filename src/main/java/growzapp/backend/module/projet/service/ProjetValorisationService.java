@@ -33,4 +33,6 @@ public class ProjetValorisationService {
             log.warn("Échec enregistrement snapshot valorisation pour projet {} : {}", projet.getId(), e.getMessage());
         }
     }
+
+    
 }
