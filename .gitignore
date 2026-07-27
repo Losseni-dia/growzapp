@@ -36,3 +36,6 @@ build/
 
 ### Documentation ###
 docs/
+data_dump.sql
+schema_dump_clean.sql
+*.tar.gz
