@@ -64,7 +64,6 @@ import jakarta.validation.Validator;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Authentication", description = "Inscription, connexion, récupération de profil et gestion du compte utilisateur")
 public class UserController {
 
