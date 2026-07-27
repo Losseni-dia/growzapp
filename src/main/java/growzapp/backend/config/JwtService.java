@@ -20,9 +20,9 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    // Change cette clé en prod ! (ou mets-la dans application.yml)
-    private static final String SECRET_KEY = "4a9f8e3b2c7d1f6a5b9e4d8c3f2a1b6e7d5c8f9a0e1d2c3b4a5f6e7d8c9b0a";
-
+    @org.springframework.beans.factory.annotation.Value("${jwt.secret-key}")
+    private String SECRET_KEY;
+    
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("roles", user.getRoles().stream()
