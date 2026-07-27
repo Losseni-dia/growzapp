@@ -37,7 +37,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/investissements")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Investissements", description = "Création, consultation et gestion des investissements — accessible aux utilisateurs connectés et aux administrateurs selon l'endpoint")
 public class InvestissementController {
 

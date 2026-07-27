@@ -42,7 +42,7 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                                 .authorizeHttpRequests(auth -> auth
-
+                                                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                                                 // PUBLIC
                                                 // --- WHITELIST SWAGGER ---
                                                 .requestMatchers(
