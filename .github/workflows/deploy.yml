@@ -25,6 +25,8 @@ jobs:
           host: ${{ secrets.GROWZAPP_HOST }}
           username: ${{ secrets.GROWZAPP_USER }}
           key: ${{ secrets.GROWZAPP_SSH_KEY }}
+          port: 22
+          timeout: 60s
           source: "growzapp-backend.tar.gz"
           target: "/home/ec2-user/"
 
@@ -34,6 +36,8 @@ jobs:
           host: ${{ secrets.GROWZAPP_HOST }}
           username: ${{ secrets.GROWZAPP_USER }}
           key: ${{ secrets.GROWZAPP_SSH_KEY }}
+          port: 22
+          command_timeout: 15m
           script: |
             docker load < /home/ec2-user/growzapp-backend.tar.gz
             docker stop growzapp-backend-staging || true
@@ -65,6 +69,8 @@ jobs:
           host: ${{ secrets.GROWZAPP_HOST }}
           username: ${{ secrets.GROWZAPP_USER }}
           key: ${{ secrets.GROWZAPP_SSH_KEY }}
+          port: 22
+          timeout: 60s
           source: "growzapp-backend.tar.gz"
           target: "/home/ec2-user/"
 
@@ -74,6 +80,8 @@ jobs:
           host: ${{ secrets.GROWZAPP_HOST }}
           username: ${{ secrets.GROWZAPP_USER }}
           key: ${{ secrets.GROWZAPP_SSH_KEY }}
+          port: 22
+          command_timeout: 15m
           script: |
             docker load < /home/ec2-user/growzapp-backend.tar.gz
             docker stop growzapp-backend-prod || true
