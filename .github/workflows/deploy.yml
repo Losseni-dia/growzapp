@@ -1,0 +1,88 @@
+name: Deploy GrowzApp Backend
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t growzapp-backend:latest .
+
+      - name: Save image
+        run: docker save growzapp-backend:latest | gzip > growzapp-backend.tar.gz
+
+      - name: Copy image to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.GROWZAPP_HOST }}
+          username: ${{ secrets.GROWZAPP_USER }}
+          key: ${{ secrets.GROWZAPP_SSH_KEY }}
+          source: "growzapp-backend.tar.gz"
+          target: "/home/ec2-user/"
+
+      - name: Load and restart staging
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GROWZAPP_HOST }}
+          username: ${{ secrets.GROWZAPP_USER }}
+          key: ${{ secrets.GROWZAPP_SSH_KEY }}
+          script: |
+            docker load < /home/ec2-user/growzapp-backend.tar.gz
+            docker stop growzapp-backend-staging || true
+            docker rm growzapp-backend-staging || true
+            docker run -d --name growzapp-backend-staging \
+              -p 8090:8080 \
+              --add-host=host.docker.internal:host-gateway \
+              --env-file /etc/growzapp/staging.env \
+              -v /home/ec2-user/uploads-staging:/app/uploads \
+              --restart unless-stopped \
+              growzapp-backend:latest
+            rm /home/ec2-user/growzapp-backend.tar.gz
+
+  deploy-prod:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t growzapp-backend:latest .
+
+      - name: Save image
+        run: docker save growzapp-backend:latest | gzip > growzapp-backend.tar.gz
+
+      - name: Copy image to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.GROWZAPP_HOST }}
+          username: ${{ secrets.GROWZAPP_USER }}
+          key: ${{ secrets.GROWZAPP_SSH_KEY }}
+          source: "growzapp-backend.tar.gz"
+          target: "/home/ec2-user/"
+
+      - name: Load and restart prod
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GROWZAPP_HOST }}
+          username: ${{ secrets.GROWZAPP_USER }}
+          key: ${{ secrets.GROWZAPP_SSH_KEY }}
+          script: |
+            docker load < /home/ec2-user/growzapp-backend.tar.gz
+            docker stop growzapp-backend-prod || true
+            docker rm growzapp-backend-prod || true
+            docker run -d --name growzapp-backend-prod \
+              -p 8091:8080 \
+              --add-host=host.docker.internal:host-gateway \
+              --env-file /etc/growzapp/prod.env \
+              -v /home/ec2-user/uploads-prod:/app/uploads \
+              --restart unless-stopped \
+              growzapp-backend:latest
+            rm /home/ec2-user/growzapp-backend.tar.gz
