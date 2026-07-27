@@ -1,5 +1,6 @@
 package growzapp.backend.module.investissement.dto;
 
+import growzapp.backend.module.dividende.dto.DividendeSnapshotDTO;
 import growzapp.backend.module.projet.dto.ValorisationSnapshotDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
@@ -39,5 +40,10 @@ public record PortefeuilleLigneDTO(
 
         @Schema(description = "Total des dividendes déjà perçus sur cette position", example = "37500") BigDecimal dividendesPercus,
 
-        @Schema(description = "Historique de valorisation du projet, pour tracer un graphique d'évolution") List<ValorisationSnapshotDTO> historiqueValorisation) {
+               @Schema(description = "Historique de valorisation du projet, pour tracer un graphique d'évolution")
+        List<ValorisationSnapshotDTO> historiqueValorisation,
+
+        @Schema(description = "Détail des versements de dividendes reçus sur cette position")
+        List<DividendeSnapshotDTO> dividendesDetail
+) {
 }

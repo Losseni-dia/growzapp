@@ -161,6 +161,7 @@ public class ProjetService {
             projetValorisationService.enregistrerSnapshot(saved, TypeEvenementValorisation.VALIDATION, null);
         }
 
+
         if (nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE) {
             notificationService.notifyAllUsersWithSlug(
                     "🚀 Nouveau projet disponible !",
@@ -202,6 +203,31 @@ public class ProjetService {
                 Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
                         Math.sin(dLon / 2) * Math.sin(dLon / 2);
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    @Transactional
+    public Projet revaloriser(Long projetId, java.math.BigDecimal nouvelleValorisation, String motif) {
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        java.math.BigDecimal ancienneValorisation = projet.getValuation() != null
+                ? projet.getValuation()
+                : java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal delta = nouvelleValorisation.subtract(ancienneValorisation);
+
+        projet.setValuation(nouvelleValorisation);
+        Projet saved = projetRepository.save(projet);
+
+        projetValorisationService.enregistrerSnapshot(
+                saved,
+                growzapp.backend.module.projet.enums.TypeEvenementValorisation.REEVALUATION,
+                delta);
+
+        log.info("Projet {} revalorisé : {} → {} (motif: {})", projetId, ancienneValorisation,
+                nouvelleValorisation, motif);
+
+        return saved;
     }
 
     // Dans ProjetService.java
