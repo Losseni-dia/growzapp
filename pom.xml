@@ -25,14 +25,25 @@
     </properties>
 
     <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.bouncycastle</groupId>
-                <artifactId>bcprov-jdk14</artifactId>
-                <version>1.84</version>
-            </dependency>
-        </dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk14</artifactId>
+            <version>1.84</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcmail-jdk14</artifactId>
+            <version>1.84</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk14</artifactId>
+            <version>1.84</version>
+        </dependency>
+    </dependencies>
     </dependencyManagement>
+
 
     <dependencies>
 
