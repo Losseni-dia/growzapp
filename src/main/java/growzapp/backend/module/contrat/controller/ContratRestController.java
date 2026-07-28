@@ -64,7 +64,7 @@ public class ContratRestController {
         String hashRecalcule = contratService.genererHash(
                 contrat.getNumeroContrat(),
                 inv.getMontantInvesti().toString(),
-                inv.getDate().toString(),
+                inv.getId().toString(),
                 inv.getInvestisseur().getId().toString(),
                 inv.getProjet().getId().toString());
 
