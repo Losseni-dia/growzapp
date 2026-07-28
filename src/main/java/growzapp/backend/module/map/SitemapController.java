@@ -17,7 +17,7 @@ public class SitemapController {
 
     @GetMapping(value = "/sitemap.xml", produces = MediaType.APPLICATION_XML_VALUE)
     public String getSitemap() {
-        String baseUrl = "https://growzapp.com/projet/"; // À changer par ton vrai domaine en prod
+        String baseUrl = "https://my-growzapp.com/projet/"; // À changer par ton vrai domaine en prod
 
         String projectsXml = projetRepository.findAll().stream()
                 .map(p -> String.format(
@@ -28,8 +28,8 @@ public class SitemapController {
 
         return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
                 "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">" +
-                "<url><loc>https://growzapp.com/</loc><priority>1.00</priority></url>" +
-                "<url><loc>https://growzapp.com/projets</loc><priority>0.90</priority></url>" +
+                "<url><loc>https://my-growzapp.com/</loc><priority>1.00</priority></url>" +
+                "<url><loc>https://my-growzapp.com/projets</loc><priority>0.90</priority></url>" +
                 projectsXml +
                 "</urlset>";
     }

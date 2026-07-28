@@ -84,7 +84,7 @@ public class PayDunyaService {
                                                 "description", "Dépôt sur GrowzApp"),
                                 "store", Map.of(
                                                 "name", "GrowzApp",
-                                                "website_url", "https://growzapp.com"),
+                                                "website_url", "https://my-growzapp.com"),
                                 "actions", Map.of(
                                                 "cancel_url", frontendUrl + "/wallet?mm_deposit=cancel",
                                                 "return_url", frontendUrl + "/wallet?mm_deposit=success"),
@@ -121,7 +121,7 @@ public class PayDunyaService {
                                                                 + " (" + nombreParts + " part(s))"),
                                 "store", Map.of(
                                                 "name", "GrowzApp",
-                                                "website_url", "https://growzapp.com"),
+                                                "website_url", "https://my-growzapp.com"),
                                 "actions", Map.of(
                                                 "cancel_url", frontendUrl + "/projet/" + projetSlug + "?mm=cancel",
                                                 "return_url", frontendUrl + "/projet/" + projetSlug + "?mm=success"),
