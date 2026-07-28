@@ -45,6 +45,9 @@ public class ContratService {
     @Value("${contrat.secret-key:growzapp-secret-2026}")
     private String secretKey;
 
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
 
     public Optional<Contrat> findByToken(String token) {
         return contratRepository.findByTokenVerification(token);
@@ -159,7 +162,7 @@ public class ContratService {
                 investissement.getProjet().getId().toString());
 
         // ── Lien avec token UUID ──────────────────────────────────────────────
-        String lienVerification = "https://my-growzapp.com/verifier-contrat?token=" + token;
+        String lienVerification = frontendUrl + "/verifier-contrat?token=" + token;
 
         Contrat contrat = Contrat.builder()
                 .investissement(investissement)
