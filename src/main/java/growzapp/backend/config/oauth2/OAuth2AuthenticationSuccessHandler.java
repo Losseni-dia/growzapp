@@ -20,7 +20,11 @@ import java.util.Map;
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
         private final JwtService jwtService;
-        private final UserRepository userRepository; // Injecté pour recharger le profil complet
+        private final UserRepository userRepository;
+
+        @org.springframework.beans.factory.annotation.Value("${app.frontend-url}")
+        private String frontendUrl;
+
 
         @Override
         public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -64,7 +68,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                 // 5. Construction de l'URL de redirection vers ton Frontend
                 // (React/Next/Flutter)
                 // On passe le token en paramètre d'URL
-                String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:3000/oauth2/redirect")
+                String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/oauth2/redirect")
                                 .queryParam("token", token)
                                 .build().toUriString();
 
