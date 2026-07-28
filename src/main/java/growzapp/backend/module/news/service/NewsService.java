@@ -80,7 +80,7 @@ public class NewsService {
         rss.append("<rss version=\"2.0\">");
         rss.append("<channel>");
         rss.append("<title>Growzapp News</title>");
-        rss.append("<link>https://growzapp.com</link>");
+        rss.append("<link>https://my-growzapp.com</link>");
         rss.append("<description>Actualités et opportunités d'investissement Growzapp</description>");
 
         for (News news : allNews) {
