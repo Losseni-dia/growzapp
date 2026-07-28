@@ -17,11 +17,14 @@
     <name>Growzapp Backend</name>
     <description>Projet d'investissement panafricain - MVP 2026</description>
 
-    <properties>
+   <properties>
         <java.version>17</java.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <lombok.version>1.18.30</lombok.version>
         <tomcat.version>10.1.55</tomcat.version>
+        <jackson-bom.version>2.21.4</jackson-bom.version>
+        <netty.version>4.1.136.Final</netty.version>
+        <postgresql.version>42.7.12</postgresql.version>
     </properties>
 
     <dependencyManagement>
