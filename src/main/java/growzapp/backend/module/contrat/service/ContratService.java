@@ -154,7 +154,7 @@ public class ContratService {
         String hashSha256 = genererHash(
                 numeroContrat,
                 investissement.getMontantInvesti().toString(),
-                investissement.getDate().toString(),
+                investissement.getId().toString(),
                 investissement.getInvestisseur().getId().toString(),
                 investissement.getProjet().getId().toString());
 
