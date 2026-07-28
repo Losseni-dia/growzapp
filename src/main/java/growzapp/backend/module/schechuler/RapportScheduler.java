@@ -23,7 +23,7 @@ public class RapportScheduler {
             byte[] pdf = rapportService.genererRapportMensuel(moisPrecedent);
 
             // Envoie à l’équipe (ou admin)
-            emailService.envoyerRapportMensuel("admin@growzapp.com", moisPrecedent, pdf);
+            emailService.envoyerRapportMensuel("admin@my-growzapp.com", moisPrecedent, pdf);
         } catch (Exception e) {
             e.printStackTrace();
         }
