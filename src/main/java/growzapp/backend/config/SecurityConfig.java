@@ -84,6 +84,7 @@ public class SecurityConfig {
                                                 .hasAnyRole("ADMIN", "COMMUNICANT")
                                                 .requestMatchers("/api/webhook/stripe").permitAll()
                                                 .requestMatchers("/api/webhook/paydunya").permitAll()
+                                                .requestMatchers("/api/webhook/fedapay").permitAll()
                                                 .requestMatchers("/api/kyc/webhook/voveid").permitAll()
                                                 .requestMatchers("/api/contrats/verifier-token").permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/kyc/start-voveid")
