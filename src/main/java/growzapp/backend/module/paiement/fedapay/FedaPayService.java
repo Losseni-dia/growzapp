@@ -42,10 +42,15 @@ public class FedaPayService implements PaymentProviderService {
 
     private void applyApiConfig() {
         try {
+            // Le SDK FedaPay compare les chaînes avec != (bug connu du SDK,
+            // comparaison de référence au lieu de .equals()) — .intern() force
+            // la version canonique de la chaîne pour que la comparaison par
+            // référence passe correctement.
+            FedaPay.setEnvironement(mode.intern());
             FedaPay.setApiKey(secretKey.trim());
-            FedaPay.setEnvironement(mode);
         } catch (Exception e) {
-            log.warn("Tentative de config alternative pour l'environnement FedaPay...");
+            log.error("Échec de configuration FedaPay : {}", e.getMessage());
+            throw new RuntimeException("Configuration FedaPay invalide : " + e.getMessage(), e);
         }
     }
 
