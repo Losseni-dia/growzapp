@@ -243,7 +243,7 @@ public class StripeWebhookController {
         } catch (Exception ex) {
             log.error("Erreur parsing JSON webhook charge.dispute.closed : {}", ex.getMessage(), ex);
         }
-    }
+    }   
 
     @Transactional
     public void handleInvestissementPayeRaw(String sessionId, Long userId, BigDecimal montantEUR, String projetIdStr,
