@@ -1,8 +1,8 @@
 package growzapp.backend.module.paiement.paydunya;
 
-import java.math.BigDecimal;
-import java.util.Map;
-
+import growzapp.backend.module.paiement.common.PaymentProviderService;
+import growzapp.backend.module.wallet.enums.TypeTransaction;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -12,14 +12,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import growzapp.backend.module.wallet.enums.TypeTransaction;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.math.BigDecimal;
+import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
-public class PayDunyaService {
+public class PayDunyaService implements PaymentProviderService {
 
         @Value("${paydunya.app-master-key}")
         private String appMasterKey;
@@ -37,6 +35,38 @@ public class PayDunyaService {
         private String frontendUrl;
 
         private final RestTemplate restTemplate = new RestTemplate();
+
+        // ════════════════════════════════════════════════════════════════════
+        // IMPLÉMENTATION PaymentProviderService — pont vers les méthodes
+        // historiques ci-dessous, sans rien casser côté appelants existants.
+        // ════════════════════════════════════════════════════════════════════
+
+        @Override
+        public String getProviderName() {
+                return "PAYDUNYA";
+        }
+
+        @Override
+        public PaymentSessionResponse creerSessionDepot(BigDecimal montant, Long userId) {
+                PayDunyaResponse r = createDepositCheckoutSession(montant, userId);
+                return new PaymentSessionResponse(r.redirectUrl(), r.invoiceToken());
+        }
+
+        @Override
+        public PaymentSessionResponse creerSessionInvestissement(
+                        BigDecimal montant, Long userId, Long projetId, int nombreParts,
+                        String projetLibelle, String projetSlug) {
+                PayDunyaResponse r = createInvestissementSession(
+                                montant, userId, projetId, nombreParts, projetLibelle, projetSlug);
+                return new PaymentSessionResponse(r.redirectUrl(), r.invoiceToken());
+        }
+
+        @Override
+        public PayoutResponse initierRetrait(
+                        BigDecimal montant, String phone, String moyenPaiement, Long referenceId) {
+                PayDunyaDisburseResponse r = initiatePayoutDetailed(montant, phone, moyenPaiement, referenceId);
+                return new PayoutResponse(r.disburseToken(), r.disburseTxId(), r.status());
+        }
 
         private String getBaseUrl() {
                 return "test".equalsIgnoreCase(mode)
@@ -93,7 +123,6 @@ public class PayDunyaService {
                                 "custom_data", Map.of(
                                                 "type", "DEPOSIT",
                                                 "user_id", userId.toString()));
-
                 try {
                         ResponseEntity<Map> response = restTemplate.postForEntity(
                                         url, new HttpEntity<>(payload, buildHeaders()), Map.class);
@@ -166,7 +195,6 @@ public class PayDunyaService {
                 Map<String, Object> invoicePayload = Map.of(
                                 "disburse_amount", montantFCFA.intValue(),
                                 "disburse_id", "GROWZAPP-" + referenceId);
-
                 try {
                         ResponseEntity<Map> invoiceResponse = restTemplate.postForEntity(
                                         invoiceUrl, new HttpEntity<>(invoicePayload, buildHeaders()), Map.class);
