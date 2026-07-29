@@ -36,8 +36,8 @@ public class PaydunyaWebhookController {
     @Value("${paydunya.webhook-secret}")
     private String webhookSecret;
 
-    @Value("${paydunya.private-key}")
-    private String privateKey;
+    @Value("${paydunya.app-master-key}")
+    private String appMasterKey;
 
     private final PayoutModelRepository payoutModelRepository;
     private final TransactionRepository transactionRepository;
@@ -56,7 +56,7 @@ public class PaydunyaWebhookController {
         // ── Vérification de signature — le hash doit correspondre au SHA-512
         // de la clé privée PayDunya, sinon la notification n'est pas authentique
         String hashRecu = params.get("data[hash]");
-        String hashAttendu = sha512Hex(privateKey);
+        String hashAttendu = sha512Hex(appMasterKey);
         if (hashRecu == null || !hashRecu.equalsIgnoreCase(hashAttendu)) {
             log.warn("Webhook PayDunya — hash invalide, notification rejetée. Reçu={}", hashRecu);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid hash");
