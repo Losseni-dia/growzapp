@@ -45,9 +45,11 @@ public class PayDunyaService {
         }
 
         private String getDisburseBaseUrl() {
-                return "test".equalsIgnoreCase(mode)
-                                ? "https://app.paydunya.com/sandbox-api/v2"
-                                : "https://app.paydunya.com/api/v2";
+                // Contrairement à l'API de paiement (checkout-invoice), l'API de
+                // décaissement PayDunya n'a qu'une seule URL — le mode test/live est
+                // déterminé par la clé privée envoyée dans les headers, pas par l'URL.
+                // Voir https://developers.paydunya.com/doc/EN/api_deboursement
+                return "https://app.paydunya.com/api/v2";
         }
 
         private HttpHeaders buildHeaders() {
