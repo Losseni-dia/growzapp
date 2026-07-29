@@ -27,6 +27,14 @@
         <postgresql.version>42.7.12</postgresql.version>
     </properties>
 
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencyManagement>
     <dependencies>
         <dependency>
@@ -97,6 +105,12 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>0.11.5</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.fedapay</groupId>
+            <artifactId>fedapay-java</artifactId>
+            <version>master-b9318d4b6e-1</version>
         </dependency>
 
         <dependency>
