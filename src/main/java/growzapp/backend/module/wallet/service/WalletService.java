@@ -10,9 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.paiement.innerwallet.WithdrawalService;
-import growzapp.backend.module.paiement.paydunya.PayDunyaService;
-import growzapp.backend.module.paiement.paydunya.PayDunyaService.PayDunyaDisburseResponse;
-import growzapp.backend.module.paiement.paydunya.PayDunyaService.PayDunyaResponse;
+import growzapp.backend.module.paiement.common.PaymentProviderRouter;
+import growzapp.backend.module.paiement.common.PaymentProviderService.PaymentSessionResponse;
+import growzapp.backend.module.paiement.common.PaymentProviderService.PayoutResponse;
 import growzapp.backend.module.paiement.stripe.StripePayoutService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
@@ -38,7 +38,7 @@ public class WalletService {
     private final ProjetRepository projetRepository;
     private final UserRepository userRepository;
     private final StripePayoutService stripePayoutService;
-    private final PayDunyaService payDunyaService;
+    private final PaymentProviderRouter paymentProviderRouter;
     private final NotificationService notificationService;
     private final WithdrawalService withdrawalService;
 
@@ -51,7 +51,7 @@ public class WalletService {
 
         Wallet wallet = getWalletWithLock(userId);
 
-        PayDunyaResponse payDunyaRes = payDunyaService.createDepositCheckoutSession(montant, userId);
+        PaymentSessionResponse payDunyaRes = paymentProviderRouter.creerSessionDepot(montant, userId);
 
         Transaction tx = Transaction.builder()
                 .walletId(wallet.getId())
@@ -61,7 +61,7 @@ public class WalletService {
                 .statut(StatutTransaction.EN_ATTENTE_PAIEMENT)
                 .description("Dépôt Mobile Money (redirection PayDunya)")
                 .createdAt(LocalDateTime.now())
-                .referenceExterne(payDunyaRes.invoiceToken())
+                .referenceExterne(payDunyaRes.sessionToken())
                 .build();
 
         transactionRepository.save(tx);
@@ -282,9 +282,9 @@ public class WalletService {
                 if (phone == null || phone.trim().isEmpty()) {
                     throw new IllegalArgumentException("Téléphone requis");
                 }
-                PayDunyaDisburseResponse res = payDunyaService.initiatePayoutDetailed(
+                PayoutResponse res = paymentProviderRouter.initierRetrait(
                         montant, phone, "orange-money-ci", tx.getId());
-                tx.setReferenceExterne(res.disburseTxId());
+                tx.setReferenceExterne(res.externalTxId());
             }
 
             tx.markAsSuccess();
