@@ -47,7 +47,6 @@ public class StripeWebhookController {
 
     private final PayoutModelRepository payoutModelRepository;
     private final UserRepository userRepository;
-    private final ProjetRepository projetRepository;
     private final InvestissementRepository investissementRepository;
     private final DepositService depositService;
     private final WalletRepository walletRepository;
@@ -76,8 +75,10 @@ public class StripeWebhookController {
                 case "checkout.session.completed",
                         "checkout.session.async_payment_succeeded" ->
                     handleCheckoutCompleted(event);
+                case "checkout.session.expired" -> handleCheckoutExpired(event);
                 case "payout.paid" -> handlePayoutPaid(event);
                 case "payout.failed" -> handlePayoutFailed(event);
+                case "charge.dispute.created" -> handleDisputeCreated(event);
                 default -> log.debug("Événement Stripe ignoré : {}", event.getType());
             }
         } catch (Exception e) {
@@ -149,6 +150,52 @@ public class StripeWebhookController {
 
         } catch (Exception ex) {
             log.error("Erreur parsing JSON webhook Stripe : {}", ex.getMessage(), ex);
+        }
+    }
+
+    @Transactional
+    public void handleCheckoutExpired(Event event) {
+        // Aucun investissement n'existe encore en base à ce stade (il n'est créé
+        // qu'après succès du paiement, voir handleCheckoutCompleted) — on se
+        // contente donc de logger l'abandon pour visibilité/suivi manuel.
+        String rawJson = event.getDataObjectDeserializer().getRawJson();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(rawJson);
+
+            String sessionId = root.path("id").asText();
+            String userIdStr = root.path("client_reference_id").asText();
+            String type = root.path("metadata").path("type").asText("DEPOSIT");
+
+            log.warn("CHECKOUT EXPIRÉ (abandonné) → session={} user={} type={}", sessionId, userIdStr, type);
+        } catch (Exception ex) {
+            log.error("Erreur parsing JSON webhook checkout.session.expired : {}", ex.getMessage(), ex);
+        }
+    }
+
+    @Transactional
+    public void handleDisputeCreated(Event event) {
+        // Litige bancaire (chargeback). Le schéma actuel ne stocke pas l'ID du
+        // payment_intent/charge sur l'investissement (seulement l'ID de session
+        // Checkout), donc pas de lien automatique possible pour l'instant — on
+        // logue toutes les infos utiles pour une investigation manuelle rapide.
+        // TODO amélioration future : stocker paymentIntentId sur Investissement
+        // pour permettre un rapprochement + gel automatique.
+        String rawJson = event.getDataObjectDeserializer().getRawJson();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(rawJson);
+
+            String chargeId = root.path("id").asText();
+            String paymentIntentId = root.path("payment_intent").asText();
+            long amount = root.path("amount").asLong(0);
+            String reason = root.path("reason").asText("inconnue");
+
+            log.error(
+                    "⚠️ LITIGE STRIPE (chargeback) CRÉÉ → charge={} payment_intent={} montant={} raison={} — investigation manuelle requise",
+                    chargeId, paymentIntentId, amount, reason);
+        } catch (Exception ex) {
+            log.error("Erreur parsing JSON webhook charge.dispute.created : {}", ex.getMessage(), ex);
         }
     }
 
