@@ -121,10 +121,16 @@ public class FedaPayWebhookController {
         if (!(source instanceof Map<?, ?> rawMap)) {
             return null;
         }
-        return rawMap.entrySet().stream()
-                .filter(entry -> entry.getKey() instanceof String)
-                .collect(java.util.stream.Collectors.toMap(
-                        entry -> (String) entry.getKey(),
-                        Map.Entry::getValue));
+        // Collectors.toMap() plante avec un NullPointerException dès qu'une
+        // valeur de la Map est null (piège classique Java) — la réponse
+        // FedaPay contient de nombreux champs null (canceled_at, mode, etc.),
+        // donc on construit la Map manuellement pour bien les tolérer.
+        Map<String, Object> result = new java.util.HashMap<>();
+        for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+            if (entry.getKey() instanceof String key) {
+                result.put(key, entry.getValue());
+            }
+        }
+        return result;
     }
 }
