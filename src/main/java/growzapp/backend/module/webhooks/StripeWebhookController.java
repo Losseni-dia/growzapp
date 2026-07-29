@@ -80,6 +80,7 @@ public class StripeWebhookController {
                 case "charge.dispute.created" -> handleDisputeCreated(event);
                 case "checkout.session.async_payment_failed" -> handleAsyncPaymentFailed(event);
                 case "payout.canceled" -> handlePayoutCanceled(event);
+                case "charge.dispute.closed" -> handleDisputeClosed(event);
                 default -> log.debug("Événement Stripe ignoré : {}", event.getType());
             }
         } catch (Exception e) {
@@ -219,6 +220,28 @@ public class StripeWebhookController {
             log.warn("PAIEMENT ASYNCHRONE ÉCHOUÉ → session={} user={} type={}", sessionId, userIdStr, type);
         } catch (Exception ex) {
             log.error("Erreur parsing JSON webhook checkout.session.async_payment_failed : {}", ex.getMessage(), ex);
+        }
+    }
+
+    @Transactional
+    public void handleDisputeClosed(Event event) {
+        // Complète charge.dispute.created : indique l'issue finale du litige
+        // (lost / won / warning_closed). Même limite que pour dispute.created :
+        // pas de lien automatique avec l'investissement faute de payment_intent
+        // stocké — log détaillé pour traitement manuel.
+        String rawJson = event.getDataObjectDeserializer().getRawJson();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(rawJson);
+
+            String chargeId = root.path("id").asText();
+            String paymentIntentId = root.path("payment_intent").asText();
+            String status = root.path("status").asText("inconnu");
+
+            log.warn("⚠️ LITIGE STRIPE CLÔTURÉ → charge={} payment_intent={} issue={}",
+                    chargeId, paymentIntentId, status);
+        } catch (Exception ex) {
+            log.error("Erreur parsing JSON webhook charge.dispute.closed : {}", ex.getMessage(), ex);
         }
     }
 
