@@ -26,7 +26,7 @@ import growzapp.backend.module.files.FileUploadService;
 import growzapp.backend.module.investissement.dto.InvestissementDTO;
 import growzapp.backend.module.investissement.dto.InvestissementRequestDto;
 import growzapp.backend.module.investissement.service.InvestissementService;
-import growzapp.backend.module.paiement.paydunya.PayDunyaService;
+import growzapp.backend.module.paiement.common.PaymentProviderRouter;
 import growzapp.backend.module.paiement.stripe.StripeDepositService;
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.dto.ProjetDTO;
@@ -76,7 +76,7 @@ public class ProjetRestController {
     private final ObjectMapper objectMapper;
     private final StripeDepositService stripeDepositService;
     private final ProjetRepository projetRepository;
-    private final PayDunyaService payDunyaService;
+    private final PaymentProviderRouter paymentProviderRouter;
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final Validator validator;
@@ -290,7 +290,7 @@ public class ProjetRestController {
             Wallet wallet = walletRepository.findByUserId(user.getId())
                     .orElseThrow(() -> new RuntimeException("Wallet introuvable"));
 
-            var response = payDunyaService.createInvestissementSession(
+            var response = paymentProviderRouter.creerSessionInvestissement(
                     montantFCFA, user.getId(), projetId,
                     nombreParts, projet.getLibelle(), projet.getSlug());
 
@@ -303,7 +303,7 @@ public class ProjetRestController {
                     .statut(StatutTransaction.EN_ATTENTE_PAIEMENT)
                     .description("Investissement Mobile Money — " + projet.getLibelle())
                     .createdAt(LocalDateTime.now())
-                    .referenceExterne(response.invoiceToken())
+                    .referenceExterne(response.sessionToken())
                     .referenceType("INVESTISSEMENT")
                     .referenceId(projetId)
                     .build();
