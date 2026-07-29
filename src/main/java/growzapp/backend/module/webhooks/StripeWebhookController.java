@@ -79,6 +79,7 @@ public class StripeWebhookController {
                 case "payout.failed" -> handlePayoutFailed(event);
                 case "charge.dispute.created" -> handleDisputeCreated(event);
                 case "checkout.session.async_payment_failed" -> handleAsyncPaymentFailed(event);
+                case "payout.canceled" -> handlePayoutCanceled(event);
                 default -> log.debug("Événement Stripe ignoré : {}", event.getType());
             }
         } catch (Exception e) {
@@ -275,6 +276,21 @@ public class StripeWebhookController {
             log.error("Erreur handleInvestissementPaye session={}", sessionId, e);
             throw new RuntimeException(e);
         }
+    }
+
+    @Transactional
+    public void handlePayoutCanceled(Event event) {
+        Payout payout = (Payout) event.getDataObjectDeserializer().getObject().orElse(null);
+        if (payout == null)
+            return;
+
+        payoutModelRepository.findByExternalPayoutId(payout.getId())
+                .ifPresent(p -> {
+                    p.setStatut(StatutTransaction.ECHEC_PAIEMENT);
+                    p.setPaydunyaStatus("canceled");
+                    payoutModelRepository.save(p);
+                    log.warn("RETRAIT STRIPE ANNULÉ → {}", payout.getId());
+                });
     }
 
     @Transactional
