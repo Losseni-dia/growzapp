@@ -14,10 +14,14 @@ import growzapp.backend.module.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -32,6 +36,9 @@ public class PaydunyaWebhookController {
     @Value("${paydunya.webhook-secret}")
     private String webhookSecret;
 
+    @Value("${paydunya.private-key}")
+    private String privateKey;
+
     private final PayoutModelRepository payoutModelRepository;
     private final TransactionRepository transactionRepository;
     private final WalletService walletService;
@@ -45,6 +52,15 @@ public class PaydunyaWebhookController {
     public ResponseEntity<String> handle(@RequestParam Map<String, String> params) {
 
         log.info("WEBHOOK PAYDUNYA reçu : {}", params.keySet());
+
+        // ── Vérification de signature — le hash doit correspondre au SHA-512
+        // de la clé privée PayDunya, sinon la notification n'est pas authentique
+        String hashRecu = params.get("data[hash]");
+        String hashAttendu = sha512Hex(privateKey);
+        if (hashRecu == null || !hashRecu.equalsIgnoreCase(hashAttendu)) {
+            log.warn("Webhook PayDunya — hash invalide, notification rejetée. Reçu={}", hashRecu);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid hash");
+        }
 
         // PayDunya envoie data[invoice][token] et data[status]
         String token = params.get("data[invoice][token]");
@@ -146,5 +162,20 @@ public class PaydunyaWebhookController {
 
         log.warn("Webhook PayDunya sans correspondance : token={}", token);
         return ResponseEntity.ok("No match found");
+    }
+    
+
+    private String sha512Hex(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-512");
+            byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                hexString.append(String.format("%02x", b));
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur calcul hash PayDunya", e);
+        }
     }
 }
