@@ -25,7 +25,6 @@ import growzapp.backend.module.investissement.repository.InvestissementRepositor
 import growzapp.backend.module.investissement.service.InvestissementService;
 import growzapp.backend.module.paiement.innerwallet.DepositService;
 import growzapp.backend.module.paiement.repository.PayoutModelRepository;
-import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
@@ -79,6 +78,7 @@ public class StripeWebhookController {
                 case "payout.paid" -> handlePayoutPaid(event);
                 case "payout.failed" -> handlePayoutFailed(event);
                 case "charge.dispute.created" -> handleDisputeCreated(event);
+                case "checkout.session.async_payment_failed" -> handleAsyncPaymentFailed(event);
                 default -> log.debug("Événement Stripe ignoré : {}", event.getType());
             }
         } catch (Exception e) {
@@ -196,6 +196,28 @@ public class StripeWebhookController {
                     chargeId, paymentIntentId, amount, reason);
         } catch (Exception ex) {
             log.error("Erreur parsing JSON webhook charge.dispute.created : {}", ex.getMessage(), ex);
+        }
+    }
+
+    @Transactional
+    public void handleAsyncPaymentFailed(Event event) {
+        // Contrepartie de checkout.session.async_payment_succeeded pour les
+        // moyens de paiement asynchrones (virement différé, etc.) — comme pour
+        // checkout.session.expired, aucun investissement n'a encore été créé en
+        // base à ce stade (créé uniquement dans handleCheckoutCompleted), donc
+        // on se limite à un log clair pour visibilité/suivi.
+        String rawJson = event.getDataObjectDeserializer().getRawJson();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(rawJson);
+
+            String sessionId = root.path("id").asText();
+            String userIdStr = root.path("client_reference_id").asText();
+            String type = root.path("metadata").path("type").asText("DEPOSIT");
+
+            log.warn("PAIEMENT ASYNCHRONE ÉCHOUÉ → session={} user={} type={}", sessionId, userIdStr, type);
+        } catch (Exception ex) {
+            log.error("Erreur parsing JSON webhook checkout.session.async_payment_failed : {}", ex.getMessage(), ex);
         }
     }
 
