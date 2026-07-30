@@ -1,6 +1,5 @@
 package growzapp.backend.config;
 
-
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -22,7 +21,7 @@ public class JwtService {
 
     @org.springframework.beans.factory.annotation.Value("${jwt.secret-key}")
     private String SECRET_KEY;
-    
+
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("roles", user.getRoles().stream()
@@ -35,12 +34,22 @@ public class JwtService {
 
     public String generateToken(String login, Map<String, Object> extraClaims) {
         return Jwts.builder()
+                .setId(java.util.UUID.randomUUID().toString()) // jti — identifiant unique du token
                 .setClaims(extraClaims)
                 .setSubject(login)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24h
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public String extractJti(String token) {
+        return extractClaim(token, Claims::getId);
+    }
+
+    public java.time.LocalDateTime extractExpirationAsLocalDateTime(String token) {
+        Date exp = extractClaim(token, Claims::getExpiration);
+        return exp.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
     }
 
     private Key getSignInKey() {
