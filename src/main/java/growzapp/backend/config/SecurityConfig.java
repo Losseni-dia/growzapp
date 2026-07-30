@@ -23,13 +23,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import growzapp.backend.config.oauth2.CustomOAuth2UserService;
 import growzapp.backend.config.oauth2.OAuth2AuthenticationSuccessHandler;
+import growzapp.backend.config.ratelimit.AuthRateLimitFilter;
 
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
-
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final AuthRateLimitFilter authRateLimitFilter;
         private final CustomOAuth2UserService customOAuth2UserService;
         private final OAuth2AuthenticationSuccessHandler oauth2SuccessHandler;
 
@@ -138,6 +139,7 @@ public class SecurityConfig {
                                                                                                          // (OIDC)
                                                 )
                                                 .successHandler(oauth2SuccessHandler))
+                                .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();
