@@ -7,9 +7,10 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface FactureRepository extends JpaRepository<Facture, Long> {
-
     boolean existsByDividendeId(Long dividendeId);
 
     @Query("SELECT COALESCE(MAX(f.id), 0) FROM Facture f")
     Long findMaxId();
+
+    java.util.Optional<Facture> findByFichierUrlContaining(String filename);
 }
