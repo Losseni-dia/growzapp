@@ -63,16 +63,26 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                 // extraClaims.put("name", userEntity.getPrenom() + " " + userEntity.getNom());
 
                 // 4. Génération du token via ton JwtService
+                // 4. Génération du token via ton JwtService
                 String token = jwtService.generateToken(userEntity.getLogin(), extraClaims);
 
-                // 5. Construction de l'URL de redirection vers ton Frontend
-                // (React/Next/Flutter)
-                // On passe le token en paramètre d'URL
+                // 5. Pose le token dans un cookie HttpOnly — même mécanisme que
+                // le login classique (HIGH-03). Le token reste aussi passé en
+                // paramètre d'URL pour l'instant, le temps de migrer
+                // OAuth2RedirectHandler.tsx côté frontend.
+                jakarta.servlet.http.Cookie authCookie = new jakarta.servlet.http.Cookie("auth_token", token);
+                authCookie.setHttpOnly(true);
+                authCookie.setSecure(true);
+                authCookie.setPath("/");
+                authCookie.setMaxAge(24 * 60 * 60);
+                authCookie.setAttribute("SameSite", "Strict");
+                response.addCookie(authCookie);
+
+                // 6. Construction de l'URL de redirection vers ton Frontend
                 String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/oauth2/redirect")
                                 .queryParam("token", token)
                                 .build().toUriString();
-
-                // 6. Redirection effective
+                // 7. Redirection effective
                 getRedirectStrategy().sendRedirect(request, response, targetUrl);
         }
 }
