@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -33,6 +34,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import growzapp.backend.config.JwtService;
+import growzapp.backend.module.auth.model.RevokedToken;
+import growzapp.backend.module.auth.repository.RevokedTokenRepository;
 import growzapp.backend.module.email.EmailSenderService;
 import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.user.dto.UserCreateDTO;
@@ -75,8 +78,9 @@ public class UserController {
     private final EmailSenderService emailService;
     private final PasswordEncoder passwordEncoder;
     private final Validator validator;
+    private final RevokedTokenRepository revokedTokenRepository;
 
-    
+
 
     @PostMapping("/login")
     @Operation(summary = "Connexion utilisateur", description = "Authentifie un utilisateur avec son login et mot de passe. Retourne un token JWT Bearer à utiliser dans toutes les requêtes sécurisées.", tags = {
@@ -125,6 +129,23 @@ public class UserController {
             }
             throw ex;
         }
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Déconnexion", description = "Révoque le token JWT courant.", tags = {"Authentication"})
+    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            String jti = jwtService.extractJti(token);
+            if (jti != null) {
+                revokedTokenRepository.save(RevokedToken.builder()
+                        .tokenJti(jti)
+                        .revokedAt(java.time.LocalDateTime.now())
+                        .expiresAt(jwtService.extractExpirationAsLocalDateTime(token))
+                        .build());
+            }
+        }
+        return ResponseEntity.ok().build();
     }
 
 
