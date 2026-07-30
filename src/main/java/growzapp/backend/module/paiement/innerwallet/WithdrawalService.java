@@ -133,7 +133,13 @@ public class WithdrawalService {
     }
 
     // ── Remboursement automatique + notification en cas d'échec ─────────────
-    private void rembourserEtNotifier(Long userId, BigDecimal montant, PayoutModel payout, Exception e) {
+    // ── Remboursement automatique + notification en cas d'échec ─────────────
+    // REQUIRES_NEW : doit survivre même si la transaction appelante est
+    // annulée par l'exception relancée juste après (bug trouvé lors du test
+    // d'idempotence — sans ça, toute la transaction (dont ce remboursement
+    // et la clé d'idempotence elle-même) était silencieusement annulée).
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void rembourserEtNotifier(Long userId, BigDecimal montant, PayoutModel payout, Exception e) {
         log.error("Échec payout user={} montant={} — remboursement automatique", userId, montant, e);
         Wallet walletRefund = getWalletWithLock(userId);
         walletRefund.setSoldeDisponible(walletRefund.getSoldeDisponible().add(montant));
