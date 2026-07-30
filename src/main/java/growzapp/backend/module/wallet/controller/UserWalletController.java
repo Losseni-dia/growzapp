@@ -217,13 +217,15 @@ public class UserWalletController {
                     "referenceExterne", externalId));
 
         } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "errorCode", "WITHDRAWAL_INVALID",
+                    "error", e.getMessage()));
         } catch (Exception e) {
-            log.error("Erreur retrait", e);
+            log.error("Erreur retrait — détail technique : {}", e.getMessage(), e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
-                    "error",
-                    "Le retrait a échoué — les fonds ont été remboursés dans votre portefeuille. " + e.getMessage()));
+                    "errorCode", "WITHDRAWAL_FAILED_REFUNDED"));
         }
     }
 
