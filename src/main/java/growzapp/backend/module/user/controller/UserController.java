@@ -84,127 +84,152 @@ public class UserController {
 
     @PostMapping("/login")
     @Operation(summary = "Connexion utilisateur", description = "Authentifie un utilisateur avec son login et mot de passe. Retourne un token JWT Bearer à utiliser dans toutes les requêtes sécurisées.", tags = {
-            "Authentication" })
+                    "Authentication" })
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Connexion réussie — token JWT retourné", content = @Content(mediaType = "application/json", schema = @Schema(implementation = LoginResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Identifiants incorrects", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-            @ApiResponse(responseCode = "423", description = "Compte temporairement verrouillé", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
+                    @ApiResponse(responseCode = "200", description = "Connexion réussie — token JWT retourné", content = @Content(mediaType = "application/json", schema = @Schema(implementation = LoginResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Identifiants incorrects", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+                    @ApiResponse(responseCode = "423", description = "Compte temporairement verrouillé", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ResponseEntity<?> login(@RequestBody LoginRequest request,
                     jakarta.servlet.http.HttpServletResponse httpServletResponse) {
-        User userEntity = userRepository.findByLoginForAuth(request.getLogin())
-                .orElse(null);
+            User userEntity = userRepository.findByLoginForAuth(request.getLogin())
+                            .orElse(null);
 
-        // Vérifie le verrouillage avant même de tenter l'authentification
-        if (userEntity != null && userEntity.getLockedUntil() != null
-                && userEntity.getLockedUntil().isAfter(java.time.LocalDateTime.now())) {
-            return ResponseEntity.status(423).body(Map.of(
-                            "error", "Compte temporairement verrouillé suite à plusieurs échecs de connexion. "
-                                            + "Réessayez dans 15 minutes, ou contactez le support si vous pensez qu'il s'agit d'une erreur : "
-                                            + "losdiakite@gmail.com"));
-        }
-
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getLogin(), request.getPassword()));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            // Authentification réussie — reset du compteur d'échecs
-            if (userEntity != null && userEntity.getFailedLoginAttempts() > 0) {
-                userEntity.setFailedLoginAttempts(0);
-                userEntity.setLockedUntil(null);
-                userRepository.save(userEntity);
+            // Vérifie le verrouillage avant même de tenter l'authentification
+            if (userEntity != null && userEntity.getLockedUntil() != null
+                            && userEntity.getLockedUntil().isAfter(java.time.LocalDateTime.now())) {
+                    return ResponseEntity.status(423).body(Map.of(
+                                    "error", "Compte temporairement verrouillé suite à plusieurs échecs de connexion. "
+                                                    + "Réessayez dans 15 minutes, ou contactez le support si vous pensez qu'il s'agit d'une erreur : "
+                                                    + "losdiakite@gmail.com"));
             }
 
-            UserDTO userDTO = userMapper.toDto(userEntity);
-            String token = jwtService.generateToken(userEntity);
+            try {
+                    Authentication authentication = authenticationManager.authenticate(
+                                    new UsernamePasswordAuthenticationToken(request.getLogin(), request.getPassword()));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Pose le token dans un cookie HttpOnly plutôt que de le renvoyer en
-            // JSON — inaccessible à JavaScript, donc protégé contre le vol de
-            // token via une faille XSS (HIGH-03 de l'audit).
-            jakarta.servlet.http.Cookie authCookie = new jakarta.servlet.http.Cookie("auth_token", token);
-            authCookie.setHttpOnly(true);
-            authCookie.setSecure(true);
-            authCookie.setPath("/");
-            authCookie.setMaxAge(24 * 60 * 60); // 24h, cohérent avec l'expiration du JWT
-            authCookie.setAttribute("SameSite", "Strict");
-            httpServletResponse.addCookie(authCookie);
+                    // Authentification réussie — reset du compteur d'échecs
+                    if (userEntity != null && userEntity.getFailedLoginAttempts() > 0) {
+                            userEntity.setFailedLoginAttempts(0);
+                            userEntity.setLockedUntil(null);
+                            userRepository.save(userEntity);
+                    }
 
-            // Le token n'est plus renvoyé dans le JSON — il vit uniquement
-            // dans le cookie HttpOnly posé ci-dessus (HIGH-03, étape finale).
-            return ResponseEntity.ok(new LoginResponse(null, userDTO));
+                    UserDTO userDTO = userMapper.toDto(userEntity);
+                    String token = jwtService.generateToken(userEntity);
 
-        } catch (org.springframework.security.core.AuthenticationException ex) {
-            // Échec — incrémente le compteur, verrouille après 5 tentatives
-            if (userEntity != null) {
-                int attempts = userEntity.getFailedLoginAttempts() + 1;
-                userEntity.setFailedLoginAttempts(attempts);
-                if (attempts >= 5) {
-                    userEntity.setLockedUntil(java.time.LocalDateTime.now().plusMinutes(15));
-                }
-                userRepository.save(userEntity);
+                    jakarta.servlet.http.Cookie authCookie = new jakarta.servlet.http.Cookie("auth_token", token);
+                    authCookie.setHttpOnly(true);
+                    authCookie.setSecure(true);
+                    authCookie.setPath("/");
+                    authCookie.setMaxAge(24 * 60 * 60); // 24h, cohérent avec l'expiration du JWT
+                    authCookie.setAttribute("SameSite", "Strict");
+                    httpServletResponse.addCookie(authCookie);
+
+                    // Le token n'est plus renvoyé dans le JSON — il vit uniquement
+                    // dans le cookie HttpOnly posé ci-dessus (HIGH-03, étape finale).
+                    return ResponseEntity.ok(new LoginResponse(null, userDTO));
+
+            } catch (org.springframework.security.core.AuthenticationException ex) {
+                    // Échec — incrémente le compteur, verrouille après 5 tentatives
+                    if (userEntity != null) {
+                            int attempts = userEntity.getFailedLoginAttempts() + 1;
+                            userEntity.setFailedLoginAttempts(attempts);
+                            if (attempts >= 5) {
+                                    userEntity.setLockedUntil(java.time.LocalDateTime.now().plusMinutes(15));
+                            }
+                            userRepository.save(userEntity);
+                    }
+                    throw ex;
             }
-            throw ex;
-        }
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "Déconnexion", description = "Révoque le token JWT courant.", tags = {"Authentication"})
-    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            String jti = jwtService.extractJti(token);
-            if (jti != null) {
-                revokedTokenRepository.save(RevokedToken.builder()
-                        .tokenJti(jti)
-                        .revokedAt(java.time.LocalDateTime.now())
-                        .expiresAt(jwtService.extractExpirationAsLocalDateTime(token))
-                        .build());
-            }
-        }
-        return ResponseEntity.ok().build();
-    }
+    @Operation(summary = "Déconnexion", description = "Révoque le token JWT courant et efface le cookie.", tags = {
+                    "Authentication" })
+    public ResponseEntity<Void> logout(
+                    @RequestHeader(value = "Authorization", required = false) String authHeader,
+                    jakarta.servlet.http.HttpServletRequest request,
+                    jakarta.servlet.http.HttpServletResponse httpServletResponse) {
 
+            // Le token peut venir du header (ancien comportement) ou du cookie
+            // HttpOnly (nouveau comportement, HIGH-03) — on cherche les deux.
+            String token = null;
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    token = authHeader.substring(7);
+            } else if (request.getCookies() != null) {
+                    for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+                            if ("auth_token".equals(cookie.getName())) {
+                                    token = cookie.getValue();
+                                    break;
+                            }
+                    }
+            }
+
+            if (token != null) {
+                    String jti = jwtService.extractJti(token);
+                    if (jti != null) {
+                            revokedTokenRepository.save(RevokedToken.builder()
+                                            .tokenJti(jti)
+                                            .revokedAt(java.time.LocalDateTime.now())
+                                            .expiresAt(jwtService.extractExpirationAsLocalDateTime(token))
+                                            .build());
+                    }
+            }
+
+            // Efface le cookie côté navigateur — Max-Age=0 force sa suppression
+            // immédiate (HIGH-02, bug trouvé lors du test complet)
+            jakarta.servlet.http.Cookie clearCookie = new jakarta.servlet.http.Cookie("auth_token", "");
+            clearCookie.setHttpOnly(true);
+            clearCookie.setSecure(true);
+            clearCookie.setPath("/");
+            clearCookie.setMaxAge(0);
+            clearCookie.setAttribute("SameSite", "Strict");
+            httpServletResponse.addCookie(clearCookie);
+
+            return ResponseEntity.ok().build();
+    }
 
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PermitAll
     @Operation(summary = "Inscription d'un nouvel utilisateur", description = "Crée un nouveau compte utilisateur. Le champ 'user' doit contenir un JSON sérialisé de type UserCreateDTO. Le champ 'image' est optionnel (photo de profil).", tags = {
-            "Authentication" })
+                    "Authentication" })
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Inscription réussie", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Données invalides — erreurs de validation", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-            @ApiResponse(responseCode = "500", description = "Erreur serveur interne", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
+                    @ApiResponse(responseCode = "200", description = "Inscription réussie", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+                    @ApiResponse(responseCode = "400", description = "Données invalides — erreurs de validation", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+                    @ApiResponse(responseCode = "500", description = "Erreur serveur interne", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ResponseEntity<ApiResponseDTO<UserDTO>> register(
-            @Parameter(description = "Données de l'utilisateur au format JSON (UserCreateDTO sérialisé)", schema = @Schema(implementation = UserCreateDTO.class)) @RequestPart("user") String userJson,
-            @Parameter(description = "Photo de profil (optionnel)", schema = @Schema(type = "string", format = "binary")) @RequestPart(value = "image", required = false) MultipartFile image) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                    @Parameter(description = "Données de l'utilisateur au format JSON (UserCreateDTO sérialisé)", schema = @Schema(implementation = UserCreateDTO.class)) @RequestPart("user") String userJson,
+                    @Parameter(description = "Photo de profil (optionnel)", schema = @Schema(type = "string", format = "binary")) @RequestPart(value = "image", required = false) MultipartFile image) {
+            try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-            UserCreateDTO dto = mapper.readValue(userJson, UserCreateDTO.class);
+                    UserCreateDTO dto = mapper.readValue(userJson, UserCreateDTO.class);
 
-            // ── VALIDATION MANUELLE ──────────────────────────────────────────
-            Set<ConstraintViolation<UserCreateDTO>> violations = validator.validate(dto);
-            if (!violations.isEmpty()) {
-                String errors = violations.stream()
-                        .map(v -> v.getPropertyPath() + " : " + v.getMessage())
-                        .collect(Collectors.joining(", "));
-                return ResponseEntity.badRequest()
-                        .body(ApiResponseDTO.error(errors));
+                    // ── VALIDATION MANUELLE ──────────────────────────────────────────
+                    Set<ConstraintViolation<UserCreateDTO>> violations = validator.validate(dto);
+                    if (!violations.isEmpty()) {
+                            String errors = violations.stream()
+                                            .map(v -> v.getPropertyPath() + " : " + v.getMessage())
+                                            .collect(Collectors.joining(", "));
+                            return ResponseEntity.badRequest()
+                                            .body(ApiResponseDTO.error(errors));
+                    }
+                    // ────────────────────────────────────────────────────────────────
+
+                    UserDTO created = userService.registerUser(dto, image);
+
+                    return ResponseEntity.ok(ApiResponseDTO.success(created)
+                                    .message("Inscription réussie !"));
+
+            } catch (Exception e) {
+                    e.printStackTrace();
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                    .body(ApiResponseDTO.error("Erreur serveur : " + e.getMessage()));
             }
-            // ────────────────────────────────────────────────────────────────
-
-            UserDTO created = userService.registerUser(dto, image);
-
-            return ResponseEntity.ok(ApiResponseDTO.success(created)
-                    .message("Inscription réussie !"));
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponseDTO.error("Erreur serveur : " + e.getMessage()));
-        }
     }
 
     @GetMapping("/me")
