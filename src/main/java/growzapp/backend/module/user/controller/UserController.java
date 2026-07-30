@@ -90,7 +90,8 @@ public class UserController {
             @ApiResponse(responseCode = "401", description = "Identifiants incorrects", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
             @ApiResponse(responseCode = "423", description = "Compte temporairement verrouillé", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
     })
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest request,
+                    jakarta.servlet.http.HttpServletResponse httpServletResponse) {
         User userEntity = userRepository.findByLoginForAuth(request.getLogin())
                 .orElse(null);
 
@@ -98,7 +99,9 @@ public class UserController {
         if (userEntity != null && userEntity.getLockedUntil() != null
                 && userEntity.getLockedUntil().isAfter(java.time.LocalDateTime.now())) {
             return ResponseEntity.status(423).body(Map.of(
-                    "error", "Compte temporairement verrouillé suite à plusieurs échecs. Réessayez plus tard."));
+                            "error", "Compte temporairement verrouillé suite à plusieurs échecs de connexion. "
+                                            + "Réessayez dans 15 minutes, ou contactez le support si vous pensez qu'il s'agit d'une erreur : "
+                                            + "losdiakite@gmail.com"));
         }
 
         try {
@@ -115,6 +118,18 @@ public class UserController {
 
             UserDTO userDTO = userMapper.toDto(userEntity);
             String token = jwtService.generateToken(userEntity);
+
+            // Pose le token dans un cookie HttpOnly plutôt que de le renvoyer en
+            // JSON — inaccessible à JavaScript, donc protégé contre le vol de
+            // token via une faille XSS (HIGH-03 de l'audit).
+            jakarta.servlet.http.Cookie authCookie = new jakarta.servlet.http.Cookie("auth_token", token);
+            authCookie.setHttpOnly(true);
+            authCookie.setSecure(true);
+            authCookie.setPath("/");
+            authCookie.setMaxAge(24 * 60 * 60); // 24h, cohérent avec l'expiration du JWT
+            authCookie.setAttribute("SameSite", "Strict");
+            httpServletResponse.addCookie(authCookie);
+
             return ResponseEntity.ok(new LoginResponse(token, userDTO));
 
         } catch (org.springframework.security.core.AuthenticationException ex) {
