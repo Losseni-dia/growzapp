@@ -64,7 +64,6 @@ public class SecurityConfig {
                                                 .requestMatchers("/uploads/avatars/**").permitAll()
 
                                                 // BLOQUE TOUT ACCÈS DIRECT AUX DOCUMENTS PRIVÉS
-                                                .requestMatchers("/files/documents/**").denyAll()
 
                                                 // CONTRATS PUBLICS
                                                 // MODIFICATION ICI : On autorise le POST pour la vérification sécurisée
