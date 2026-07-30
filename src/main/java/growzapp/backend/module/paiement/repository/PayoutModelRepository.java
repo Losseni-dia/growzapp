@@ -14,6 +14,8 @@ public interface PayoutModelRepository extends JpaRepository<PayoutModel, Long> 
     // Cette ligne suffit → Spring la génère automatiquement
     Optional<PayoutModel> findByPaydunyaToken(String paydunyaToken);
 
+    boolean existsByIdempotencyKey(String idempotencyKey);
+
     // Si tu veux être encore plus propre, tu peux aussi ajouter :
     Optional<PayoutModel> findByExternalPayoutId(String externalPayoutId);
      

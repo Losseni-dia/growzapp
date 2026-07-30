@@ -5,7 +5,6 @@ import growzapp.backend.module.paiement.model.PayoutModel;
 import growzapp.backend.module.paiement.paydunya.PayDunyaService;
 import growzapp.backend.module.paiement.repository.PayoutModelRepository;
 import growzapp.backend.module.paiement.stripe.StripePayoutService;
-import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
@@ -40,9 +39,14 @@ public class WithdrawalService {
     // 1. RETRAIT BANCAIRE (Stripe Payout) — automatique, sans validation admin
     // ════════════════════════════════════════════════════════════════════
     @Transactional
-    public String executerRetraitBancaire(Long userId, BigDecimal montant, String phone) {
-        Wallet wallet = getWalletWithLock(userId);
+    public String executerRetraitBancaire(Long userId, BigDecimal montant, String phone, String idempotencyKey) {
+        // Rejette immédiatement si cette clé a déjà été utilisée — protège
+        // contre le double-clic ou une requête réseau relancée (HIGH-06)
+        if (idempotencyKey != null && payoutModelRepository.existsByIdempotencyKey(idempotencyKey)) {
+            throw new IllegalStateException("Cette demande de retrait a déjà été traitée.");
+        }
 
+        Wallet wallet = getWalletWithLock(userId);
         if (wallet.getSoldeDisponible().compareTo(montant) < 0) {
             throw new IllegalArgumentException("Solde disponible insuffisant.");
         }
@@ -59,21 +63,19 @@ public class WithdrawalService {
                 .type(TypeTransaction.PAYOUT_STRIPE)
                 .statut(StatutTransaction.EN_ATTENTE_PAIEMENT)
                 .createdAt(LocalDateTime.now())
+                .idempotencyKey(idempotencyKey)
                 .build();
         payout = payoutModelRepository.save(payout);
 
         // 3. Appel réel Stripe Payout
         try {
             String stripePayoutId = stripePayoutService.createBankPayoutDirect(userId, montant, payout.getId());
-
             payout.setExternalPayoutId(stripePayoutId);
             payout.setStatut(StatutTransaction.SUCCESS);
             payout.setCompletedAt(LocalDateTime.now());
             payoutModelRepository.save(payout);
-
             log.info("Retrait bancaire réussi : user={} montant={} payoutId={}", userId, montant, stripePayoutId);
             return stripePayoutId;
-
         } catch (Exception e) {
             // ── REMBOURSEMENT AUTOMATIQUE sur soldeDisponible ──────────────
             rembourserEtNotifier(userId, montant, payout, e);
@@ -85,9 +87,15 @@ public class WithdrawalService {
     // 2. RETRAIT MOBILE MONEY (PayDunya Disburse) — automatique
     // ════════════════════════════════════════════════════════════════════
     @Transactional
-    public String executerRetraitMobileMoney(Long userId, BigDecimal montant, TypeTransaction mmType, String phone) {
-        Wallet wallet = getWalletWithLock(userId);
+    public String executerRetraitMobileMoney(Long userId, BigDecimal montant, TypeTransaction mmType, String phone,
+            String idempotencyKey) {
+        // Rejette immédiatement si cette clé a déjà été utilisée — protège
+        // contre le double-clic ou une requête réseau relancée (HIGH-06)
+        if (idempotencyKey != null && payoutModelRepository.existsByIdempotencyKey(idempotencyKey)) {
+            throw new IllegalStateException("Cette demande de retrait a déjà été traitée.");
+        }
 
+        Wallet wallet = getWalletWithLock(userId);
         if (wallet.getSoldeDisponible().compareTo(montant) < 0) {
             throw new IllegalArgumentException("Solde disponible insuffisant.");
         }
@@ -104,21 +112,19 @@ public class WithdrawalService {
                 .type(mmType)
                 .statut(StatutTransaction.EN_ATTENTE_PAIEMENT)
                 .createdAt(LocalDateTime.now())
+                .idempotencyKey(idempotencyKey)
                 .build();
         payout = payoutModelRepository.save(payout);
 
         // 3. Appel réel PayDunya Disburse
         try {
             String txId = payDunyaService.initiatePayout(montant, phone, mmType, payout.getId());
-
             payout.setExternalPayoutId(txId);
             payout.setStatut(StatutTransaction.SUCCESS);
             payout.setCompletedAt(LocalDateTime.now());
             payoutModelRepository.save(payout);
-
             log.info("Retrait Mobile Money réussi : user={} montant={} txId={}", userId, montant, txId);
             return txId;
-
         } catch (Exception e) {
             // ── REMBOURSEMENT AUTOMATIQUE sur soldeDisponible ──────────────
             rembourserEtNotifier(userId, montant, payout, e);
@@ -129,14 +135,11 @@ public class WithdrawalService {
     // ── Remboursement automatique + notification en cas d'échec ─────────────
     private void rembourserEtNotifier(Long userId, BigDecimal montant, PayoutModel payout, Exception e) {
         log.error("Échec payout user={} montant={} — remboursement automatique", userId, montant, e);
-
         Wallet walletRefund = getWalletWithLock(userId);
         walletRefund.setSoldeDisponible(walletRefund.getSoldeDisponible().add(montant));
         walletRepository.saveAndFlush(walletRefund);
-
         payout.setStatut(StatutTransaction.ECHEC_PAIEMENT);
         payoutModelRepository.save(payout);
-
         userRepository.findById(userId).ifPresent(user -> notificationService.notifyUser(
                 user,
                 "❌ Échec du retrait",

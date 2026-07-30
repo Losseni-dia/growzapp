@@ -41,6 +41,12 @@ public class PayoutModel {
 
     @Column(name = "external_payout_id")
     private String externalPayoutId;
+
+    // Clé unique générée côté frontend au moment du clic — empêche qu'un
+    // double-clic ou une requête réseau relancée crée deux retraits
+    // distincts pour une seule intention utilisateur (HIGH-06 de l'audit)
+    @Column(name = "idempotency_key", unique = true)
+    private String idempotencyKey;
     
     @Enumerated(EnumType.STRING)
     private TypeTransaction type; // PAYOUT_OM, PAYOUT_MTN, PAYOUT_WAVE
