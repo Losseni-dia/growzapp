@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import growzapp.backend.module.files.validation.FileValidationService;
 import growzapp.backend.module.referentiel.model.Langue;
 import growzapp.backend.module.referentiel.model.Localite;
 import growzapp.backend.module.referentiel.repository.LangueRepository;
@@ -45,6 +46,7 @@ public class UserService {
     private final EntityManager entityManager;
     private final LocaliteRepository localiteRepository;
     private final LangueRepository langueRepository;
+    private final FileValidationService fileValidationService;
 
     private final String AVATAR_DIR = System.getProperty("user.dir") + "/uploads/avatars/";
 
@@ -52,16 +54,16 @@ public class UserService {
         if (file == null || file.isEmpty())
             return null;
 
+        // Vérifie le VRAI contenu du fichier (HIGH-04) — photo de profil
+        fileValidationService.validateImage(file);
+
         Path uploadPath = Paths.get(AVATAR_DIR);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
-
         String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
         Path filePath = uploadPath.resolve(fileName);
-
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
         return fileName;
     }
 
