@@ -40,16 +40,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
+        // Lit le token soit depuis le header Authorization (ancien
+        // comportement, pour compatibilité pendant la migration), soit
+        // depuis le cookie HttpOnly auth_token (nouveau comportement,
+        // HIGH-03) — priorité au cookie s'il est présent.
+        String jwt = null;
 
-        // 1. Vérification du Header (ton code est bon ici)
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (request.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+                if ("auth_token".equals(cookie.getName())) {
+                    jwt = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (jwt == null) {
+            final String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                jwt = authHeader.substring(7);
+            }
+        }
+
+        if (jwt == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            final String jwt = authHeader.substring(7);
 
             // Vérifie que le token n'a pas été explicitement révoqué (déconnexion,
             // changement de mot de passe) avant d'accepter sa signature valide
