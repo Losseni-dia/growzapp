@@ -130,7 +130,9 @@ public class UserController {
             authCookie.setAttribute("SameSite", "Strict");
             httpServletResponse.addCookie(authCookie);
 
-            return ResponseEntity.ok(new LoginResponse(token, userDTO));
+            // Le token n'est plus renvoyé dans le JSON — il vit uniquement
+            // dans le cookie HttpOnly posé ci-dessus (HIGH-03, étape finale).
+            return ResponseEntity.ok(new LoginResponse(null, userDTO));
 
         } catch (org.springframework.security.core.AuthenticationException ex) {
             // Échec — incrémente le compteur, verrouille après 5 tentatives
