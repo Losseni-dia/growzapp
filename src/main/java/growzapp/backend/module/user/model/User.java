@@ -44,6 +44,12 @@ public class User {
     @Column(nullable = true)
     private String password;
 
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private java.time.LocalDateTime lockedUntil;
+
     private String prenom;
     private String nom;
 
