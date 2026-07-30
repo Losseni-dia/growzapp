@@ -1,5 +1,21 @@
 package growzapp.backend.module.wallet.controller;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import growzapp.backend.module.paiement.stripe.StripeDepositService;
 import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.user.model.User;
@@ -7,7 +23,6 @@ import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.user.service.UserService;
 import growzapp.backend.module.wallet.dto.TransferRequest;
 import growzapp.backend.module.wallet.dto.WalletDTO;
-import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.model.Transaction;
 import growzapp.backend.module.wallet.model.Wallet;
 import growzapp.backend.module.wallet.repository.WalletRepository;
@@ -21,18 +36,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -195,13 +198,18 @@ public class UserWalletController {
         BigDecimal montant = new BigDecimal(montantObj.toString());
         String methode = (String) body.getOrDefault("methode", "MOBILE_MONEY");
         String phone = (String) body.get("phone");
-
+        // Clé d'idempotence générée côté frontend au moment du clic — protège
+        // contre le double-clic (HIGH-06). Fallback UUID serveur si absente,
+        // pour ne pas casser un ancien client pas encore mis à jour.
+        String idempotencyKey = (String) body.get("idempotencyKey");
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            idempotencyKey = java.util.UUID.randomUUID().toString();
+        }
         if (montant.compareTo(BigDecimal.ZERO) <= 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "Montant invalide"));
         }
-
         try {
-            String externalId = walletService.retirerFonds(userId, montant, methode, phone);
+            String externalId = walletService.retirerFonds(userId, montant, methode, phone, idempotencyKey);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,

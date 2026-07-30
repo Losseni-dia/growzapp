@@ -105,7 +105,7 @@ public class WalletService {
     }
 
     // ── RETRAIT AUTOMATIQUE (délègue à WithdrawalService) ───────────────────
-    public String retirerFonds(Long userId, BigDecimal montant, String methode, String phone) {
+    public String retirerFonds(Long userId, BigDecimal montant, String methode, String phone, String idempotencyKey) {
         if ("STRIPE".equalsIgnoreCase(methode)) {
             // ── DÉSACTIVÉ TEMPORAIREMENT ─────────────────────────────────────
             // Payout.create() de Stripe envoie les fonds vers le compte bancaire
@@ -117,7 +117,7 @@ public class WalletService {
                             + "Utilisez le retrait Mobile Money en attendant.");
         } else if ("MOBILE_MONEY".equalsIgnoreCase(methode)) {
             TypeTransaction mmType = resolveMobileMoneyType(phone);
-            return withdrawalService.executerRetraitMobileMoney(userId, montant, mmType, phone);
+            return withdrawalService.executerRetraitMobileMoney(userId, montant, mmType, phone, idempotencyKey);
         }
         throw new IllegalArgumentException("Méthode de retrait inconnue : " + methode);
     }
@@ -304,6 +304,8 @@ public class WalletService {
             transactionRepository.save(tx);
         }
     }
+
+    
 
     private Wallet getWalletWithLock(Long userId) {
         return walletRepository.findByUserIdWithPessimisticLock(userId)
