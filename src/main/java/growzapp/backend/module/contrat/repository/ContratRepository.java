@@ -27,6 +27,8 @@ public interface ContratRepository
 
     Optional<Contrat> findByNumeroContrat(String numeroContrat);
 
+    Optional<Contrat> findByFichierUrlContaining(String filename);
+
     @Query("""
                      SELECT c FROM Contrat c
                      JOIN c.investissement i

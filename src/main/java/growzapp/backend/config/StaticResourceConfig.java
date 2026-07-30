@@ -18,12 +18,13 @@ public class StaticResourceConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // Liste complète des sous-dossiers utilisés dans l'application
+        // "contrats", "factures" et "documents" retirés — servis désormais
+        // par des contrôleurs dédiés avec vérification de propriétaire
+        // (HIGH-05 de l'audit), pas en accès statique public/authenticated
+        // générique.
         String[] subfolders = {
                 "posters",
-                "contrats",
-                "factures",
-                "avatars",
-                "documents" // ← ajouté comme demandé
+                "avatars"
         };
 
         for (String folder : subfolders) {
