@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import growzapp.backend.module.files.validation.FileValidationService;
+
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
@@ -19,10 +21,10 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class FileStorageService {
-
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
 
+    private final FileValidationService fileValidationService;
     // =============== CHEMINS ===============
 
     private Path getRootPath() {
@@ -48,12 +50,19 @@ public class FileStorageService {
     // =============== SAUVEGARDE ===============
 
     private String storeFile(MultipartFile file, String subfolder, String urlPrefix) throws IOException {
+        // Vérifie le VRAI contenu du fichier (HIGH-04) — protège
+        // automatiquement les 3 méthodes qui passent par ce point commun
+        // (posters/avatars, documents projet, contrats)
+        if ("contrats".equals(subfolder) || "documents".equals(subfolder)) {
+            fileValidationService.validateDocument(file);
+        } else {
+            fileValidationService.validateImage(file);
+        }
+
         String original = StringUtils.cleanPath(file.getOriginalFilename());
         String filename = UUID.randomUUID() + "_" + original;
-
         Path target = getUploadPath(subfolder).resolve(filename);
         Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-
         return urlPrefix + filename;
     }
 
