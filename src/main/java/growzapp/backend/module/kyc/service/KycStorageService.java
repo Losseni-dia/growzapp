@@ -1,15 +1,19 @@
 package growzapp.backend.module.kyc.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import growzapp.backend.module.files.validation.FileValidationService;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.UUID;
 
 @Service
 public class KycStorageService {
-
     private final Path root = Paths.get("uploads/private/kyc-documents").toAbsolutePath().normalize();
+
+    @Autowired
+    private FileValidationService fileValidationService;
 
     public KycStorageService() {
         try {
@@ -23,8 +27,11 @@ public class KycStorageService {
         if (file.isEmpty()) {
             throw new RuntimeException("Impossible de sauvegarder un fichier vide.");
         }
-
         try {
+            // Vérifie le VRAI contenu du fichier (image ou PDF) avant tout
+            // traitement — documents d'identité, particulièrement sensibles (HIGH-04)
+            fileValidationService.validateDocument(file);
+
             String originalFilename = file.getOriginalFilename();
             String extension = "";
 
