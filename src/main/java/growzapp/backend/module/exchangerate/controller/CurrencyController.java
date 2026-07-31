@@ -4,12 +4,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import growzapp.backend.module.exchangerate.model.ExchangeRate;
 import growzapp.backend.module.exchangerate.repository.ExchangeRateRepository;
+import growzapp.backend.module.shared.ApiResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,7 +36,7 @@ public class CurrencyController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Taux de change disponibles", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"EUR\": 1.0, \"XOF\": 655.957, \"USD\": 1.08}")))
     })
-    public Map<String, Double> getExchangeRates() {
+    public ResponseEntity<ApiResponseDTO<Map<String, Double>>> getExchangeRates() {
         List<ExchangeRate> allRates = exchangeRateRepository.findAll();
 
         Map<String, Double> rates = new LinkedHashMap<>();
@@ -54,6 +56,6 @@ public class CurrencyController {
             rates.put("GNF", 9300.00);
         }
 
-        return rates;
+        return ResponseEntity.ok(ApiResponseDTO.success(rates));
     }
 }
