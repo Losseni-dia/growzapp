@@ -1,7 +1,5 @@
 package growzapp.backend.module.wallet.repository;
 
-import growzapp.backend.module.wallet.enums.StatutTransaction;
-import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
 import growzapp.backend.module.wallet.model.Transaction;
 
@@ -32,15 +30,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         @EntityGraph(attributePaths = { "destinataireWallet.user" })
         @Query("SELECT t FROM Transaction t WHERE t.walletType = 'USER' AND t.walletId = :walletId ORDER BY t.createdAt DESC")
         List<Transaction> findByWalletTypeAndWalletIdOrderByCreatedAtDesc(@Param("walletId") Long walletId);
-
-        @Query("SELECT t FROM Transaction t " +
-                        "WHERE t.type = :type " +
-                        "AND t.statut = :statut " +
-                        "AND t.walletType = 'USER' " +
-                        "ORDER BY t.createdAt DESC")
-        List<Transaction> findByTypeAndStatutAndWalletType(
-                        @Param("type") TypeTransaction type,
-                        @Param("statut") StatutTransaction statut);
 
         @Query("SELECT t FROM Transaction t WHERE t.walletType = :type AND t.walletId = :id ORDER BY t.createdAt DESC")
         List<Transaction> findByWalletTypeAndWalletId(
