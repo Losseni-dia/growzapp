@@ -1,5 +1,6 @@
 package growzapp.backend.module.notification.controller;
 
+import growzapp.backend.module.notification.mapper.NotificationMapper;
 import growzapp.backend.module.notification.model.Notification;
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.shared.ApiResponseDTO;
@@ -30,6 +31,9 @@ public class NotificationController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private NotificationMapper notificationMapper;
+
     @GetMapping
     @Operation(summary = "Mes notifications", description = "Retourne toutes les notifications de l'utilisateur connecté, triées du plus récent au plus ancien.", tags = {
             "Notifications" })
@@ -37,10 +41,13 @@ public class NotificationController {
             @ApiResponse(responseCode = "200", description = "Liste des notifications", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
             @ApiResponse(responseCode = "401", description = "Non authentifié", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
-    public ApiResponseDTO<List<Notification>> getMyNotifications() {
-        User currentUser = userService.getCurrentUser();
-        List<Notification> notifications = notificationService.getNotificationsForUser(currentUser);
-        return ApiResponseDTO.success(notifications);
+    public ApiResponseDTO<List<growzapp.backend.module.notification.dto.NotificationDTO>> getMyNotifications() {
+            User currentUser = userService.getCurrentUser();
+            List<Notification> notifications = notificationService.getNotificationsForUser(currentUser);
+            List<growzapp.backend.module.notification.dto.NotificationDTO> dtos = notifications.stream()
+                            .map(notificationMapper::toDto)
+                            .toList();
+            return ApiResponseDTO.success(dtos);
     }
 
     @GetMapping("/unread-count")
