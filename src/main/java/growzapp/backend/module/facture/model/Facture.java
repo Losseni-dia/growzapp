@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "factures")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Facture {
@@ -57,4 +58,19 @@ public class Facture {
     @JsonIgnoreProperties({ "wallet", "investissements", "roles", "password" })
     @ToString.Exclude
     private User investisseur;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (!(o instanceof Facture))
+            return false;
+        Facture that = (Facture) o;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }
