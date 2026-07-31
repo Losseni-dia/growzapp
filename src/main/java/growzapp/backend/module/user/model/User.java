@@ -135,6 +135,7 @@ public class User {
     private KycStatus kycStatus = KycStatus.NON_SOUMIS;
 
     @Column(name = "date_naissance")
+    @jakarta.persistence.Convert(converter = growzapp.backend.config.crypto.EncryptedLocalDateConverter.class)
     private LocalDate dateNaissance;
 
     @Column(name = "adresse_residencielle")

@@ -1,0 +1,1 @@
+ALTER TABLE users ALTER COLUMN date_naissance TYPE VARCHAR(255) USING date_naissance::text;
