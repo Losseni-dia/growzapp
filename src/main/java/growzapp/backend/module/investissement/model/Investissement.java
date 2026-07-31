@@ -7,8 +7,10 @@ import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.user.model.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,7 +19,9 @@ import java.util.List;
 
 @Entity
 @Table(name = "investissements")
-@Data
+@Getter
+@Setter
+@ToString(exclude = { "projet", "investisseur", "contrat", "dividendes" })
 @NoArgsConstructor
 @AllArgsConstructor
 public class Investissement {
@@ -96,4 +100,21 @@ public class Investissement {
         calculerMontantInvesti();
         calculerPourcentageEquity();
     }
+
+    // equals()/hashCode() basés uniquement sur l'id — évite les problèmes
+    // avec les proxies Hibernate (lazy loading) et les collections que
+    // @Data générait en se basant sur tous les champs (JAVA-01 de l'audit)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Investissement)) return false;
+        Investissement that = (Investissement) o;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
+
 }
