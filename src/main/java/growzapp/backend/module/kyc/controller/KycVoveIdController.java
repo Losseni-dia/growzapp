@@ -17,6 +17,7 @@ import growzapp.backend.module.kyc.dto.VoveIdSessionDTO;
 import growzapp.backend.module.kyc.enums.KycStatus;
 import growzapp.backend.module.kyc.service.KycVoveIdService;
 import growzapp.backend.module.kyc.service.VoveIdService;
+import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 
@@ -54,7 +55,7 @@ public class KycVoveIdController {
         // Bloquer si déjà validé
         if (user.getKycStatus() == KycStatus.VALIDE) {
             return ResponseEntity.badRequest()
-                    .body("Votre identité est déjà vérifiée et validée.");
+                    .body(ApiResponseDTO.error("Votre identité est déjà vérifiée et validée."));
         }
 
         // forceCreation = true si NON_SOUMIS ou REJETE
@@ -65,9 +66,9 @@ public class KycVoveIdController {
         String refId = voveIdService.generateRefId(user.getId());
         String sessionToken = voveIdService.createSessionToken(user.getId(), forceCreation);
         String widgetUrl = voveIdService.getWidgetUrl(sessionToken);
-
-        return ResponseEntity.ok(new VoveIdSessionDTO(refId, widgetUrl, publicKey));
-    }
+        
+        return ResponseEntity.ok(ApiResponseDTO.success(new VoveIdSessionDTO(refId, widgetUrl, publicKey)));
+}
 
     @Operation(summary = "Webhook VOVE ID — Réception des notifications", description = "Endpoint appelé automatiquement par VOVE ID. Ne pas appeler manuellement.")
     @ApiResponses(value = {
