@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -30,6 +32,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         "LOWER(u.prenom) LIKE LOWER(:search) OR " +
                         "LOWER(u.nom) LIKE LOWER(:search)")
         List<User> findBySearchTerm(@Param("search") String search);
+
+        @Query("SELECT u FROM User u WHERE " +
+                        "LOWER(u.login) LIKE LOWER(:search) OR " +
+                        "LOWER(u.email) LIKE LOWER(:search) OR " +
+                        "LOWER(u.prenom) LIKE LOWER(:search) OR " +
+                        "LOWER(u.nom) LIKE LOWER(:search)")
+        Page<User> findBySearchTermPaged(@Param("search") String search, Pageable pageable);
 
         Optional<User> findByLogin(String login); // celle-là marche sans @Query
 

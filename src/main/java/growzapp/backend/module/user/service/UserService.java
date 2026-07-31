@@ -10,6 +10,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -163,6 +165,13 @@ public class UserService {
                 .stream()
                 .map(userMapper::toDto)
                 .toList();
+    }
+
+    public Page<UserDTO> getAllAdminPaged(String search, Pageable pageable) {
+        Page<User> page = (search != null && !search.isBlank())
+                ? userRepository.findBySearchTermPaged("%" + search.toLowerCase() + "%", pageable)
+                : userRepository.findAll(pageable);
+        return page.map(userMapper::toDto);
     }
 
     public UserDTO getUserDtoById(Long id) {

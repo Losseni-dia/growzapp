@@ -70,6 +70,12 @@ public class UserDTO {
     @Schema(description = "Indique si le compte est actif", example = "true")
     private boolean enabled = true;
 
+    @Schema(description = "Nombre de tentatives de connexion échouées consécutives", example = "0")
+    private int failedLoginAttempts;
+
+    @Schema(description = "Date/heure jusqu'à laquelle le compte est verrouillé suite à des échecs de connexion (null si non verrouillé)", example = "2026-07-31T14:30:00")
+    private java.time.LocalDateTime lockedUntil;
+
     // === Champs KYC ===
 
     @Schema(
