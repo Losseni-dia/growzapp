@@ -85,6 +85,9 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/currencies/**", "/api/v1/currencies/**")
                                                 .permitAll() // Autorise l'accès
                                                 // public
+                                                .requestMatchers(HttpMethod.GET, "/api/site-settings",
+                                                                "/api/v1/site-settings")
+                                                .permitAll()
 
                                                 // FICHIERS PUBLICS
                                                 .requestMatchers("/uploads/posters/**").permitAll()
