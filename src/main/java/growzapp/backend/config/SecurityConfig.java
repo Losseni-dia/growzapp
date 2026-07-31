@@ -60,7 +60,7 @@ public class SecurityConfig {
                                                 // l'instant (observe sans bloquer), le temps de confirmer
                                                 // qu'aucune source légitime n'a été oubliée.
                                                 .addHeaderWriter((request, response) -> response.setHeader(
-                                                                "Content-Security-Policy-Report-Only",
+                                                                "Content-Security-Policy",
                                                                 cspPolicy)))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
