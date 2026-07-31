@@ -41,6 +41,16 @@ public class SecurityConfig {
                                 .csrf(csrf -> csrf.disable())
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .headers(headers -> headers
+                                                // MED-05 : headers de sécurité HTTP manquants
+                                                .httpStrictTransportSecurity(hsts -> hsts
+                                                                .includeSubDomains(true)
+                                                                .maxAgeInSeconds(31536000))
+                                                .frameOptions(frame -> frame.deny())
+                                                .contentTypeOptions(contentType -> {
+                                                })
+                                                .referrerPolicy(referrer -> referrer
+                                                                .policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)))
 
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
