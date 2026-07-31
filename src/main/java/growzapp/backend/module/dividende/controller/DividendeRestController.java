@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/dividendes")
+@RequestMapping({"/api/v1/dividendes", "/api/dividendes"})
 @RequiredArgsConstructor
 @Tag(name = "Dividendes", description = "Consultation et gestion des dividendes liés aux investissements")
 public class DividendeRestController {

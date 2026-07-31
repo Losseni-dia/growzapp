@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/investissements")
+@RequestMapping({"/api/v1/investissements", "/api/investissements"})
 @RequiredArgsConstructor
 @Tag(name = "Investissements", description = "Création, consultation et gestion des investissements — accessible aux utilisateurs connectés et aux administrateurs selon l'endpoint")
 public class InvestissementController {

@@ -63,7 +63,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/projets")
+@RequestMapping({"/api/v1/projets", "/api/projets"})
 @RequiredArgsConstructor
 @Tag(name = "Projets", description = "Gestion du cycle de vie des investissements")
 public class ProjetRestController {

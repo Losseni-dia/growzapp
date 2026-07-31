@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/documents")
+@RequestMapping({"/api/v1/documents", "/api/documents"})
 @RequiredArgsConstructor
 @Tag(name = "Documents", description = "Gestion des documents attachés aux projets (upload, consultation et téléchargement) — accès restreint aux investisseurs, porteurs et administrateurs")
 public class DocumentController {

@@ -43,7 +43,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/admin/dashboard-stats")
+@RequestMapping({"/api/v1/admin/dashboard-stats", "/api/admin/dashboard-stats"})
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 @SecurityRequirement(name = "BearerAuth")

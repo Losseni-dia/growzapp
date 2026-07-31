@@ -19,7 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/currencies")
+@RequestMapping({"/api/v1/currencies", "/api/currencies"})
 @RequiredArgsConstructor
 @Tag(name = "Devises", description = "Taux de change utilisés sur la plateforme Growzapp")
 public class CurrencyController {

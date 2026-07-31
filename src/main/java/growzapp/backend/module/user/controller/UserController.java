@@ -64,7 +64,7 @@ import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping({"/api/v1/auth", "/api/auth"})
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "Inscription, connexion, récupération de profil et gestion du compte utilisateur")
 public class UserController {

@@ -23,7 +23,7 @@ import growzapp.backend.module.user.repository.UserRepository;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/kyc")
+@RequestMapping({"/api/v1/kyc", "/api/kyc"})
 @RequiredArgsConstructor
 @Tag(name = "KYC — VOVE ID", description = "Endpoints de vérification d'identité automatique via VOVE ID")
 public class KycVoveIdController {

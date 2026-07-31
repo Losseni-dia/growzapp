@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping({"/api/v1/notifications", "/api/notifications"})
 @SecurityRequirement(name = "BearerAuth")
 @Tag(name = "Notifications", description = "Notifications en temps réel de l'utilisateur connecté")
 public class NotificationController {

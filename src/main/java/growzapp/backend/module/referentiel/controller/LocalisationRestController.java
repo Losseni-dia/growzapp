@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/localisations")
+@RequestMapping({"/api/v1/localisations", "/api/localisations"})
 @RequiredArgsConstructor
 @Tag(name = "Référentiels", description = "Données de référence : pays, localités, localisations, langues et secteurs d'activité")
 public class LocalisationRestController {

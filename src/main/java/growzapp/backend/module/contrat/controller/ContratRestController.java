@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
-@RequestMapping("/api/contrats")
+@RequestMapping({"/api/v1/contrats", "/api/contrats"})
 @RequiredArgsConstructor
 @Tag(name = "Contrats", description = "Vérification publique et consultation des contrats d'investissement au format PDF")
 public class ContratRestController {

@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/transactions")
+@RequestMapping({"/api/v1/transactions", "/api/transactions"})
 @RequiredArgsConstructor
 @Tag(name = "Transactions", description = "Consultation de l'historique des transactions et gestion des retraits (validation/rejet par l'admin)")
 public class TransactionController {

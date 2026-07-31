@@ -19,7 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/factures")
+@RequestMapping({"/api/v1/factures", "/api/factures"})
 @RequiredArgsConstructor
 @Tag(name = "Factures", description = "Consultation et téléchargement des factures de dividendes au format PDF")
 public class FactureRestController {

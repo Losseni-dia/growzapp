@@ -59,7 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/admin/projet-wallet")
+@RequestMapping({"/api/v1/admin/projet-wallet", "/api/admin/projet-wallet"})
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 @SecurityRequirement(name = "BearerAuth")

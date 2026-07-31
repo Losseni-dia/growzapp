@@ -45,7 +45,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/projets/mes-projets")
+@RequestMapping({"/api/v1/projets/mes-projets", "/api/projets/mes-projets"})
 @RequiredArgsConstructor
 @Tag(name = "Porteur - Tableau de bord", description = "Statistiques agrégées pour les porteurs de projet. Aucune identité d'investisseur n'est jamais exposée ici.")
 public class PorteurDashboardController {

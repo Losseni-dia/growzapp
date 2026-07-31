@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/news")
+@RequestMapping({"/api/v1/news", "/api/news"})
 @Tag(name = "News", description = "Articles d'actualité de la plateforme Growzapp")
 public class NewsController {
 
