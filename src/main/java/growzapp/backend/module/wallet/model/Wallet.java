@@ -14,7 +14,9 @@ import growzapp.backend.module.wallet.enums.WalletType;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 @Table(name = "wallets")
-@Data
+@Getter
+@Setter
+@ToString(exclude = { "user" })
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
