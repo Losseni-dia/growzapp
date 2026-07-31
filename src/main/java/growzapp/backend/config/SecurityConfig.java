@@ -1,6 +1,8 @@
 package growzapp.backend.config;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -34,6 +36,9 @@ public class SecurityConfig {
         private final CustomOAuth2UserService customOAuth2UserService;
         private final OAuth2AuthenticationSuccessHandler oauth2SuccessHandler;
 
+        @Value("${growzapp.security.csp}")
+        private String cspPolicy;
+
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                 http
@@ -50,8 +55,13 @@ public class SecurityConfig {
                                                 .contentTypeOptions(contentType -> {
                                                 })
                                                 .referrerPolicy(referrer -> referrer
-                                                                .policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)))
-
+                                                                .policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                                                // MED-03 : Content Security Policy — mode Report-Only pour
+                                                // l'instant (observe sans bloquer), le temps de confirmer
+                                                // qu'aucune source légitime n'a été oubliée.
+                                                .addHeaderWriter((request, response) -> response.setHeader(
+                                                                "Content-Security-Policy-Report-Only",
+                                                                cspPolicy)))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                                                 // PUBLIC
