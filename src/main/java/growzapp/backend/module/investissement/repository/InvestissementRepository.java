@@ -6,6 +6,8 @@ package growzapp.backend.module.investissement.repository;
 import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.investissement.model.Investissement;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -51,6 +53,22 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
       "   OR LOWER(u.nom) LIKE LOWER(:term) " +
       "   OR LOWER(p.libelle) LIKE LOWER(:term)")
   List<Investissement> findBySearchTerm(@Param("term") String term);
+
+  @Query("SELECT i FROM Investissement i " +
+      "LEFT JOIN i.investisseur u " +
+      "LEFT JOIN i.projet p " +
+      "WHERE (CAST(:term AS string) IS NULL OR :term = '' OR " +
+      "       LOWER(u.login) LIKE LOWER(CONCAT('%', CAST(:term AS string), '%')) OR " +
+      "       LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:term AS string), '%')) OR " +
+      "       LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:term AS string), '%')) OR " +
+      "       LOWER(p.libelle) LIKE LOWER(CONCAT('%', CAST(:term AS string), '%'))) " +
+      "  AND (:statut IS NULL OR i.statutPartInvestissement = :statut)")
+  Page<Investissement> rechercherAdmin(
+      @Param("term") String term,
+      @Param("statut") StatutPartInvestissement statut,
+      Pageable pageable);
+
+  long countByStatutPartInvestissement(StatutPartInvestissement statut);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("SELECT i FROM Investissement i WHERE i.id = :id")

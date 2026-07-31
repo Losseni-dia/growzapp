@@ -3,6 +3,9 @@ package growzapp.backend.module.investissement.controller;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +22,7 @@ import growzapp.backend.module.contrat.service.ContratService;
 import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.files.PdfReactService;
 import growzapp.backend.module.investissement.dto.InvestissementDTO;
+import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.investissement.service.InvestissementService;
@@ -46,11 +50,27 @@ public class AdminInvestissementController {
     private final ContratService contratService;
 
     @GetMapping
-    @Operation(summary = "Lister tous les investissements", tags = { "Admin - Investissements" })
-    public ApiResponseDTO<List<InvestissementDTO>> getAll(
-            @Parameter(description = "Terme de recherche optionnel") @RequestParam(required = false) String search) {
-        List<InvestissementDTO> investissements = investissementService.getAllAdmin(search);
-        return ApiResponseDTO.success(investissements);
+    @Operation(summary = "Lister les investissements (paginé)", tags = { "Admin - Investissements" })
+    public ApiResponseDTO<Page<InvestissementDTO>> getAll(
+            @Parameter(description = "Terme de recherche optionnel") @RequestParam(required = false) String search,
+            @Parameter(description = "Filtre par statut (EN_ATTENTE, VALIDE, ANNULE)") @RequestParam(required = false) String statut,
+            @Parameter(description = "Numéro de page (commence à 0)", example = "0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'éléments par page", example = "20") @RequestParam(defaultValue = "20") int size) {
+        StatutPartInvestissement statutEnum = null;
+        if (statut != null && !statut.isBlank()) {
+            try {
+                statutEnum = StatutPartInvestissement.valueOf(statut);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        Pageable pageable = PageRequest.of(page, size);
+        return ApiResponseDTO.success(investissementService.getAllAdmin(search, statutEnum, pageable));
+    }
+
+    @GetMapping("/counts")
+    @Operation(summary = "Compteurs d'investissements par statut", tags = { "Admin - Investissements" })
+    public ApiResponseDTO<Map<String, Long>> getCounts() {
+        return ApiResponseDTO.success(investissementService.getStatutCounts());
     }
 
     @GetMapping("/{id}")

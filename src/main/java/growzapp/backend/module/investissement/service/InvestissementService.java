@@ -200,6 +200,20 @@ public class InvestissementService {
                                 .map(investissementMapper::toDto).toList();
         }
 
+        public Page<InvestissementDTO> getAllAdmin(String search, StatutPartInvestissement statut, Pageable pageable) {
+                return investissementRepository.rechercherAdmin(search, statut, pageable)
+                                .map(investissementMapper::toDto);
+        }
+
+        public java.util.Map<String, Long> getStatutCounts() {
+                java.util.Map<String, Long> counts = new java.util.LinkedHashMap<>();
+                for (StatutPartInvestissement statut : StatutPartInvestissement.values()) {
+                        counts.put(statut.name(), investissementRepository.countByStatutPartInvestissement(statut));
+                }
+                counts.put("TOUS", investissementRepository.count());
+                return counts;
+        }
+
         // ── ANNULER (avec motif) ──────────────────────────────────────────────────
         @Transactional
         public void annulerInvestissement(Long id, String motif) {
