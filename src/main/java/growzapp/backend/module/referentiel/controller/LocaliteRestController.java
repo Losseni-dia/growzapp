@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,6 +50,7 @@ public class LocaliteRestController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Créer une localité", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Localité créée",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))
@@ -59,6 +61,7 @@ public class LocaliteRestController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Modifier une localité", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Localité mise à jour",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))
@@ -73,6 +76,7 @@ public class LocaliteRestController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Supprimer une localité", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Localité supprimée",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))

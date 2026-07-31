@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,6 +50,7 @@ public class SecteurRestController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Créer un secteur d'activité", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Secteur créé",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))
@@ -58,6 +60,7 @@ public class SecteurRestController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Modifier un secteur d'activité", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Secteur mis à jour",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))
@@ -71,6 +74,7 @@ public class SecteurRestController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Supprimer un secteur d'activité", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Secteur supprimé",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))

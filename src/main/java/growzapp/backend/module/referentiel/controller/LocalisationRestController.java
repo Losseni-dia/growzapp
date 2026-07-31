@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,6 +54,7 @@ public class LocalisationRestController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Créer une localisation", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Localisation créée",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))
@@ -62,7 +64,23 @@ public class LocalisationRestController {
         return ApiResponseDTO.success(referentielMapper.toLocalisationDto(saved));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Modifier une localisation", tags = {"Référentiels"})
+    @ApiResponses(@ApiResponse(responseCode = "200", description = "Localisation mise à jour",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))
+    public ApiResponseDTO<LocalisationDTO> update(
+            @Parameter(description = "Identifiant de la localisation", example = "3", required = true)
+            @PathVariable Long id,
+            @RequestBody LocalisationDTO dto) {
+        Localisation entity = referentielMapper.toLocalisationEntity(dto);
+        entity.setId(id);
+        Localisation saved = localisationService.save(entity, dto.localiteNom());
+        return ApiResponseDTO.success(referentielMapper.toLocalisationDto(saved));
+    }
+
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Supprimer une localisation", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Localisation supprimée",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))

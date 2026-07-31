@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,6 +50,7 @@ public class PaysRestController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Créer un pays", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Pays créé",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))
@@ -58,6 +60,7 @@ public class PaysRestController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Modifier un pays", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Pays mis à jour",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))
@@ -71,6 +74,7 @@ public class PaysRestController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Supprimer un pays", tags = {"Référentiels"})
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Pays supprimé",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))))

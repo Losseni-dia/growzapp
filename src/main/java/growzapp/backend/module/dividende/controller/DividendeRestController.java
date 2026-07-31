@@ -31,6 +31,8 @@ public class DividendeRestController {
     private final UserRepository userRepository;
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
     @Operation(
         summary = "Lister tous les dividendes",
         description = "Retourne la liste complète de tous les dividendes de la plateforme.",
@@ -46,6 +48,8 @@ public class DividendeRestController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
     @Operation(
         summary = "Détail d'un dividende",
         description = "Retourne le détail complet d'un dividende par son identifiant.",
@@ -65,6 +69,8 @@ public class DividendeRestController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
     @Operation(
         summary = "Créer un dividende",
         description = "Crée un nouveau dividende manuellement.",
@@ -80,6 +86,8 @@ public class DividendeRestController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
     @Operation(
         summary = "Modifier un dividende",
         description = "Met à jour les informations d'un dividende existant.",
@@ -103,6 +111,8 @@ public class DividendeRestController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
     @Operation(
         summary = "Supprimer un dividende",
         description = "Supprime définitivement un dividende. Action irréversible.",
