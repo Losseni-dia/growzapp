@@ -28,6 +28,7 @@ import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.kyc.enums.KycStatus;
 import growzapp.backend.module.kyc.service.KycStorageService;
 import growzapp.backend.module.notification.service.NotificationService;
+import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.user.dto.UserDTO;
 import growzapp.backend.module.user.mapper.UserMapper;
 import growzapp.backend.module.user.model.User;
@@ -81,17 +82,19 @@ public class KycController {
         user.setKycStatus(KycStatus.EN_ATTENTE);
         userRepository.save(user);
 
-        return ResponseEntity.ok(Map.of("message",
-                "Votre dossier KYC a été soumis avec succès et est en cours de révision."));
+        userRepository.save(user);
+        return ResponseEntity.ok(ApiResponseDTO.success(null)
+                .message("Votre dossier KYC a été soumis avec succès et est en cours de révision."));
     }
 
     @GetMapping("/admin/en-attente")
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "BearerAuth")
     @Operation(summary = "[Admin] Lister les dossiers KYC en attente", tags = { "KYC" })
-    public ResponseEntity<List<UserDTO>> getDemandesEnAttente() {
+    public ResponseEntity<ApiResponseDTO<List<UserDTO>>> getDemandesEnAttente() {
         List<User> users = userRepository.findByKycStatus(KycStatus.EN_ATTENTE);
-        return ResponseEntity.ok(users.stream().map(userMapper::toDto).toList());
+        List<UserDTO> dtos = users.stream().map(userMapper::toDto).toList();
+        return ResponseEntity.ok(ApiResponseDTO.success(dtos));
     }
 
     @GetMapping("/admin/document/{userId}/{type}")
@@ -189,7 +192,7 @@ public class KycController {
             emailService.envoyerKycRefuse(user.getEmail(), nomComplet, motif);
         }
 
-        return ResponseEntity.ok(Map.of("status", user.getKycStatus()));
+        return ResponseEntity.ok(ApiResponseDTO.success(Map.of("status", user.getKycStatus())));
     }
 
     private Long getCurrentUserId(UserDetails userDetails) {
