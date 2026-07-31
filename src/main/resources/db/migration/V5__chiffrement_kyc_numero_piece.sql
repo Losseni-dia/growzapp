@@ -1,0 +1,1 @@
+ALTER TABLE users ALTER COLUMN kyc_numero_piece TYPE VARCHAR(255);

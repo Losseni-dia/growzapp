@@ -110,9 +110,9 @@ public class User {
 
     // === NOUVEAUX CHAMPS KYC AJOUTÉS ===
 
-    @Column(name = "kyc_numero_piece", length = 50)
+    @Column(name = "kyc_numero_piece", length = 255)
+    @jakarta.persistence.Convert(converter = growzapp.backend.config.crypto.EncryptedStringConverter.class)
     private String kycNumeroPiece;
-
     @Column(name = "kyc_date_delivrance")
     private LocalDate kycDateDelivrance;
 
