@@ -11,13 +11,15 @@ import growzapp.backend.module.paiement.enums.MoyenPaiement;
 import growzapp.backend.module.dividende.enums.StatutDividende;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 @Entity
 @Table(name = "dividendes")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Dividende {
@@ -61,5 +63,20 @@ public class Dividende {
         if (investissement == null || this.montantParPart == null)
             return 0.0;
         return this.montantParPart.multiply(BigDecimal.valueOf(investissement.getNombrePartsPris())).doubleValue();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (!(o instanceof Dividende))
+            return false;
+        Dividende that = (Dividende) o;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }
