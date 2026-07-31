@@ -94,24 +94,48 @@ public class ContratService {
             Integer montantMax,
             Pageable pageable) {
 
-        LocalDateTime debut = dateDebut != null && !dateDebut.isBlank()
-                ? LocalDateTime.parse(dateDebut + "T00:00:00")
-                : null;
-
-        LocalDateTime fin = dateFin != null && !dateFin.isBlank()
-                ? LocalDateTime.parse(dateFin + "T23:59:59")
-                : null;
-
-        StatutPartInvestissement statutEnum = null;
-        if (statut != null && !statut.isBlank()) {
-            try {
-                statutEnum = StatutPartInvestissement.valueOf(statut);
-            } catch (IllegalArgumentException ignored) {
-            }
-        }
+        LocalDateTime debut = parseDateDebut(dateDebut);
+        LocalDateTime fin = parseDateFin(dateFin);
+        StatutPartInvestissement statutEnum = parseStatut(statut);
 
         return contratRepository.rechercherAvecFiltres(
                 search, debut, fin, statutEnum, montantMin, montantMax, pageable);
+    }
+
+    public Page<growzapp.backend.module.contrat.dto.ContratAdminDTO> rechercherAdminDTO(
+            String search,
+            String dateDebut,
+            String dateFin,
+            String statut,
+            Pageable pageable) {
+
+        LocalDateTime debut = parseDateDebut(dateDebut);
+        LocalDateTime fin = parseDateFin(dateFin);
+        StatutPartInvestissement statutEnum = parseStatut(statut);
+
+        return contratRepository.rechercherAdminDTO(search, debut, fin, statutEnum, pageable);
+    }
+
+    private LocalDateTime parseDateDebut(String dateDebut) {
+        return dateDebut != null && !dateDebut.isBlank()
+                ? LocalDateTime.parse(dateDebut + "T00:00:00")
+                : null;
+    }
+
+    private LocalDateTime parseDateFin(String dateFin) {
+        return dateFin != null && !dateFin.isBlank()
+                ? LocalDateTime.parse(dateFin + "T23:59:59")
+                : null;
+    }
+
+    private StatutPartInvestissement parseStatut(String statut) {
+        if (statut != null && !statut.isBlank()) {
+            try {
+                return StatutPartInvestissement.valueOf(statut);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return null;
     }
 
     // ========================================================================

@@ -1,5 +1,6 @@
 package growzapp.backend.module.contrat.repository;
 
+import growzapp.backend.module.contrat.dto.ContratAdminDTO;
 import growzapp.backend.module.contrat.model.Contrat;
 import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.investissement.model.Investissement;
@@ -52,5 +53,30 @@ public interface ContratRepository
                     @Param("statut") StatutPartInvestissement statut,
                     @Param("montantMin") Integer montantMin,
                     @Param("montantMax") Integer montantMax,
+                    Pageable pageable);
+
+    @Query("""
+                     SELECT NEW growzapp.backend.module.contrat.dto.ContratAdminDTO(
+                            c.id, c.numeroContrat, c.dateGeneration, p.libelle,
+                            CONCAT(u.prenom, ' ', u.nom), u.email, u.contact,
+                            i.montantInvesti, i.nombrePartsPris, i.statutPartInvestissement)
+                     FROM Contrat c
+                     JOIN c.investissement i
+                     JOIN i.projet p
+                     JOIN i.investisseur u
+                     WHERE (CAST(:search AS string) IS NULL OR :search = '' OR
+                            LOWER(c.numeroContrat) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                            LOWER(p.libelle) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                            LOWER(CONCAT(u.prenom, ' ', u.nom)) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                            LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
+                       AND (CAST(:dateDebut AS timestamp) IS NULL OR c.dateGeneration >= :dateDebut)
+                       AND (CAST(:dateFin AS timestamp) IS NULL OR c.dateGeneration <= :dateFin)
+                       AND (CAST(:statut AS string) IS NULL OR i.statutPartInvestissement = :statut)
+                    """)
+    Page<ContratAdminDTO> rechercherAdminDTO(
+                    @Param("search") String search,
+                    @Param("dateDebut") LocalDateTime dateDebut,
+                    @Param("dateFin") LocalDateTime dateFin,
+                    @Param("statut") StatutPartInvestissement statut,
                     Pageable pageable);
 }

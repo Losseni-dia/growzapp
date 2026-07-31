@@ -1,5 +1,6 @@
 package growzapp.backend.module.contrat.controller;
 
+import growzapp.backend.module.contrat.dto.ContratAdminDTO;
 import growzapp.backend.module.contrat.dto.ContratPublicDTO;
 import growzapp.backend.module.contrat.model.Contrat;
 import growzapp.backend.module.contrat.service.ContratService;
@@ -267,10 +268,23 @@ public class ContratRestController {
             @Parameter(description = "Numéro de page (commence à 0)", example = "0")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Nombre d'éléments par page", example = "20")
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Recherche par numéro de contrat, projet, nom ou email de l'investisseur")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Date de début (yyyy-MM-dd)")
+            @RequestParam(required = false) String dateDebut,
+            @Parameter(description = "Date de fin (yyyy-MM-dd)")
+            @RequestParam(required = false) String dateFin,
+            @Parameter(description = "Statut de l'investissement lié (EN_ATTENTE, VALIDE, ANNULE)")
+            @RequestParam(required = false) String statut) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("dateGeneration").descending());
-        Page<Contrat> resultats = contratService.rechercherAvecFiltres(null, null, null, null, null, null, pageable);
-        return ResponseEntity.ok(resultats);
+        Page<ContratAdminDTO> resultats = contratService.rechercherAdminDTO(
+                search, dateDebut, dateFin, statut, pageable);
+        return ResponseEntity.ok(Map.of(
+                "contrats", resultats.getContent(),
+                "totalPages", resultats.getTotalPages(),
+                "totalElements", resultats.getTotalElements(),
+                "page", resultats.getNumber()));
     }
 
     private ResponseEntity<?> handleFailedAttempt(String email) {
