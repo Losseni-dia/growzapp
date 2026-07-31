@@ -25,7 +25,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 @Table(name = "users")
-@Data
+@Getter
+@Setter
+@ToString(exclude = { "localite", "langues", "roles", "projets", "investissements", "wallet" })
 @NoArgsConstructor
 @AllArgsConstructor
 public class User {
