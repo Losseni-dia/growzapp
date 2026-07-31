@@ -250,6 +250,14 @@ public class UserService {
     @Transactional
     public UserDTO registerUser(UserCreateDTO dto, MultipartFile imageFile) throws IOException {
 
+        // ── VÉRIFICATION CONFIRMATION MOT DE PASSE (JAVA-07) ────────────
+        // confirmPassword ne peut pas être validé nativement par Bean
+        // Validation (nécessite de comparer deux champs entre eux) — sans
+        // cette vérification manuelle, le champ n'avait aucun effet réel.
+        if (!dto.getPassword().equals(dto.getConfirmPassword())) {
+            throw new IllegalArgumentException("Les mots de passe ne correspondent pas");
+        }
+
         // ── NORMALISATION EN MINUSCULES ──────────────────────────────────
         String loginNormalized = dto.getLogin().trim().toLowerCase();
         String emailNormalized = (dto.getEmail() != null && !dto.getEmail().isBlank())
