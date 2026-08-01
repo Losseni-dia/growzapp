@@ -1,5 +1,6 @@
 package growzapp.backend.config.exception;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +42,11 @@ public class GlobalExceptionHandler {
                 .reduce((a, b) -> a + ", " + b)
                 .orElse("Données invalides");
         return ResponseEntity.badRequest().body(errorBody(errors));
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(EntityNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody(e.getMessage()));
     }
 
     @ExceptionHandler(AuthenticationException.class)
