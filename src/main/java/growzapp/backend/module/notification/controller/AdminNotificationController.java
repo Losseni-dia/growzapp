@@ -45,11 +45,15 @@ public class AdminNotificationController {
             content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ApiResponseDTO<Page<NotificationAdminDTO>> getAll(
+            @Parameter(description = "Recherche par titre, nom ou email du destinataire")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Filtrer par statut de lecture (true = lues, false = non lues)")
+            @RequestParam(required = false) Boolean isRead,
             @Parameter(description = "Numéro de page (commence à 0)", example = "0")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Nombre d'éléments par page", example = "20")
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponseDTO.success(notificationRepository.findAllForAdmin(pageable));
+        return ApiResponseDTO.success(notificationRepository.findForAdmin(search, isRead, pageable));
     }
 }

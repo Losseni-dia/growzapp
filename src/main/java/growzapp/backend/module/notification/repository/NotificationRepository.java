@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -22,9 +23,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
                     CONCAT(u.prenom, ' ', u.nom), u.email)
                 FROM Notification n
                 JOIN n.recipient u
+                WHERE (CAST(:search AS string) IS NULL OR :search = '' OR
+                       LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                       LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                       LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                       LOWER(n.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
+                  AND (:isRead IS NULL OR n.isRead = :isRead)
                 ORDER BY n.date DESC
             """)
-    Page<NotificationAdminDTO> findAllForAdmin(Pageable pageable);
+    Page<NotificationAdminDTO> findForAdmin(
+            @Param("search") String search,
+            @Param("isRead") Boolean isRead,
+            Pageable pageable);
 
 
     // Récupère uniquement les notifications non lues pour le badge de la cloche
