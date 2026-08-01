@@ -85,8 +85,7 @@ public class KycController {
         user.setDateNaissance(LocalDate.parse(dateNaissance));
         user.setAdresseResidencielle(adresse);
         user.setKycStatus(KycStatus.EN_ATTENTE);
-        userRepository.save(user);
-
+        user.setKycSubmittedAt(LocalDateTime.now());
         userRepository.save(user);
         return ResponseEntity.ok(ApiResponseDTO.success(null)
                 .message("Votre dossier KYC a été soumis avec succès et est en cours de révision."));
@@ -95,11 +94,19 @@ public class KycController {
     @GetMapping("/admin/en-attente")
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "BearerAuth")
-    @Operation(summary = "[Admin] Lister les dossiers KYC en attente", tags = { "KYC" })
-    public ResponseEntity<ApiResponseDTO<List<UserDTO>>> getDemandesEnAttente() {
-        List<User> users = userRepository.findByKycStatus(KycStatus.EN_ATTENTE);
-        List<UserDTO> dtos = users.stream().map(userMapper::toDto).toList();
-        return ResponseEntity.ok(ApiResponseDTO.success(dtos));
+    @Operation(summary = "[Admin] Lister les dossiers KYC en attente (paginé, triés du plus récent au plus ancien)", tags = { "KYC" })
+    public ResponseEntity<ApiResponseDTO<Page<UserDTO>>> getDemandesEnAttente(
+            @Parameter(description = "Recherche par nom, prénom ou email")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Numéro de page (commence à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'éléments par page", example = "20")
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<UserDTO> result = userRepository
+                .findKycEnAttente(KycStatus.EN_ATTENTE, search, pageable)
+                .map(userMapper::toDto);
+        return ResponseEntity.ok(ApiResponseDTO.success(result));
     }
 
     @GetMapping("/admin/historique")
@@ -208,6 +215,7 @@ public class KycController {
 
             user.setKycStatus(KycStatus.REJETE);
             user.setKycCommentaireRejet(motif);
+            user.setKycDateValidation(LocalDateTime.now());
             userRepository.save(user);
 
             // Notification in-app avec motif

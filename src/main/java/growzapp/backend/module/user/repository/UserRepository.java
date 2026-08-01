@@ -40,6 +40,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         "LOWER(u.nom) LIKE LOWER(:search)")
         Page<User> findBySearchTermPaged(@Param("search") String search, Pageable pageable);
 
+        @Query("SELECT DISTINCT u FROM User u LEFT JOIN u.roles r WHERE " +
+                        "(CAST(:search AS string) IS NULL OR :search = '' OR " +
+                        " LOWER(u.login) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+                        "AND (:role IS NULL OR r.role = :role)")
+        Page<User> findByFiltres(@Param("search") String search, @Param("role") String role, Pageable pageable);
+
         Optional<User> findByLogin(String login); // celle-là marche sans @Query
 
         @EntityGraph(attributePaths = "roles")
@@ -84,6 +93,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         List<User> findByKycStatus(KycStatus status);
 
+        @Query("SELECT u FROM User u WHERE u.kycStatus = :statut AND " +
+                        "(CAST(:search AS string) IS NULL OR :search = '' OR " +
+                        " LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+                        "ORDER BY u.kycSubmittedAt DESC NULLS LAST")
+        Page<User> findKycEnAttente(@Param("statut") KycStatus statut, @Param("search") String search, Pageable pageable);
+
         @Query("""
                     SELECT NEW growzapp.backend.module.kyc.dto.KycHistoriqueDTO(
                         u.id, u.prenom, u.nom, u.email, u.kycStatus, u.kycNumeroPiece,
@@ -94,6 +111,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                            LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
                            LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
                            LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
+                    ORDER BY u.kycDateValidation DESC NULLS LAST
                 """)
         Page<growzapp.backend.module.kyc.dto.KycHistoriqueDTO> findKycHistorique(
                         @Param("statuts") List<KycStatus> statuts,

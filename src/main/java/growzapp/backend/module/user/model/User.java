@@ -146,6 +146,9 @@ public class User {
     @Column(name = "kyc_date_validation")
     private LocalDateTime kycDateValidation;
 
+    @Column(name = "kyc_submitted_at")
+    private LocalDateTime kycSubmittedAt;
+
     @Column(name = "kyc_commentaire_rejet")
     private String kycCommentaireRejet;
 
