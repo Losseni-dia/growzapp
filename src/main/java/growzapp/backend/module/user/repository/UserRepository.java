@@ -84,6 +84,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         List<User> findByKycStatus(KycStatus status);
 
+        @Query("""
+                    SELECT NEW growzapp.backend.module.kyc.dto.KycHistoriqueDTO(
+                        u.id, u.prenom, u.nom, u.email, u.kycStatus, u.kycNumeroPiece,
+                        u.kycDateExpiration, u.kycDateValidation, u.kycCommentaireRejet)
+                    FROM User u
+                    WHERE u.kycStatus IN :statuts
+                      AND (CAST(:search AS string) IS NULL OR :search = '' OR
+                           LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                           LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                           LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
+                """)
+        Page<growzapp.backend.module.kyc.dto.KycHistoriqueDTO> findKycHistorique(
+                        @Param("statuts") List<KycStatus> statuts,
+                        @Param("search") String search,
+                        Pageable pageable);
+
         // Dans UserRepository.java
         @Query("SELECT u FROM User u JOIN u.roles r WHERE r.role = :roleName")
         List<User> findByRole(@Param("roleName") String roleName);

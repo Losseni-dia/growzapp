@@ -10,6 +10,9 @@ import java.util.Map;
 
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import growzapp.backend.module.email.EmailService;
+import growzapp.backend.module.kyc.dto.KycHistoriqueDTO;
 import growzapp.backend.module.kyc.enums.KycStatus;
 import growzapp.backend.module.kyc.service.KycStorageService;
 import growzapp.backend.module.notification.service.NotificationService;
@@ -34,6 +38,7 @@ import growzapp.backend.module.user.mapper.UserMapper;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -95,6 +100,31 @@ public class KycController {
         List<User> users = userRepository.findByKycStatus(KycStatus.EN_ATTENTE);
         List<UserDTO> dtos = users.stream().map(userMapper::toDto).toList();
         return ResponseEntity.ok(ApiResponseDTO.success(dtos));
+    }
+
+    @GetMapping("/admin/historique")
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "[Admin] Historique des dossiers KYC traités (validés/rejetés)", tags = { "KYC" })
+    public ResponseEntity<ApiResponseDTO<Page<KycHistoriqueDTO>>> getHistorique(
+            @Parameter(description = "Filtre de statut : TOUS, VALIDE ou REJETE", example = "TOUS")
+            @RequestParam(defaultValue = "TOUS") String statut,
+            @Parameter(description = "Recherche par nom, prénom ou email")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Numéro de page (commence à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'éléments par page", example = "20")
+            @RequestParam(defaultValue = "20") int size) {
+
+        List<KycStatus> statuts = switch (statut.toUpperCase()) {
+            case "VALIDE" -> List.of(KycStatus.VALIDE);
+            case "REJETE" -> List.of(KycStatus.REJETE);
+            default -> List.of(KycStatus.VALIDE, KycStatus.REJETE);
+        };
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<KycHistoriqueDTO> result = userRepository.findKycHistorique(statuts, search, pageable);
+        return ResponseEntity.ok(ApiResponseDTO.success(result));
     }
 
     @GetMapping("/admin/document/{userId}/{type}")
