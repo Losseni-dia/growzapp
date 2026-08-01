@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -50,13 +51,15 @@ public class AdminUserController {
     public ApiResponseDTO<Page<UserDTO>> getAll(
             @Parameter(description = "Terme de recherche (nom, prénom, email ou login)", example = "john")
             @RequestParam(required = false) String search,
+            @Parameter(description = "Filtrer par rôle (ex: ADMIN, USER, COMMUNICANT)", example = "ADMIN")
+            @RequestParam(required = false) String role,
             @Parameter(description = "Numéro de page (commence à 0)", example = "0")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Nombre d'éléments par page", example = "20")
             @RequestParam(defaultValue = "20") int size) {
 
-        Pageable pageable = PageRequest.of(page, size);
-        return ApiResponseDTO.success(userService.getAllAdminPaged(search, pageable));
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+        return ApiResponseDTO.success(userService.getAllAdminPaged(search, role, pageable));
     }
 
     @GetMapping("/{id}")

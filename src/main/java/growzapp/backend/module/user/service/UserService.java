@@ -167,10 +167,8 @@ public class UserService {
                 .toList();
     }
 
-    public Page<UserDTO> getAllAdminPaged(String search, Pageable pageable) {
-        Page<User> page = (search != null && !search.isBlank())
-                ? userRepository.findBySearchTermPaged("%" + search.toLowerCase() + "%", pageable)
-                : userRepository.findAll(pageable);
+    public Page<UserDTO> getAllAdminPaged(String search, String role, Pageable pageable) {
+        Page<User> page = userRepository.findByFiltres(search, role, pageable);
         return page.map(userMapper::toDto);
     }
 
