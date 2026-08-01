@@ -240,9 +240,115 @@ public class WalletService {
         walletRepository.saveAll(List.of(walletProjet, walletPorteur));
     }
 
+    // ── DÉBLOCAGE PARTIEL DE TRÉSORERIE PROJET (admin) ──────────────────────
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
-    public void retirerDuProjetWallet(Long projetId, BigDecimal montant, String methode, String phone) {
+    public void debloquerTresorerieProjet(Long projetId, BigDecimal montant, String motif, Long adminId) {
+        if (montant == null || montant.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Montant invalide");
+        }
+
+        Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
+                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+
+        // lève IllegalStateException si soldeBloque insuffisant
+        walletProjet.debloquerVersDisponible(montant);
+        walletRepository.save(walletProjet);
+
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        String motifFinal = motif != null && !motif.isBlank() ? motif : "Déblocage de trésorerie";
+
+        Transaction tx = Transaction.builder()
+                .walletId(walletProjet.getId())
+                .walletType(WalletType.PROJET)
+                .montant(montant)
+                .type(TypeTransaction.DEBLOCAGE_PROJET)
+                .statut(StatutTransaction.SUCCESS)
+                .description(motifFinal)
+                .referenceType("PROJET")
+                .referenceId(projetId)
+                .auteurId(adminId)
+                .createdAt(LocalDateTime.now())
+                .build();
+        transactionRepository.save(tx);
+
+        User porteur = projet.getPorteur();
+        if (porteur != null) {
+            notificationService.notifyUser(
+                    porteur,
+                    "🔓 Trésorerie débloquée — " + projet.getLibelle(),
+                    montant.toPlainString() + " FCFA de trésorerie ont été débloqués et sont désormais disponibles pour le projet « "
+                            + projet.getLibelle() + " ». Motif : " + motifFinal,
+                    projet.getId(),
+                    projet.getSlug(),
+                    motifFinal);
+        }
+    }
+
+    // ── TRANSFERT INTERNE : WALLET PROJET → WALLET PERSONNEL DU PORTEUR ─────
+    // Mouvement de solde pur, aucun prestataire externe impliqué (contrairement
+    // au retrait Mobile Money) : une seule transaction courte suffit, comme
+    // pour transfererFonds() déjà existant entre deux wallets utilisateur.
+    @Transactional
+    public void transfererProjetVersPersonnel(Long projetId, Long porteurId, BigDecimal montant,
+            String idempotencyKey) {
+        if (montant == null || montant.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Montant invalide");
+        }
+        if (idempotencyKey != null && transactionRepository.existsByIdempotencyKey(idempotencyKey)) {
+            throw new IllegalStateException("Cette demande de transfert a déjà été traitée.");
+        }
+
+        Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
+                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+        Wallet walletPersonnel = walletRepository.findByUserIdWithPessimisticLock(porteurId)
+                .orElseThrow(() -> new IllegalStateException("Wallet personnel introuvable"));
+
+        if (walletProjet.getSoldeDisponible().compareTo(montant) < 0) {
+            throw new IllegalStateException("Solde disponible insuffisant dans le wallet projet");
+        }
+
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().subtract(montant));
+        walletPersonnel.setSoldeDisponible(walletPersonnel.getSoldeDisponible().add(montant));
+
+        Transaction txOut = Transaction.builder()
+                .walletId(walletProjet.getId())
+                .walletType(WalletType.PROJET)
+                .montant(montant)
+                .type(TypeTransaction.TRANSFER_PROJET_VERS_PERSONNEL)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Transfert vers le wallet personnel du porteur")
+                .referenceType("PROJET")
+                .referenceId(projetId)
+                .idempotencyKey(idempotencyKey)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Transaction txIn = Transaction.builder()
+                .walletId(walletPersonnel.getId())
+                .walletType(WalletType.USER)
+                .montant(montant)
+                .type(TypeTransaction.TRANSFER_PROJET_VERS_PERSONNEL)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Transfert reçu depuis le wallet du projet « " + projet.getLibelle() + " »")
+                .referenceType("PROJET")
+                .referenceId(projetId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        transactionRepository.save(txOut);
+        transactionRepository.save(txIn);
+        walletRepository.saveAll(List.of(walletProjet, walletPersonnel));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public void retirerDuProjetWallet(Long projetId, BigDecimal montant, String methode, String phone, Long adminId) {
         Wallet walletProjet = walletRepository
                 .findByProjetIdAndWalletType(projetId, WalletType.PROJET)
                 .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
@@ -263,6 +369,7 @@ public class WalletService {
                 .description("Retrait admin via " + methode)
                 .referenceType("PROJET")
                 .referenceId(projetId)
+                .auteurId(adminId)
                 .createdAt(LocalDateTime.now())
                 .build();
         transactionRepository.saveAndFlush(tx);
