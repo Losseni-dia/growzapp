@@ -409,6 +409,24 @@ public class InvestissementService {
                 tx.markAsSuccess();
                 transactionRepository.save(tx);
 
+                // Transaction côté wallet PROJET : jusqu'ici seule la transaction
+                // côté wallet USER (ci-dessus) existait, donc l'historique du wallet
+                // projet ne montrait jamais l'entrée d'argent liée aux investissements
+                // (uniquement les mouvements admin ultérieurs). Corrigé pour respecter
+                // la traçabilité complète attendue (qui/quand/combien/quel projet).
+                Transaction txProjet = Transaction.builder()
+                                .walletId(walletProjet.getId())
+                                .walletType(WalletType.PROJET)
+                                .montant(montant)
+                                .type(TypeTransaction.CREDIT_PROJET)
+                                .statut(StatutTransaction.SUCCESS)
+                                .description("Investissement validé — " + projet.getLibelle())
+                                .referenceType("INVESTISSEMENT")
+                                .referenceId(id)
+                                .createdAt(LocalDateTime.now())
+                                .build();
+                transactionRepository.save(txProjet);
+
                 projet.setPartsPrises(projet.getPartsPrises() + inv.getNombrePartsPris());
                 projet.setMontantCollecte(projet.getMontantCollecte().add(montant));
 
