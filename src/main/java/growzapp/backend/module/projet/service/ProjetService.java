@@ -55,6 +55,10 @@ public class ProjetService {
         return projetRepository.findByStatutProjet(StatutProjet.VALIDE);
     }
 
+    public List<Projet> getAllFinances() {
+        return projetRepository.findByStatutProjet(StatutProjet.FINANCE);
+    }
+
     public Projet getById(Long id) {
         return projetRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Projet introuvable (ID: " + id + ")"));

@@ -93,6 +93,15 @@ public class ProjetRestController {
         return ApiResponseDTO.success(applyTraductions(dtos, langue));
     }
 
+    // ── LISTE DES PROJETS FINANCÉS (vitrine) ────────────────────────────────
+    @Operation(summary = "Lister les projets ayant atteint leur objectif de financement")
+    @GetMapping("/finances")
+    public ApiResponseDTO<List<ProjetDTO>> getAllFinances(
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
+        List<ProjetDTO> dtos = projetMapper.toDtoList(projetService.getAllFinances());
+        return ApiResponseDTO.success(applyTraductions(dtos, langue));
+    }
+
     // ── DÉTAIL PAR ID ─────────────────────────────────────────────────────────
     @Operation(summary = "Détail d'un projet par ID")
     @ApiResponse(responseCode = "200", description = "Projet trouvé")

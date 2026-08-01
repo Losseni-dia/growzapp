@@ -8,6 +8,7 @@ public enum StatutProjet {
     REJETE,
     EN_COURS,
     TERMINE,
-    EN_ATTENTE;
+    EN_ATTENTE,
+    FINANCE;
 
 }

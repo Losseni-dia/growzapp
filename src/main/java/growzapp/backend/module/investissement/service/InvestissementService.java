@@ -15,6 +15,7 @@ import growzapp.backend.module.dividende.model.Dividende;
 import growzapp.backend.module.dividende.repository.DividendeRepository;
 import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.projet.dto.ValorisationSnapshotDTO;
+import growzapp.backend.module.projet.enums.StatutProjet;
 import growzapp.backend.module.projet.enums.TypeEvenementValorisation;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.model.ProjetValorisation;
@@ -407,6 +408,15 @@ public class InvestissementService {
 
                 projet.setPartsPrises(projet.getPartsPrises() + inv.getNombrePartsPris());
                 projet.setMontantCollecte(projet.getMontantCollecte().add(montant));
+
+                // Objectif de financement atteint → le projet quitte automatiquement le
+                // catalogue public (qui n'affiche que le statut VALIDE) en passant FINANCE.
+                if (projet.getStatutProjet() == StatutProjet.VALIDE
+                        && projet.getObjectifFinancement() != null
+                        && projet.getMontantCollecte().compareTo(projet.getObjectifFinancement()) >= 0) {
+                    projet.setStatutProjet(StatutProjet.FINANCE);
+                }
+
                 projetRepository.save(projet);
 
                 projetValorisationService.enregistrerSnapshot(
