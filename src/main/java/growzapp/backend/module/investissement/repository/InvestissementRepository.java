@@ -62,7 +62,8 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
       "       LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:term AS string), '%')) OR " +
       "       LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:term AS string), '%')) OR " +
       "       LOWER(p.libelle) LIKE LOWER(CONCAT('%', CAST(:term AS string), '%'))) " +
-      "  AND (:statut IS NULL OR i.statutPartInvestissement = :statut)")
+      "  AND (:statut IS NULL OR i.statutPartInvestissement = :statut) " +
+      "  ORDER BY i.date DESC")
   Page<Investissement> rechercherAdmin(
       @Param("term") String term,
       @Param("statut") StatutPartInvestissement statut,
