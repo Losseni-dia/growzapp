@@ -63,4 +63,7 @@ public interface WalletRepository extends JpaRepository<Wallet, Long> {
 
     @EntityGraph(attributePaths = "user")
     Optional<Wallet> findByUserId(Long userId);
+
+    @EntityGraph(attributePaths = "user")
+    List<Wallet> findByIdIn(List<Long> ids);
 }
