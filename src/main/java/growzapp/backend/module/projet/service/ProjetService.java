@@ -9,6 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import growzapp.backend.module.files.FileUploadService;
+import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
+import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.enums.StatutProjet;
@@ -45,6 +48,7 @@ public class ProjetService {
     private final FileUploadService fileUploadService;
     private final DeepLTranslationService deepLTranslationService;
     private final ProjetValorisationService projetValorisationService;
+    private final InvestissementRepository investissementRepository;
 
 
     // ========================
@@ -231,6 +235,55 @@ public class ProjetService {
                 nouvelleValorisation, motif);
 
         return saved;
+    }
+
+    /**
+     * Recalcule montantCollecte et partsPrises d'un projet à partir de la
+     * somme réelle de ses investissements VALIDE, et corrige le projet si
+     * un écart est trouvé. Outil de diagnostic/réparation : ne touche
+     * jamais au wallet (soldeDisponible/soldeBloque) — si l'écart persiste
+     * après recalcul, l'argent en trop dans le wallet n'est adossé à aucun
+     * investissement réel et doit être traité séparément, pas automatiquement.
+     */
+    @Transactional
+    public java.util.Map<String, Object> recalculerMontantCollecte(Long projetId) {
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        List<Investissement> investissementsValides = investissementRepository
+                .findByProjetIdAndStatutPartInvestissement(projetId, StatutPartInvestissement.VALIDE);
+
+        BigDecimal montantReel = investissementsValides.stream()
+                .map(Investissement::getMontantInvesti)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        int partsReelles = investissementsValides.stream()
+                .mapToInt(Investissement::getNombrePartsPris)
+                .sum();
+
+        BigDecimal montantAvant = projet.getMontantCollecte() != null ? projet.getMontantCollecte()
+                : BigDecimal.ZERO;
+        int partsAvant = projet.getPartsPrises();
+
+        boolean ecart = montantAvant.compareTo(montantReel) != 0 || partsAvant != partsReelles;
+
+        if (ecart) {
+            projet.setMontantCollecte(montantReel);
+            projet.setPartsPrises(partsReelles);
+            projetRepository.save(projet);
+            log.warn("Projet {} : écart corrigé — montantCollecte {} → {}, partsPrises {} → {}",
+                    projetId, montantAvant, montantReel, partsAvant, partsReelles);
+        }
+
+        java.util.Map<String, Object> resultat = new java.util.HashMap<>();
+        resultat.put("ecartDetecte", ecart);
+        resultat.put("montantCollecteAvant", montantAvant);
+        resultat.put("montantCollecteApres", montantReel);
+        resultat.put("partsPrisesAvant", partsAvant);
+        resultat.put("partsPrisesApres", partsReelles);
+        resultat.put("nombreInvestissementsValides", investissementsValides.size());
+        return resultat;
     }
 
     // Dans ProjetService.java

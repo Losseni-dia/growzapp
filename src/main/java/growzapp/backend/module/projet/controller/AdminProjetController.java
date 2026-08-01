@@ -257,6 +257,23 @@ public class AdminProjetController {
         return ApiResponseDTO.success(dto).message("Projet revalorisé avec succès");
     }
 
+    @Operation(
+        summary = "Recalculer le montant collecté d'un projet",
+        description = "Recalcule montantCollecte et partsPrises à partir de la somme réelle des investissements VALIDE du projet, et corrige tout écart trouvé. Outil de diagnostic/réparation — ne touche jamais au wallet du projet.",
+        tags = {"Admin - Projets"}
+    )
+    @PostMapping("/{id}/recalculer-collecte")
+    public ApiResponseDTO<java.util.Map<String, Object>> recalculerMontantCollecte(
+            @Parameter(description = "Identifiant du projet", example = "7", required = true)
+            @PathVariable Long id) {
+        java.util.Map<String, Object> resultat = projetService.recalculerMontantCollecte(id);
+        boolean ecart = Boolean.TRUE.equals(resultat.get("ecartDetecte"));
+        return ApiResponseDTO.success(resultat)
+                .message(ecart
+                        ? "Écart détecté et corrigé"
+                        : "Aucun écart — montantCollecte reflète déjà les investissements validés");
+    }
+
     // ── Helper : appliquer traduction sur une liste ──────────────────────────
     private List<ProjetDTO> applyTraductionsAdmin(List<ProjetDTO> dtos, String langue) {
         if (langue == null || langue.isBlank() || langue.equals("fr"))
