@@ -195,6 +195,11 @@ public class DividendeService {
                 .map(dividendeMapper::toDto);
     }
 
+    public Page<DividendeDTO> getAllAdmin(String search, StatutDividende statut, Pageable pageable) {
+        return dividendeRepository.rechercherAdmin(search, statut, pageable)
+                .map(dividendeMapper::toDto);
+    }
+
     public DividendeDTO getById(Long id) {
         return dividendeRepository.findById(id)
                 .map(dividendeMapper::toDto)

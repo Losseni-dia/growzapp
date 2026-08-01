@@ -1,14 +1,32 @@
 package growzapp.backend.module.dividende.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import growzapp.backend.module.dividende.enums.StatutDividende;
 import growzapp.backend.module.dividende.model.Dividende;
 
 import java.util.List;
 
 public interface DividendeRepository extends JpaRepository<Dividende, Long> {
+
+    @Query("SELECT d FROM Dividende d " +
+            "LEFT JOIN d.investissement i " +
+            "LEFT JOIN i.projet p " +
+            "LEFT JOIN i.investisseur u " +
+            "WHERE (:statut IS NULL OR d.statutDividende = :statut) " +
+            "AND (CAST(:search AS string) IS NULL OR :search = '' OR " +
+            "     LOWER(p.libelle) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+            "     LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+            "     LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+            "ORDER BY d.datePaiement DESC NULLS LAST, d.id DESC")
+    Page<Dividende> rechercherAdmin(
+            @Param("search") String search,
+            @Param("statut") StatutDividende statut,
+            Pageable pageable);
 
 
 

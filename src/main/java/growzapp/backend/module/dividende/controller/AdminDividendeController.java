@@ -1,6 +1,7 @@
 package growzapp.backend.module.dividende.controller;
 
 import growzapp.backend.module.dividende.dto.DividendeDTO;
+import growzapp.backend.module.dividende.enums.StatutDividende;
 import growzapp.backend.module.dividende.service.DividendeService;
 import growzapp.backend.module.shared.ApiResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,13 +44,24 @@ public class AdminDividendeController {
             content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ApiResponseDTO<Page<DividendeDTO>> getAll(
+            @Parameter(description = "Recherche par projet ou nom d'investisseur")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Filtre par statut (PLANIFIE, PAYE, ANNULE)")
+            @RequestParam(required = false) String statut,
             @Parameter(description = "Numéro de page (commence à 0)", example = "0")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Nombre d'éléments par page", example = "10")
             @RequestParam(defaultValue = "10") int size) {
 
+        StatutDividende statutEnum = null;
+        if (statut != null && !statut.isBlank()) {
+            try {
+                statutEnum = StatutDividende.valueOf(statut);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponseDTO.success(dividendeService.getAllAdmin(pageable));
+        return ApiResponseDTO.success(dividendeService.getAllAdmin(search, statutEnum, pageable));
     }
 
     @PostMapping
