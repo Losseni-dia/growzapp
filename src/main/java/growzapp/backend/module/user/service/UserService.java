@@ -311,7 +311,6 @@ public class UserService {
                 .user(user)
                 .soldeDisponible(java.math.BigDecimal.ZERO)
                 .soldeBloque(java.math.BigDecimal.ZERO)
-                .soldeRetirable(java.math.BigDecimal.ZERO)
                 .walletType(growzapp.backend.module.wallet.enums.WalletType.USER)
                 .build();
         user.setWallet(wallet);

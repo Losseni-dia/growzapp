@@ -27,6 +27,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
         Optional<Transaction> findByReferenceTypeAndReferenceId(String referenceType, Long referenceId);
 
+        boolean existsByIdempotencyKey(String idempotencyKey);
+
         // =========================================================================
         // MÉTHODES D'HISTORIQUE ET FILTRAGE
         // =========================================================================

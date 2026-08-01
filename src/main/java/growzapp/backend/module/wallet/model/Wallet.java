@@ -40,10 +40,6 @@ public class Wallet {
     @Builder.Default
     private BigDecimal soldeBloque = BigDecimal.ZERO;
 
-    @Column(nullable = false, precision = 18, scale = 2)
-    @Builder.Default
-    private BigDecimal soldeRetirable = BigDecimal.ZERO;
-
     @Column(name = "wallet_type", nullable = false)
     @Enumerated(EnumType.STRING)
     private WalletType walletType = WalletType.USER;
@@ -56,7 +52,7 @@ public class Wallet {
     // ===================================================================
 
     public BigDecimal getSoldeTotal() {
-        return soldeDisponible.add(soldeBloque).add(soldeRetirable);
+        return soldeDisponible.add(soldeBloque);
     }
 
     private void checkPositive(BigDecimal montant) {
@@ -102,61 +98,29 @@ public class Wallet {
     }
 
     // ===================================================================
-    // MÉTHODES POUR WALLET PROJET (collecte séquestrée)
+    // MÉTHODES POUR WALLET PROJET (trésorerie séquestrée)
     // ===================================================================
 
-    /** Crédite le wallet projet quand un investissement est validé */
-    public void crediterCollecte(BigDecimal montant) {
-        checkPositive(montant);
-        if (this.walletType == WalletType.PROJET)
-            throw new IllegalStateException("crediterCollecte() uniquement sur wallet PROJET");
-        soldeDisponible = soldeDisponible.add(montant);
-    }
-
-    /** Débite le wallet projet lors du versement au porteur */
-    public void debiterVersementPorteur(BigDecimal montant) {
+    /** Crédite le wallet projet en soldeBloque quand un investissement est validé */
+    public void crediterBloqueProjet(BigDecimal montant) {
         checkPositive(montant);
         if (this.walletType != WalletType.PROJET) {
-            throw new IllegalStateException("debitVersementPorteur() uniquement sur wallet PROJET");
+            throw new IllegalStateException("crediterBloqueProjet() uniquement sur wallet PROJET");
         }
-        if (montant.compareTo(soldeDisponible) > 0) {
-            throw new IllegalStateException("Solde disponible insuffisant dans le wallet projet");
-        }
-        soldeDisponible = soldeDisponible.subtract(montant);
+        soldeBloque = soldeBloque.add(montant);
     }
 
-    // ===================================================================
-    // MÉTHODES POUR RETRAITS & GAINS (porteur ou investisseur)
-    // ===================================================================
-
-    /** Admin valide un retrait → passe de soldeBloque à soldeRetirable */
-    public void validerRetrait(BigDecimal montant) {
+    /** Débloque une partie de la trésorerie séquestrée du projet → soldeDisponible (action admin) */
+    public void debloquerVersDisponible(BigDecimal montant) {
         checkPositive(montant);
+        if (this.walletType != WalletType.PROJET) {
+            throw new IllegalStateException("debloquerVersDisponible() uniquement sur wallet PROJET");
+        }
         if (montant.compareTo(soldeBloque) > 0) {
-            throw new IllegalStateException("Fonds bloqués insuffisants");
+            throw new IllegalStateException("Fonds bloqués insuffisants dans le wallet projet");
         }
         soldeBloque = soldeBloque.subtract(montant);
-        soldeRetirable = soldeRetirable.add(montant);
-    }
-
-    /** L'utilisateur retire ses gains */
-    public void retirerGains(BigDecimal montant) {
-        checkPositive(montant);
-        if (montant.compareTo(soldeRetirable) > 0) {
-            throw new IllegalStateException("Solde retirable insuffisant");
-        }
-        soldeRetirable = soldeRetirable.subtract(montant);
         soldeDisponible = soldeDisponible.add(montant);
-    }
-
-    // ===================================================================
-    // MÉTHODE UNIVERSELLE (à utiliser dans le service)
-    // ===================================================================
-
-    /** À utiliser uniquement dans InvestissementService.validerInvestissement() */
-    public void transfererVersProjetLorsValidation(BigDecimal montant, Wallet walletProjet) {
-        this.validerInvestissement(montant); // retire du wallet user
-        walletProjet.crediterCollecte(montant); // ajoute au wallet projet
     }
 
     public void crediterDisponible(BigDecimal montant) {

@@ -35,6 +35,8 @@ import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection;
 import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.service.UserService;
+import growzapp.backend.module.wallet.dto.DeblocageProjetRequest;
 import growzapp.backend.module.wallet.dto.RetraitProjetRequest;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
@@ -76,6 +78,7 @@ public class ProjetWalletController {
     private final EmailService emailService;
     private final WalletService walletService;
     private final ProjetTraductionRepository traductionRepository;
+    private final UserService userService;
 
     @GetMapping("/solde-total")
     @Operation(
@@ -152,7 +155,6 @@ public class ProjetWalletController {
                     entry.put("projetId", w.getProjetId());
                     entry.put("soldeDisponible", w.getSoldeDisponible());
                     entry.put("soldeBloque", w.getSoldeBloque());
-                    entry.put("soldeRetirable", w.getSoldeRetirable());
                     entry.put("walletType", w.getWalletType());
 
                     LocalDateTime dernierInvestissement = null;
@@ -266,6 +268,7 @@ public class ProjetWalletController {
                 .orElseThrow(() -> new IllegalStateException("Wallet porteur introuvable"));
 
         String motifFinal = motif != null && !motif.isBlank() ? motif : "Versement au porteur";
+        Long adminId = userService.getCurrentUser().getId();
 
         walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().subtract(montant));
         walletPorteur.setSoldeDisponible(walletPorteur.getSoldeDisponible().add(montant));
@@ -280,6 +283,7 @@ public class ProjetWalletController {
                 .description(motifFinal)
                 .referenceType("PROJET")
                 .referenceId(projetId)
+                .auteurId(adminId)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -352,6 +356,39 @@ public class ProjetWalletController {
                 ApiResponseDTO.success("Versement effectué")
                         .message("Versement de " + montant.stripTrailingZeros().toPlainString()
                                 + " FCFA effectué avec succès"));
+    }
+
+    @PostMapping("/{projetId}/debloquer")
+    @Operation(
+        summary = "Débloquer une partie de la trésorerie séquestrée d'un projet",
+        description = "Transfère un montant du soldeBloque vers le soldeDisponible du wallet projet. Le porteur peut ensuite retirer ou transférer librement ce montant, sans validation admin supplémentaire à cette étape — le déblocage EST la validation. Peut être appelé plusieurs fois successivement tant que soldeBloque le permet.",
+        tags = {"Admin - Trésorerie Projets"},
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Montant à débloquer et motif optionnel",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(example = "{\"montant\": 200.00, \"motif\": \"Avance sur travaux\"}")))
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Déblocage effectué avec succès",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+        @ApiResponse(responseCode = "400", description = "Montant invalide ou soldeBloque insuffisant",
+            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
+    })
+    public ResponseEntity<ApiResponseDTO<String>> debloquerTresorerie(
+            @Parameter(description = "Identifiant du projet", example = "7", required = true)
+            @PathVariable Long projetId,
+            @Valid @RequestBody DeblocageProjetRequest request) {
+
+        try {
+            Long adminId = userService.getCurrentUser().getId();
+            walletService.debloquerTresorerieProjet(projetId, request.montant(), request.motif(), adminId);
+            return ResponseEntity.ok(
+                    ApiResponseDTO.success("Déblocage effectué")
+                            .message(request.montant().stripTrailingZeros().toPlainString()
+                                    + " FCFA débloqués avec succès"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponseDTO.error(e.getMessage()));
+        }
     }
 
     @GetMapping("/{projetId}/investissements")
@@ -461,11 +498,13 @@ public class ProjetWalletController {
             @RequestBody RetraitProjetRequest request) {
 
         try {
+            Long adminId = userService.getCurrentUser().getId();
             walletService.retirerDuProjetWallet(
                     projetId,
                     request.montant(),
                     request.methode(),
-                    request.phone());
+                    request.phone(),
+                    adminId);
 
             return ResponseEntity.ok(ApiResponseDTO.success("Retrait initié avec succès"));
         } catch (Exception e) {

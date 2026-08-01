@@ -391,13 +391,16 @@ public class InvestissementService {
                                                         .user(null)
                                                         .soldeDisponible(BigDecimal.ZERO)
                                                         .soldeBloque(BigDecimal.ZERO)
-                                                        .soldeRetirable(BigDecimal.ZERO)
                                                         .build();
                                         return walletRepository.save(w);
                                 });
 
                 walletUser.validerInvestissement(montant);
-                walletProjet.crediterDisponible(montant);
+                // Nouveau flux : les fonds validés vont en trésorerie séquestrée du
+                // projet (soldeBloque), pas directement en soldeDisponible. Ils ne
+                // deviennent utilisables par le porteur qu'après un déblocage admin
+                // explicite (WalletService.debloquerTresorerieProjet).
+                walletProjet.crediterBloqueProjet(montant);
 
                 Transaction tx = transactionRepository.findByReferenceTypeAndReferenceId("INVESTISSEMENT", id)
                                 .orElseThrow(() -> new IllegalStateException(

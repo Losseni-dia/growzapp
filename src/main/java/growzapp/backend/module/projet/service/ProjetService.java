@@ -184,7 +184,6 @@ public class ProjetService {
                     .projetId(projetId)
                     .soldeDisponible(BigDecimal.ZERO)
                     .soldeBloque(BigDecimal.ZERO)
-                    .soldeRetirable(BigDecimal.ZERO)
                     .build();
             return walletRepository.save(wallet);
         });

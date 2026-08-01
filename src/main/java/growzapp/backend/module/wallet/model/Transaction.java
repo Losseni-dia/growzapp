@@ -79,6 +79,21 @@ public class Transaction {
     @Column(name = "reference_externe", length = 255)
     private String referenceExterne;
 
+    // Protection contre le rejeu (double-clic, retry réseau) des mouvements de
+    // trésorerie projet initiés côté client (déblocage admin, virement interne
+    // porteur). Nullable : les transactions existantes et les autres flux
+    // (dépôt, investissement...) n'en ont pas besoin.
+    @Column(name = "idempotency_key", length = 255, unique = true)
+    private String idempotencyKey;
+
+    // Identifiant de l'utilisateur (généralement un admin) à l'origine d'une
+    // action effectuée pour le compte d'un tiers (déblocage de trésorerie
+    // projet, versement au porteur, retrait admin). Nullable : les mouvements
+    // que l'utilisateur effectue lui-même (dépôt, retrait perso...) n'ont pas
+    // besoin de ce champ, l'acteur = le propriétaire du wallet.
+    @Column(name = "auteur_id")
+    private Long auteurId;
+
     // Méthodes utilitaires
     public void markAsSuccess() {
         this.statut = StatutTransaction.SUCCESS;
