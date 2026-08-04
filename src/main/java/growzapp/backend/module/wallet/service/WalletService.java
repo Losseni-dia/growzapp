@@ -8,6 +8,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import growzapp.backend.module.email.EmailService;
+import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
+import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.paiement.innerwallet.WithdrawalService;
 import growzapp.backend.module.paiement.common.PaymentProviderRouter;
@@ -41,6 +44,8 @@ public class WalletService {
     private final PaymentProviderRouter paymentProviderRouter;
     private final NotificationService notificationService;
     private final WithdrawalService withdrawalService;
+    private final EmailService emailService;
+    private final InvestissementRepository investissementRepository;
 
     // ── DÉPÔT MOBILE MONEY ───────────────────────────────────────────────────
     @Transactional
@@ -188,58 +193,6 @@ public class WalletService {
                 .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable pour le projet " + projetId));
     }
 
-    // NOTE : Cette méthode n'est plus utilisée par le flux principal.
-    // Le vrai endpoint /api/admin/projet-wallet/{id}/verser-porteur est géré
-    // directement par ProjetWalletController.verserAuPorteur(), qui contient
-    // la logique complète (transactions liées au projet, notif+email porteur
-    // ET investisseurs). Conservée ici en simple fallback / réutilisation
-    // potentielle, sans dupliquer la logique de notification.
-    @PreAuthorize("hasRole('ADMIN')")
-    @Transactional
-    public void verserAuPorteur(Long projetId, BigDecimal montant, String motif) {
-        if (montant == null || montant.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Montant invalide");
-        }
-
-        Wallet walletProjet = walletRepository.findByProjetIdWithLock(projetId)
-                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
-
-        if (walletProjet.getSoldeDisponible().compareTo(montant) < 0) {
-            throw new IllegalStateException("Fonds insuffisants dans le wallet projet");
-        }
-
-        Projet projet = projetRepository.findById(projetId)
-                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
-
-        User porteur = projet.getPorteur();
-        if (porteur == null || porteur.getWallet() == null) {
-            throw new IllegalStateException("Le porteur n'a pas de wallet");
-        }
-
-        Wallet walletPorteur = walletRepository.findByUserIdWithPessimisticLock(porteur.getId())
-                .orElseThrow(() -> new IllegalStateException("Wallet porteur non trouvé"));
-
-        String motifFinal = motif != null && !motif.isBlank() ? motif : "Versement au porteur du projet";
-
-        walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().subtract(montant));
-        walletPorteur.setSoldeDisponible(walletPorteur.getSoldeDisponible().add(montant));
-
-        Transaction tx = Transaction.builder()
-                .walletId(walletProjet.getId())
-                .walletType(WalletType.PROJET)
-                .montant(montant)
-                .type(TypeTransaction.VERSEMENT_PORTEUR)
-                .statut(StatutTransaction.SUCCESS)
-                .description(motifFinal)
-                .referenceType("PROJET")
-                .referenceId(projetId)
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        transactionRepository.save(tx);
-        walletRepository.saveAll(List.of(walletProjet, walletPorteur));
-    }
-
     // ── DÉBLOCAGE PARTIEL DE TRÉSORERIE PROJET (admin) ──────────────────────
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
@@ -274,17 +227,46 @@ public class WalletService {
                 .build();
         transactionRepository.save(tx);
 
+        String titreNotif = "🔓 Trésorerie débloquée — " + projet.getLibelle();
+        String messageNotif = montant.toPlainString()
+                + " FCFA de trésorerie ont été débloqués et sont désormais disponibles pour le projet « "
+                + projet.getLibelle() + " ». Motif : " + motifFinal;
+
+        // ── 1. Notifier + emailer le PORTEUR ────────────────────────────────
         User porteur = projet.getPorteur();
         if (porteur != null) {
-            notificationService.notifyUser(
-                    porteur,
-                    "🔓 Trésorerie débloquée — " + projet.getLibelle(),
-                    montant.toPlainString() + " FCFA de trésorerie ont été débloqués et sont désormais disponibles pour le projet « "
-                            + projet.getLibelle() + " ». Motif : " + motifFinal,
-                    projet.getId(),
-                    projet.getSlug(),
-                    motifFinal);
+            notificationService.notifyUser(porteur, titreNotif, messageNotif,
+                    projet.getId(), projet.getSlug(), motifFinal);
+
+            if (porteur.getEmail() != null && !porteur.getEmail().isBlank()) {
+                emailService.envoyerDeblocageTresorerie(
+                        porteur.getEmail(),
+                        porteur.getPrenom() + " " + porteur.getNom(),
+                        projet.getLibelle(),
+                        montant.toPlainString(),
+                        motifFinal);
+            }
         }
+
+        // ── 2. Notifier + emailer TOUS LES INVESTISSEURS actifs ────────────
+        investissementRepository.findByProjetIdAndStatutPartInvestissement(projetId, StatutPartInvestissement.VALIDE)
+                .stream()
+                .map(inv -> inv.getInvestisseur())
+                .filter(u -> u != null && (porteur == null || !u.getId().equals(porteur.getId())))
+                .distinct()
+                .forEach(investisseur -> {
+                    notificationService.notifyUser(investisseur, titreNotif, messageNotif,
+                            projet.getId(), projet.getSlug(), motifFinal);
+
+                    if (investisseur.getEmail() != null && !investisseur.getEmail().isBlank()) {
+                        emailService.envoyerDeblocageTresorerie(
+                                investisseur.getEmail(),
+                                investisseur.getPrenom() + " " + investisseur.getNom(),
+                                projet.getLibelle(),
+                                montant.toPlainString(),
+                                motifFinal);
+                    }
+                });
     }
 
     // ── TRANSFERT INTERNE : WALLET PROJET → WALLET PERSONNEL DU PORTEUR ─────

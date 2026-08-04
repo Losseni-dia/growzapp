@@ -215,23 +215,23 @@ public class EmailService {
         }
     }
 
-    // ── VERSEMENT PORTEUR ─────────────────────────────────────────────────────
+    // ── DÉBLOCAGE DE TRÉSORERIE PROJET ───────────────────────────────────────
     @Async
-    public void envoyerVersementPorteur(
-            String emailInvestisseur, String nomInvestisseur,
+    public void envoyerDeblocageTresorerie(
+            String emailDestinataire, String nomDestinataire,
             String projetLibelle, String montant, String motif) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setTo(emailInvestisseur);
-            helper.setSubject("Versement effectué — " + projetLibelle + " — GrowzApp");
+            helper.setTo(emailDestinataire);
+            helper.setSubject("Trésorerie débloquée — " + projetLibelle + " — GrowzApp");
             helper.setText(
                     """
                             <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
                               <h1 style="color:#1B5E20;">GrowzApp</h1>
-                              <h2 style="color:#1B5E20;">💸 Versement effectué</h2>
+                              <h2 style="color:#1B5E20;">🔓 Trésorerie débloquée</h2>
                               <p>Bonjour <strong>%s</strong>,</p>
-                              <p>Un versement a été effectué depuis le wallet du projet <strong>%s</strong>.</p>
+                              <p>De la trésorerie a été débloquée dans le wallet du projet <strong>%s</strong> et est désormais disponible.</p>
                               <div style="background:#f1f8e9;border-left:4px solid #1B5E20;padding:16px;border-radius:0 8px 8px 0;margin:20px 0;">
                                 <p style="margin:0;color:#333;">💰 Montant : <strong>%s FCFA</strong></p>
                                 <p style="margin:8px 0 0 0;color:#333;">📋 Motif : %s</p>
@@ -240,12 +240,12 @@ public class EmailService {
                               <p style="font-size:0.78em;color:#999;text-align:center;">GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire</p>
                             </div>
                             """
-                            .formatted(nomInvestisseur, projetLibelle, montant, motif),
+                            .formatted(nomDestinataire, projetLibelle, montant, motif),
                     true);
             mailSender.send(message);
-            log.info("Email versement porteur envoyé à {}", emailInvestisseur);
+            log.info("Email déblocage trésorerie envoyé à {}", emailDestinataire);
         } catch (Exception e) {
-            log.error("Échec envoi email versement porteur à {} : {}", emailInvestisseur, e.getMessage(), e);
+            log.error("Échec envoi email déblocage trésorerie à {} : {}", emailDestinataire, e.getMessage(), e);
         }
     }
 

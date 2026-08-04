@@ -22,24 +22,19 @@ import org.springframework.web.bind.annotation.RestController;
 import growzapp.backend.module.dividende.dto.DividendeHistoriqueAdminDTO;
 import growzapp.backend.module.dividende.dto.PayerDividendeGlobalRequest;
 import growzapp.backend.module.dividende.service.DividendeService;
-import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.investissement.dto.InvestissementDTO;
 import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.investissement.service.InvestissementService;
-import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection;
 import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
-import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.service.UserService;
 import growzapp.backend.module.wallet.dto.DeblocageProjetRequest;
 import growzapp.backend.module.wallet.dto.RetraitProjetRequest;
-import growzapp.backend.module.wallet.enums.StatutTransaction;
-import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
 import growzapp.backend.module.wallet.model.Transaction;
 import growzapp.backend.module.wallet.model.Wallet;
@@ -65,7 +60,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 @SecurityRequirement(name = "BearerAuth")
-@Tag(name = "Admin - Trésorerie Projets", description = "Gestion de la trésorerie des wallets projet : consultation des soldes, versement au porteur, distribution des dividendes et rapports financiers")
+@Tag(name = "Admin - Trésorerie Projets", description = "Gestion de la trésorerie des wallets projet : consultation des soldes, déblocage de trésorerie, distribution des dividendes et rapports financiers")
 public class ProjetWalletController {
 
     private final WalletRepository walletRepository;
@@ -74,8 +69,6 @@ public class ProjetWalletController {
     private final TransactionRepository transactionRepository;
     private final InvestissementService investissementService;
     private final InvestissementRepository investissementRepository;
-    private final NotificationService notificationService;
-    private final EmailService emailService;
     private final WalletService walletService;
     private final ProjetTraductionRepository traductionRepository;
     private final UserService userService;
@@ -229,134 +222,6 @@ public class ProjetWalletController {
         return ResponseEntity.ok(solde);
     }
 
-
-    @PostMapping("/{projetId}/verser-porteur")
-    @Transactional
-    @Operation(summary = "Virer des fonds vers le porteur de projet", description = "Transfère un montant depuis le wallet du projet vers le solde disponible du porteur (propriétaire du projet). Une transaction de type VERSEMENT_PORTEUR est enregistrée des deux côtés (projet et porteur), liée au projet via referenceId. Le porteur et tous les investisseurs actifs sont notifiés (in-app + email).", tags = {
-            "Admin - Trésorerie Projets" }, requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Montant et motif du versement", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"montant\": 5000.00, \"motif\": \"Versement trimestriel T4 2025\"}"))))
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Versement effectué avec succès", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Montant invalide ou fonds insuffisants", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))),
-            @ApiResponse(responseCode = "404", description = "Wallet projet ou porteur introuvable", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
-    })
-    public ResponseEntity<ApiResponseDTO<String>> verserAuPorteur(
-            @Parameter(description = "Identifiant du projet", example = "7", required = true) @PathVariable Long projetId,
-            @RequestBody Map<String, Object> body) {
-
-        BigDecimal montant = new BigDecimal(body.get("montant").toString());
-        String motif = (String) body.get("motif");
-
-        if (montant.compareTo(BigDecimal.ZERO) <= 0) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponseDTO.error("Le montant doit être supérieur à 0"));
-        }
-
-        Wallet walletProjet = walletRepository
-                .findByProjetIdAndWalletType(projetId, WalletType.PROJET)
-                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
-
-        if (walletProjet.getSoldeDisponible().compareTo(montant) < 0) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponseDTO.error("Fonds insuffisants dans le wallet projet"));
-        }
-
-        Projet projet = projetRepository.findById(projetId)
-                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
-
-        User porteur = projet.getPorteur();
-        Wallet walletPorteur = walletRepository.findByUserIdWithPessimisticLock(porteur.getId())
-                .orElseThrow(() -> new IllegalStateException("Wallet porteur introuvable"));
-
-        String motifFinal = motif != null && !motif.isBlank() ? motif : "Versement au porteur";
-        Long adminId = userService.getCurrentUser().getId();
-
-        walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().subtract(montant));
-        walletPorteur.setSoldeDisponible(walletPorteur.getSoldeDisponible().add(montant));
-
-        // ── Transaction côté wallet PROJET (sortie) ────────────────────────
-        Transaction txProjet = Transaction.builder()
-                .walletId(walletProjet.getId())
-                .walletType(WalletType.PROJET)
-                .montant(montant)
-                .type(TypeTransaction.VERSEMENT_PORTEUR)
-                .statut(StatutTransaction.SUCCESS)
-                .description(motifFinal)
-                .referenceType("PROJET")
-                .referenceId(projetId)
-                .auteurId(adminId)
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        // ── Transaction côté wallet PORTEUR (entrée) ───────────────────────
-        // Le porteur voit dans SON historique perso que ce virement est lié à
-        // CE projet précis — utile s'il a plusieurs projets en cours.
-        Transaction txPorteur = Transaction.builder()
-                .walletId(walletPorteur.getId())
-                .walletType(WalletType.USER)
-                .montant(montant)
-                .type(TypeTransaction.VERSEMENT_PORTEUR)
-                .statut(StatutTransaction.SUCCESS)
-                .description("Versement reçu — " + projet.getLibelle() + " — " + motifFinal)
-                .referenceType("PROJET")
-                .referenceId(projetId)
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        transactionRepository.save(txProjet);
-        transactionRepository.save(txPorteur);
-        walletRepository.saveAll(List.of(walletProjet, walletPorteur));
-
-        String msgNotifInvestisseur = "Un versement de " + montant.toPlainString()
-                + " FCFA a été effectué depuis le wallet du projet « " + projet.getLibelle()
-                + " ». Motif : " + motifFinal;
-
-        // ── 1. Notifier + emailer le PORTEUR lui-même ──────────────────────
-        notificationService.notifyUser(
-                porteur,
-                "💸 Versement reçu — " + projet.getLibelle(),
-                "Vous avez reçu un versement de " + montant.toPlainString()
-                        + " FCFA pour le projet « " + projet.getLibelle() + " ». Motif : " + motifFinal,
-                projet.getId(),
-                projet.getSlug(),
-                motifFinal);
-
-        if (porteur.getEmail() != null && !porteur.getEmail().isBlank()) {
-            emailService.envoyerVersementPorteur(
-                    porteur.getEmail(),
-                    porteur.getPrenom() + " " + porteur.getNom(),
-                    projet.getLibelle(),
-                    montant.toPlainString(),
-                    motifFinal);
-        }
-
-        // ── 2. Notifier + emailer TOUS LES INVESTISSEURS actifs ────────────
-        investissementRepository.findByProjetIdAndStatutPartInvestissement(projetId, StatutPartInvestissement.VALIDE)
-                .stream()
-                .map(inv -> inv.getInvestisseur())
-                .filter(u -> u != null && !u.getId().equals(porteur.getId()))
-                .distinct()
-                .forEach(investisseur -> {
-                    notificationService.notifyUser(
-                            investisseur,
-                            "💸 Versement effectué — " + projet.getLibelle(),
-                            msgNotifInvestisseur,
-                            projet.getId(),
-                            projet.getSlug(),
-                            motifFinal);
-
-                    emailService.envoyerVersementPorteur(
-                            investisseur.getEmail(),
-                            investisseur.getPrenom() + " " + investisseur.getNom(),
-                            projet.getLibelle(),
-                            montant.toPlainString(),
-                            motifFinal);
-                });
-
-        return ResponseEntity.ok(
-                ApiResponseDTO.success("Versement effectué")
-                        .message("Versement de " + montant.stripTrailingZeros().toPlainString()
-                                + " FCFA effectué avec succès"));
-    }
 
     @PostMapping("/{projetId}/debloquer")
     @Operation(
