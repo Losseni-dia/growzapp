@@ -161,16 +161,20 @@ public class ProjetService {
     public Projet changerStatut(Long id, StatutProjet nouveauStatut) {
         Projet projet = getById(id);
         StatutProjet ancienStatut = projet.getStatutProjet();
+        log.info("changerStatut : projet {} — {} → {}", id, ancienStatut, nouveauStatut);
         projet.setStatutProjet(nouveauStatut);
 
         Projet saved = projetRepository.save(projet);
 
-        if (nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE) {
-            projetValorisationService.enregistrerSnapshot(saved, TypeEvenementValorisation.VALIDATION, null);
+        boolean estUneNouvelleValidation = nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE;
+        if (!estUneNouvelleValidation && nouveauStatut == StatutProjet.VALIDE) {
+            log.warn("changerStatut : projet {} déjà VALIDE (ancien statut = {}) — diffusion ignorée volontairement",
+                    id, ancienStatut);
         }
 
+        if (estUneNouvelleValidation) {
+            projetValorisationService.enregistrerSnapshot(saved, TypeEvenementValorisation.VALIDATION, null);
 
-        if (nouveauStatut == StatutProjet.VALIDE && ancienStatut != StatutProjet.VALIDE) {
             notificationService.notifyAllUsersWithSlug(
                     "🚀 Nouveau projet disponible !",
                     "Le projet « " + saved.getLibelle() + " » vient d'être publié. Découvrez-le dès maintenant !",
