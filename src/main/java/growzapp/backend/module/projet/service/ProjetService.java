@@ -307,7 +307,13 @@ public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster) {
     projet.setRoiProjete(dto.roiProjete());
     projet.setDureeMois(dto.dureeMois());
     projet.setValuation(dto.valuation());
-    projet.setStatutProjet(StatutProjet.valueOf(dto.statutProjet()));
+    // Le statut ne se change plus ici volontairement : changerStatut() est le
+    // seul chemin qui déclenche les effets de bord attendus (snapshot de
+    // valorisation, diffusion "nouveau projet" à tous les utilisateurs). Un
+    // formulaire d'édition générique ne doit pas pouvoir déclencher une
+    // notification à toute la plateforme comme simple effet de bord d'un
+    // enregistrement de champs — voir le bug où la validation passait par ce
+    // endpoint et ne notifiait jamais personne.
     projet.setDateDebut(dto.dateDebut());
     projet.setDateFin(dto.dateFin());
 
