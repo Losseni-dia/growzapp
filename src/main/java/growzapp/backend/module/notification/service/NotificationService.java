@@ -12,7 +12,9 @@ import growzapp.backend.module.notification.repository.NotificationRepository;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class NotificationService {
 
@@ -64,10 +66,26 @@ public class NotificationService {
 
     public void notifyAllUsersWithSlug(String title, String content, Long projetId, String projetSlug) {
         List<User> allUsers = userRepository.findAll();
-        allUsers.forEach(user -> {
-            Notification notif = buildNotif(user, title, content, projetId, projetSlug);
-            notificationRepository.save(notif);
-        });
+        log.info("notifyAllUsersWithSlug : {} utilisateurs trouvés pour la diffusion « {} »",
+                allUsers.size(), title);
+
+        int succes = 0;
+        for (User user : allUsers) {
+            try {
+                Notification notif = buildNotif(user, title, content, projetId, projetSlug);
+                notificationRepository.save(notif);
+                succes++;
+            } catch (Exception e) {
+                // Un enregistrement en échec (ex: donnée corrompue sur un seul
+                // utilisateur) ne doit jamais interrompre la diffusion aux
+                // autres, ni faire échouer la transaction appelante (ex:
+                // validation du projet elle-même).
+                log.error("notifyAllUsersWithSlug : échec pour l'utilisateur {} — {}",
+                        user.getId(), e.getMessage(), e);
+            }
+        }
+        log.info("notifyAllUsersWithSlug : {}/{} notifications enregistrées avec succès",
+                succes, allUsers.size());
     }
 
     // ── Notifie les investisseurs existants d'un projet ───────────────────────
