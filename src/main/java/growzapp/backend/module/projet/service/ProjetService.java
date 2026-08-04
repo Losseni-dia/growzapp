@@ -324,6 +324,17 @@ public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster) {
     // notification à toute la plateforme comme simple effet de bord d'un
     // enregistrement de champs — voir le bug où la validation passait par ce
     // endpoint et ne notifiait jamais personne.
+
+    // Date de début : jamais dans le passé — mais seulement si elle change
+    // réellement. Un vieux projet déjà en cours a forcément une date de
+    // début passée ; il ne faut pas empêcher de modifier ses autres champs
+    // (ex: corriger la description) juste parce que cette date historique
+    // n'est plus dans le futur.
+    boolean dateDebutModifiee = dto.dateDebut() != null
+            && !dto.dateDebut().equals(projet.getDateDebut());
+    if (dateDebutModifiee && dto.dateDebut().isBefore(java.time.LocalDate.now())) {
+        throw new IllegalArgumentException("La date de début ne peut pas être dans le passé");
+    }
     projet.setDateDebut(dto.dateDebut());
     projet.setDateFin(dto.dateFin());
 
