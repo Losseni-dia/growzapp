@@ -307,6 +307,16 @@ public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster) {
     projet.setRoiProjete(dto.roiProjete());
     projet.setDureeMois(dto.dureeMois());
     projet.setValuation(dto.valuation());
+
+    // Secteur : même logique find-or-create que create() — jusqu'ici ce
+    // champ n'était même pas appliqué par updateFull(), le rendant muet
+    // depuis l'écran d'édition malgré le champ affiché.
+    if (dto.secteurNom() != null && !dto.secteurNom().isBlank()) {
+        Secteur secteur = secteurRepository.findByNomIgnoreCase(dto.secteurNom().trim())
+                .orElseGet(() -> secteurRepository.save(new Secteur(dto.secteurNom().trim())));
+        projet.setSecteur(secteur);
+    }
+
     // Le statut ne se change plus ici volontairement : changerStatut() est le
     // seul chemin qui déclenche les effets de bord attendus (snapshot de
     // valorisation, diffusion "nouveau projet" à tous les utilisateurs). Un
