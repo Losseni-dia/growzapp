@@ -35,7 +35,7 @@ public record ProjetCreateDTO(
 
                 @Schema(example = "SOUMIS", description = "Statut initial du projet") String statutProjet,
 
-                @NotNull(message = "La date de début est obligatoire") @FutureOrPresent(message = "La date de début ne peut pas être dans le passé") @Schema(example = "2026-06-01") LocalDate dateDebut,
+               @NotNull(message = "La date de début est obligatoire") @Schema(example = "2026-06-01") LocalDate dateDebut,
 
                 @NotNull(message = "La date de fin est obligatoire") @Schema(example = "2026-12-31") LocalDate dateFin,
 
