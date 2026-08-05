@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import growzapp.backend.module.document.service.DocumentService;
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.dto.ProjetDTO;
 import growzapp.backend.module.projet.dto.RevalorisationRequestDTO;
@@ -56,6 +57,7 @@ public class AdminProjetController {
     private final ProjetMapper projetMapper;
     private final DeepLTranslationService deepLTranslationService;
     private final ProjetTraductionRepository traductionRepository;
+    private final DocumentService documentService;
     
   
 
@@ -95,6 +97,10 @@ public class AdminProjetController {
             @Parameter(description = "Langue de traduction souhaitée", example = "es") @RequestParam(required = false, defaultValue = "fr") String langue) {
         List<Projet> entities = projetService.getAllAdmin(search);
         List<ProjetDTO> dtos = projetMapper.toDtoList(entities);
+
+        // Badge admin : nombre de documents en attente de validation par projet
+        dtos.forEach(dto -> dto.setDocumentsEnAttente(documentService.countEnAttenteByProjetId(dto.getId())));
+
         List<ProjetDTO> traduits = applyTraductionsAdmin(dtos, langue);
         return ApiResponseDTO.success(traduits)
                 .message(traduits.isEmpty() ? "Aucun projet trouvé" : "Projets récupérés avec succès");

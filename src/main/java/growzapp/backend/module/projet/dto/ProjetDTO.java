@@ -34,6 +34,9 @@ public class ProjetDTO {
         @Schema(description = "Description détaillée du projet")
         private String description;
 
+        @Schema(description = "Nombre de documents en attente de validation admin sur ce projet", example = "2")
+        private Long documentsEnAttente;
+
         @Schema(description = "Valorisation totale du projet", example = "12500000")
         private BigDecimal valuation;
 
