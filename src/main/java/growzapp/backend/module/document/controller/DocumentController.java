@@ -217,4 +217,40 @@ public class DocumentController {
             default -> "";
         };
     }
+
+    @PatchMapping("/{documentId}/approuver")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "[Admin] Approuver un document uploadé par un porteur", tags = { "Documents" })
+    public ResponseEntity<ApiResponseDTO<DocumentDTO>> approuverDocument(@PathVariable Long documentId) {
+        Document doc = documentService.approuver(documentId);
+
+        notificationService.notifyInvestorsOfProject(
+                doc.getProjet(),
+                "Nouveau document disponible",
+                "Un nouveau document (\"" + doc.getNom() + "\") a été ajouté au projet " + doc.getProjet().getLibelle()
+                        + ".");
+
+        return ResponseEntity.ok(ApiResponseDTO.success(documentMapper.toDocumentDto(doc))
+                .message("Document approuvé"));
+    }
+
+    @PatchMapping("/{documentId}/rejeter")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "[Admin] Rejeter un document uploadé par un porteur", tags = { "Documents" })
+    public ResponseEntity<ApiResponseDTO<DocumentDTO>> rejeterDocument(@PathVariable Long documentId) {
+        Document doc = documentService.rejeter(documentId);
+        return ResponseEntity.ok(ApiResponseDTO.success(documentMapper.toDocumentDto(doc))
+                .message("Document rejeté"));
+    }
+
+    @GetMapping("/projet/{projetId}/en-attente")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "[Admin] Lister les documents en attente de validation d'un projet", tags = { "Documents" })
+    public ResponseEntity<ApiResponseDTO<List<DocumentDTO>>> getDocumentsEnAttente(@PathVariable Long projetId) {
+        List<DocumentDTO> docs = documentMapper.toDocumentDtoList(documentService.findEnAttenteByProjetId(projetId));
+        return ResponseEntity.ok(ApiResponseDTO.success(docs));
+    }
 }
