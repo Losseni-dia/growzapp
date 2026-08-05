@@ -109,6 +109,24 @@ public class NotificationService {
                 });
     }
 
+    // ── Notifie tous les investisseurs d'un projet (usage générique) ──────────
+    public void notifyInvestorsOfProject(Projet project, String title, String content) {
+        if (project.getInvestissements() == null)
+            return;
+        project.getInvestissements().stream()
+                .map(Investissement::getInvestisseur)
+                .distinct()
+                .forEach(user -> {
+                    Notification notif = buildNotif(
+                            user,
+                            title,
+                            content,
+                            project.getId(),
+                            project.getSlug());
+                    notificationRepository.save(notif);
+                });
+    }
+
     // ── Notifie un utilisateur qu'une facture a été émise ─────────────────────
     public void notifyFactureEmise(User user, String title, String content, Long factureId) {
         Notification notif = new Notification();

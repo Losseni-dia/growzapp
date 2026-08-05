@@ -1,10 +1,12 @@
 package growzapp.backend.module.document.controller;
 
 import growzapp.backend.module.document.dto.DocumentDTO;
+import growzapp.backend.module.document.enums.StatutDocument;
 import growzapp.backend.module.document.mapper.DocumentMapper;
 import growzapp.backend.module.document.model.Document;
 import growzapp.backend.module.document.service.DocumentService;
 import growzapp.backend.module.files.FileStorageService;
+import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.shared.ApiResponseDTO;
@@ -40,20 +42,21 @@ public class DocumentController {
     private final DocumentMapper documentMapper;
     private final ProjetRepository projetRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
-    @PostMapping("/projet/{projetId}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+   @PostMapping("/projet/{projetId}")
+    @PreAuthorize("isAuthenticated()")
     @SecurityRequirement(name = "BearerAuth")
     @Operation(
-        summary = "[Admin] Uploader un document sur un projet",
-        description = "Attache un fichier (PDF, Excel, CSV) à un projet. Le fichier est stocké avec un UUID unique pour éviter les collisions. Réservé aux administrateurs.",
+        summary = "Uploader un document sur un projet",
+        description = "Attache un fichier (PDF, Excel, CSV) à un projet. Accessible à l'admin (document approuvé d'office) et au porteur du projet (document en attente de validation admin avant d'être visible aux investisseurs).",
         tags = {"Documents"}
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Document uploadé avec succès",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ApiResponseDTO.class))),
-        @ApiResponse(responseCode = "403", description = "Accès refusé — rôle ADMIN requis",
+        @ApiResponse(responseCode = "403", description = "Accès refusé — ni admin, ni porteur de ce projet",
             content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))),
         @ApiResponse(responseCode = "404", description = "Projet introuvable",
             content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
@@ -61,33 +64,63 @@ public class DocumentController {
     public ResponseEntity<ApiResponseDTO<DocumentDTO>> uploadDocument(
             @Parameter(description = "Identifiant du projet auquel attacher le document", example = "7", required = true)
             @PathVariable Long projetId,
-
             @Parameter(description = "Fichier à uploader (PDF, Excel, CSV)",
                 schema = @Schema(type = "string", format = "binary"), required = true)
             @RequestParam("file") MultipartFile file,
-
             @Parameter(description = "Nom affiché du document", example = "Budget prévisionnel 2025", required = true)
             @RequestParam("nom") String nom,
-
             @Parameter(description = "Type du document", example = "EXCEL",
                 schema = @Schema(allowableValues = {"PDF", "EXCEL", "CSV"}))
-            @RequestParam(value = "type", defaultValue = "PDF") String type) throws IOException {
+            @RequestParam(value = "type", defaultValue = "PDF") String type,
+            @Parameter(description = "Description du contenu du document", example = "Bilan comptable du 2e trimestre")
+            @RequestParam(value = "description", required = false) String description,
+            Authentication auth) throws IOException {
 
         Projet projet = projetRepository.findById(projetId)
                 .orElseThrow(() -> new RuntimeException("Projet non trouvé"));
 
-        String filename = fileStorageService.saveProjectDocument(file);
+        User currentUser = userRepository.findByLoginForAuth(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
+        boolean isAdmin = currentUser.getRoles().stream()
+                .anyMatch(r -> "ADMIN".equals(r.getRole()));
+        boolean isPorteurDuProjet = projet.getPorteur() != null
+                && projet.getPorteur().getId().equals(currentUser.getId());
+
+        if (!isAdmin && !isPorteurDuProjet) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponseDTO
+                            .error("Seuls l'admin et le porteur de ce projet peuvent y ajouter un document."));
+        }
+
+        String filename = fileStorageService.saveProjectDocument(file);
         Document doc = new Document();
         doc.setNom(nom);
         doc.setFilename(filename);
         doc.setType(type.toUpperCase());
+        doc.setDescription(description);
         doc.setProjet(projet);
+        doc.setUploadePar(currentUser);
+
+        // Document admin = approuvé d'office. Document porteur = en attente
+        // de validation admin avant d'être visible aux investisseurs.
+        doc.setStatut(isAdmin ? StatutDocument.APPROUVE : StatutDocument.EN_ATTENTE);
+
         documentService.save(doc);
 
+        if (isAdmin) {
+            notificationService.notifyInvestorsOfProject(
+                    projet,
+                    "Nouveau document disponible",
+                    "Un nouveau document (\"" + nom + "\") a été ajouté au projet " + projet.getLibelle() + ".");
+        }
+
         return ResponseEntity.ok(ApiResponseDTO.success(documentMapper.toDocumentDto(doc))
-                .message("Document uploadé avec succès"));
+                .message(isAdmin
+                        ? "Document uploadé avec succès"
+                        : "Document envoyé, en attente de validation par l'administrateur"));
     }
+    
 
     @GetMapping("/projet/{projetId}")
     @PreAuthorize("isAuthenticated()")
