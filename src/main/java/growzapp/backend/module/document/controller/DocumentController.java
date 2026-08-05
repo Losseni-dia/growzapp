@@ -153,9 +153,23 @@ public class DocumentController {
                             .error("Seuls les investisseurs, le porteur ou l'admin peuvent consulter ces documents."));
         }
 
-        List<DocumentDTO> docs = documentMapper.toDocumentDtoList(
-                documentService.findByProjetId(projetId));
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(r -> r.getRole().replace("ROLE_", "").equals("ADMIN"));
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new RuntimeException("Projet non trouvé"));
+        boolean isPorteurDuProjet = projet.getPorteur() != null
+                && projet.getPorteur().getId().equals(user.getId());
 
+        // Admin et porteur voient tous les documents (y compris en attente
+        // ou rejetés, pour suivre leur propre statut). Un investisseur ne
+        // voit que ceux déjà approuvés.
+        List<Document> documents = (isAdmin || isPorteurDuProjet)
+                ? documentService.findByProjetId(projetId)
+                : documentService.findByProjetId(projetId).stream()
+                        .filter(d -> d.getStatut() == growzapp.backend.module.document.enums.StatutDocument.APPROUVE)
+                        .toList();
+
+        List<DocumentDTO> docs = documentMapper.toDocumentDtoList(documents);
         return ResponseEntity.ok(ApiResponseDTO.success(docs));
     }
 
