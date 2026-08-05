@@ -35,14 +35,37 @@ public class DocumentService {
         return documentRepository.findByProjetId(projetId);
     }
 
-    public boolean hasAccessToProject(User user, Long projetId) {
+   public boolean hasAccessToProject(User user, Long projetId) {
         boolean isAdmin = user.getRoles().stream()
                 .anyMatch(r -> r.getRole().replace("ROLE_", "").equals("ADMIN"));
         if (isAdmin) return true;
-
         Projet projet = projetRepository.findById(projetId).orElse(null);
         if (projet != null && projet.getPorteur().getId().equals(user.getId())) return true;
-
         return investissementRepository.existsByInvestisseurIdAndProjetId(user.getId(), projetId);
     }
+
+    public List<Document> findEnAttenteByProjetId(Long projetId) {
+        return documentRepository.findByProjetIdAndStatut(
+                projetId, growzapp.backend.module.document.enums.StatutDocument.EN_ATTENTE);
+    }
+
+    public long countEnAttenteByProjetId(Long projetId) {
+        return documentRepository.countByProjetIdAndStatut(
+                projetId, growzapp.backend.module.document.enums.StatutDocument.EN_ATTENTE);
+    }
+
+    public Document approuver(Long documentId) {
+        Document doc = findById(documentId);
+        doc.setStatut(growzapp.backend.module.document.enums.StatutDocument.APPROUVE);
+        doc.setDateValidation(java.time.LocalDateTime.now());
+        return documentRepository.save(doc);
+    }
+
+    public Document rejeter(Long documentId) {
+        Document doc = findById(documentId);
+        doc.setStatut(growzapp.backend.module.document.enums.StatutDocument.REJETE);
+        doc.setDateValidation(java.time.LocalDateTime.now());
+        return documentRepository.save(doc);
+    }
+
 }
