@@ -35,13 +35,28 @@ public class DocumentService {
         return documentRepository.findByProjetId(projetId);
     }
 
-   public boolean hasAccessToProject(User user, Long projetId) {
+    public boolean hasAccessToProject(User user, Long projetId) {
         boolean isAdmin = user.getRoles().stream()
                 .anyMatch(r -> r.getRole().replace("ROLE_", "").equals("ADMIN"));
-        if (isAdmin) return true;
+        if (isAdmin)
+            return true;
         Projet projet = projetRepository.findById(projetId).orElse(null);
-        if (projet != null && projet.getPorteur().getId().equals(user.getId())) return true;
+        if (projet != null && projet.getPorteur().getId().equals(user.getId()))
+            return true;
         return investissementRepository.existsByInvestisseurIdAndProjetId(user.getId(), projetId);
+    }
+    
+    public List<Document> findAllForAdmin(Long projetId, growzapp.backend.module.document.enums.StatutDocument statut) {
+        if (projetId != null && statut != null) {
+            return documentRepository.findByProjetIdAndStatut(projetId, statut);
+        }
+        if (projetId != null) {
+            return documentRepository.findByProjetId(projetId);
+        }
+        if (statut != null) {
+            return documentRepository.findByStatut(statut);
+        }
+        return documentRepository.findAll();
     }
 
     public List<Document> findEnAttenteByProjetId(Long projetId) {

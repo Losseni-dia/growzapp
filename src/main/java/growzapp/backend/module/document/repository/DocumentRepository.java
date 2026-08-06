@@ -13,4 +13,6 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByProjetIdAndStatut(Long projetId, growzapp.backend.module.document.enums.StatutDocument statut);
 
     long countByProjetIdAndStatut(Long projetId, growzapp.backend.module.document.enums.StatutDocument statut);
+
+    List<Document> findByStatut(growzapp.backend.module.document.enums.StatutDocument statut);
 }
