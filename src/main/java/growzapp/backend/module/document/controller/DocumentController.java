@@ -1,5 +1,6 @@
 package growzapp.backend.module.document.controller;
 
+import growzapp.backend.module.document.dto.DocumentAdminDTO;
 import growzapp.backend.module.document.dto.DocumentDTO;
 import growzapp.backend.module.document.enums.StatutDocument;
 import growzapp.backend.module.document.mapper.DocumentMapper;
@@ -171,6 +172,38 @@ public class DocumentController {
 
         List<DocumentDTO> docs = documentMapper.toDocumentDtoList(documents);
         return ResponseEntity.ok(ApiResponseDTO.success(docs));
+    }
+
+    @GetMapping("/admin/all")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "[Admin] Lister tous les documents de la plateforme", description = "Retourne tous les documents, tous projets confondus, avec filtres optionnels par projet et/ou statut.", tags = {
+            "Documents" })
+    public ResponseEntity<ApiResponseDTO<List<DocumentAdminDTO>>> getAllDocumentsAdmin(
+            @Parameter(description = "Filtrer par identifiant de projet (optionnel)") @RequestParam(required = false) Long projetId,
+            @Parameter(description = "Filtrer par statut (optionnel)", schema = @Schema(allowableValues = {
+                    "EN_ATTENTE", "APPROUVE", "REJETE" })) @RequestParam(required = false) String statut) {
+
+        growzapp.backend.module.document.enums.StatutDocument statutEnum = statut != null
+                ? growzapp.backend.module.document.enums.StatutDocument.valueOf(statut)
+                : null;
+
+        List<Document> documents = documentService.findAllForAdmin(projetId, statutEnum);
+
+        List<DocumentAdminDTO> dtos = documents.stream()
+                .map(doc -> new DocumentAdminDTO(
+                        doc.getId(),
+                        doc.getNom(),
+                        doc.getUrl(),
+                        doc.getType(),
+                        doc.getDescription(),
+                        doc.getStatut() != null ? doc.getStatut().name() : null,
+                        doc.getUploadedAt(),
+                        doc.getProjet() != null ? doc.getProjet().getId() : null,
+                        doc.getProjet() != null ? doc.getProjet().getLibelle() : null))
+                .toList();
+
+        return ResponseEntity.ok(ApiResponseDTO.success(dtos));
     }
 
     @GetMapping("/{documentId}/download")
