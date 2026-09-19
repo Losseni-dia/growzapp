@@ -1,5 +1,6 @@
 package growzapp.backend.module.wallet.repository;
 
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -26,6 +27,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         Optional<Transaction> findByReferenceExterne(String referenceExterne);
 
         Optional<Transaction> findByReferenceTypeAndReferenceId(String referenceType, Long referenceId);
+
+        List<Transaction> findByReferenceTypeAndStatut(String referenceType, StatutTransaction statut);
 
         boolean existsByIdempotencyKey(String idempotencyKey);
 
@@ -61,6 +64,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
                     WHERE (:type IS NULL OR t.type = :type)
                       AND (:walletType IS NULL OR t.walletType = :walletType)
                       AND (:statut IS NULL OR t.statut = :statut)
+                      AND (:sourcePaiement IS NULL OR t.sourcePaiement = :sourcePaiement)
                       AND (CAST(:search AS string) IS NULL OR :search = '' OR
                            LOWER(t.description) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
                            LOWER(t.referenceExterne) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
@@ -70,6 +74,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
                         @Param("type") TypeTransaction type,
                         @Param("walletType") WalletType walletType,
                         @Param("statut") StatutTransaction statut,
+                        @Param("sourcePaiement") SourcePaiement sourcePaiement,
                         @Param("search") String search,
                         Pageable pageable);
 }

@@ -24,6 +24,8 @@ import growzapp.backend.module.projet.repository.ProjetValorisationRepository;
 import growzapp.backend.module.projet.service.ProjetValorisationService;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
+import growzapp.backend.module.user.service.UserService;
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -62,6 +64,7 @@ public class InvestissementService {
         private final ProjetValorisationService projetValorisationService;
         private final ProjetValorisationRepository projetValorisationRepository;
         private final DividendeRepository dividendeRepository;
+        private final UserService userService;
 
 
 
@@ -337,9 +340,47 @@ public class InvestissementService {
                         throw new IllegalStateException("Solde insuffisant");
                 }
 
+                // Investissement financé par le wallet interne : les fonds proviennent
+                // bien du soldeDisponible existant, donc bloquerFonds() (qui
+                // débite disponible pour créditer bloqué) est le mécanisme correct ici.
                 walletUser.bloquerFonds(montantTotal);
                 walletRepository.save(walletUser);
 
+                return finaliserCreationInvestissement(projet, nombrePartsPris, montantTotal, investisseur,
+                                walletUser.getId(), SourcePaiement.WALLET_GROWZAPP);
+        }
+
+        /**
+         * Investissement financé par un paiement EXTERNE déjà confirmé (Stripe,
+         * FedaPay, PayDunya) — l'argent n'a jamais transité par le wallet
+         * interne du porteur, il doit donc créditer directement soldeBloque,
+         * sans jamais passer (même transitoirement) par soldeDisponible.
+         */
+        @Transactional
+        public InvestissementDTO investirDepuisPaiementExterne(Long projetId, int nombrePartsPris, User investisseur,
+                        SourcePaiement sourcePaiement) {
+                if (investisseur.getKycStatus() != KycStatus.VALIDE) {
+                        throw new IllegalStateException(
+                                        "Votre profil KYC doit être validé par un administrateur avant de pouvoir investir.");
+                }
+
+                Projet projet = projetRepository.findByIdWithLock(projetId)
+                                .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé"));
+
+                BigDecimal montantTotal = projet.getPrixUnePart().multiply(BigDecimal.valueOf(nombrePartsPris));
+
+                Wallet walletUser = walletRepository.findByUserIdWithPessimisticLock(investisseur.getId())
+                                .orElseThrow(() -> new IllegalStateException("Wallet utilisateur non trouvé"));
+
+                walletUser.crediterDirectementBloque(montantTotal);
+                walletRepository.save(walletUser);
+
+                return finaliserCreationInvestissement(projet, nombrePartsPris, montantTotal, investisseur,
+                                walletUser.getId(), sourcePaiement);
+        }
+
+        private InvestissementDTO finaliserCreationInvestissement(Projet projet, int nombrePartsPris,
+                        BigDecimal montantTotal, User investisseur, Long walletUserId, SourcePaiement sourcePaiement) {
                 Investissement investissement = new Investissement();
                 investissement.setNombrePartsPris(nombrePartsPris);
                 investissement.setMontantInvesti(montantTotal);
@@ -351,7 +392,7 @@ public class InvestissementService {
                 investissement = investissementRepository.save(investissement);
 
                 Transaction tx = Transaction.builder()
-                                .walletId(walletUser.getId())
+                                .walletId(walletUserId)
                                 .walletType(WalletType.USER)
                                 .montant(montantTotal)
                                 .type(TypeTransaction.INVESTISSEMENT)
@@ -360,8 +401,16 @@ public class InvestissementService {
                                 .createdAt(LocalDateTime.now())
                                 .referenceType("INVESTISSEMENT")
                                 .referenceId(investissement.getId())
+                                .sourcePaiement(sourcePaiement)
                                 .build();
                 transactionRepository.save(tx);
+
+                notificationService.notifyAdmins(
+                                "💰 Nouvel investissement en attente",
+                                investisseur.getPrenom() + " " + investisseur.getNom() + " a investi " + montantTotal
+                                                + " FCFA dans « " + projet.getLibelle()
+                                                + " » — validation requise.",
+                                "/admin/investissements");
 
                 return investissementMapper.toDto(investissement);
         }
@@ -424,6 +473,7 @@ public class InvestissementService {
                                 .referenceType("INVESTISSEMENT")
                                 .referenceId(id)
                                 .createdAt(LocalDateTime.now())
+                                .sourcePaiement(tx.getSourcePaiement())
                                 .build();
                 transactionRepository.save(txProjet);
 
@@ -451,11 +501,21 @@ public class InvestissementService {
 
                 Investissement savedInv = investissementRepository.save(inv);
 
+                userService.attribuerRoleSiAbsent(investisseur.getId(), "INVESTISSEUR");
+
                 notificationService.notifyUser(
                                 projet.getPorteur(),
                                 "Nouvel investissement !",
                                 "Félicitations ! Un montant de " + montant + " FCFA a été investi dans votre projet "
                                                 + projet.getLibelle(),
+                                projet.getId(),
+                                projet.getSlug());
+
+                notificationService.notifyUser(
+                                investisseur,
+                                "✅ Investissement validé !",
+                                "Votre investissement de " + montant + " FCFA dans « " + projet.getLibelle()
+                                                + " » a été validé. Votre contrat est disponible.",
                                 projet.getId(),
                                 projet.getSlug());
 

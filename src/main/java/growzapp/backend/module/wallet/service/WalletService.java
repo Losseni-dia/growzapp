@@ -21,6 +21,7 @@ import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -67,6 +68,7 @@ public class WalletService {
                 .description("Dépôt Mobile Money (redirection PayDunya)")
                 .createdAt(LocalDateTime.now())
                 .referenceExterne(payDunyaRes.sessionToken())
+                .sourcePaiement(SourcePaiement.MOBILE_MONEY)
                 .build();
 
         transactionRepository.save(tx);
@@ -90,8 +92,15 @@ public class WalletService {
             case "WAVE" -> "Dépôt via Wave";
             case "MTN_MOMO" -> "Dépôt via MTN Mobile Money";
             case "PAYDUNYA_MM" -> "Dépôt via Mobile Money (PayDunya)";
+            case "FEDAPAY_MM" -> "Dépôt via Mobile Money (FedaPay)";
             case "WALLET" -> "Dépôt depuis le portefeuille";
             default -> "Dépôt externe via " + source;
+        };
+
+        SourcePaiement sourcePaiement = switch (source.toUpperCase()) {
+            case "STRIPE_CARD" -> SourcePaiement.CARTE_BANCAIRE;
+            case "ORANGE_MONEY", "WAVE", "MTN_MOMO", "PAYDUNYA_MM", "FEDAPAY_MM" -> SourcePaiement.MOBILE_MONEY;
+            default -> SourcePaiement.WALLET_GROWZAPP;
         };
 
         Transaction tx = Transaction.builder()
@@ -102,6 +111,7 @@ public class WalletService {
                 .statut(StatutTransaction.SUCCESS)
                 .description(description)
                 .createdAt(LocalDateTime.now())
+                .sourcePaiement(sourcePaiement)
                 .build();
 
         transactionRepository.save(tx);

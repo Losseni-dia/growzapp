@@ -86,6 +86,18 @@ public class Wallet {
     }
 
     /**
+     * Crédite directement soldeBloque, sans jamais passer par soldeDisponible
+     * — pour un investissement financé par un paiement externe déjà confirmé
+     * (Stripe, FedaPay, PayDunya) : l'argent n'a jamais transité par le
+     * wallet interne, il n'y a donc aucune raison de créditer puis débiter
+     * artificiellement soldeDisponible comme le ferait bloquerFonds().
+     */
+    public void crediterDirectementBloque(BigDecimal montant) {
+        checkPositive(montant);
+        soldeBloque = soldeBloque.add(montant);
+    }
+
+    /**
      * Validation d’un investissement : les fonds bloqués deviennent "définitifs"
      * (disparaissent du wallet user)
      */

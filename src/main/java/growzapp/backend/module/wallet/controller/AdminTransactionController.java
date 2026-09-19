@@ -2,6 +2,7 @@ package growzapp.backend.module.wallet.controller;
 
 import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.wallet.dto.TransactionAdminDTO;
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -51,6 +52,8 @@ public class AdminTransactionController {
             @RequestParam(required = false) String walletType,
             @Parameter(description = "Filtre par statut (SUCCESS, FAILED, EN_COURS...)")
             @RequestParam(required = false) String statut,
+            @Parameter(description = "Filtre par origine des fonds (WALLET_GROWZAPP, MOBILE_MONEY, CARTE_BANCAIRE)")
+            @RequestParam(required = false) String sourcePaiement,
             @Parameter(description = "Recherche libre (description, référence externe)")
             @RequestParam(required = false) String search,
             @Parameter(description = "Numéro de page (commence à 0)", example = "0")
@@ -61,10 +64,12 @@ public class AdminTransactionController {
         TypeTransaction typeEnum = parseEnum(TypeTransaction.class, type);
         WalletType walletTypeEnum = parseEnum(WalletType.class, walletType);
         StatutTransaction statutEnum = parseEnum(StatutTransaction.class, statut);
+        SourcePaiement sourcePaiementEnum = parseEnum(SourcePaiement.class, sourcePaiement);
 
         Pageable pageable = PageRequest.of(page, size);
         return ApiResponseDTO.success(
-                adminTransactionService.getAllAdmin(typeEnum, walletTypeEnum, statutEnum, search, pageable));
+                adminTransactionService.getAllAdmin(typeEnum, walletTypeEnum, statutEnum, sourcePaiementEnum, search,
+                        pageable));
     }
 
     private <T extends Enum<T>> T parseEnum(Class<T> enumClass, String value) {

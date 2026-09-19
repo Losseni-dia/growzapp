@@ -5,6 +5,7 @@ package growzapp.backend.module.paiement.innerwallet;
 import growzapp.backend.module.paiement.paydunya.PayDunyaService;
 import growzapp.backend.module.paiement.paydunya.PayDunyaService.PayDunyaResponse;
 import growzapp.backend.module.paiement.stripe.StripeDepositService;
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -97,6 +98,10 @@ public class DepositService {
         // Note: Dans un vrai système, on chercherait la transaction EN_ATTENTE par
         // référence.
 
+        SourcePaiement sourcePaiement = "STRIPE_CARD".equalsIgnoreCase(source)
+                ? SourcePaiement.CARTE_BANCAIRE
+                : SourcePaiement.MOBILE_MONEY;
+
         Transaction tx = Transaction.builder()
                 .walletId(wallet.getId())
                 .walletType(WalletType.USER)
@@ -106,6 +111,7 @@ public class DepositService {
                 .description("Dépôt réussi via " + source)
                 .referenceType(source)
                 .referenceExterne(reference) // sessionId Stripe / token PayDunya — String, pas Long
+                .sourcePaiement(sourcePaiement)
                 .build();
 
         transactionRepository.save(tx);

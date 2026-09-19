@@ -59,6 +59,16 @@ public class NotificationService {
         notificationRepository.save(notif);
     }
 
+    // ── Notifie tous les administrateurs ────────────────────────────────────
+    public void notifyAdmins(String title, String content, String absolutePath) {
+        List<User> admins = userRepository.findByRoles_Role("ADMIN");
+        for (User admin : admins) {
+            Notification notif = buildNotif(admin, title, content, null, absolutePath);
+            notificationRepository.save(notif);
+        }
+        log.info("notifyAdmins : {} administrateur(s) notifié(s) pour « {} »", admins.size(), title);
+    }
+
     // ── Notification globale ──────────────────────────────────────────────────
     public void notifyAllUsers(String title, String content, Long projetId) {
         notifyAllUsersWithSlug(title, content, projetId, null);

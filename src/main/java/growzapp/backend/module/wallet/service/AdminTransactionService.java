@@ -4,6 +4,7 @@ import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.wallet.dto.TransactionAdminDTO;
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -42,10 +43,12 @@ public class AdminTransactionService {
             TypeTransaction type,
             WalletType walletType,
             StatutTransaction statut,
+            SourcePaiement sourcePaiement,
             String search,
             Pageable pageable) {
 
-        Page<Transaction> page = transactionRepository.findAdmin(type, walletType, statut, search, pageable);
+        Page<Transaction> page = transactionRepository.findAdmin(type, walletType, statut, sourcePaiement, search,
+                pageable);
         List<Transaction> transactions = page.getContent();
 
         List<Long> walletIds = transactions.stream()
@@ -120,6 +123,7 @@ public class AdminTransactionService {
                 utilisateurNom,
                 utilisateurEmail,
                 projetLibelle,
-                destinataireNom);
+                destinataireNom,
+                t.getSourcePaiement());
     }
 }

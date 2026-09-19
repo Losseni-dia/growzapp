@@ -1,6 +1,7 @@
 // growzapp.backend.model.entite.Transaction.java
 package growzapp.backend.module.wallet.model;
 
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -93,6 +94,17 @@ public class Transaction {
     // besoin de ce champ, l'acteur = le propriétaire du wallet.
     @Column(name = "auteur_id")
     private Long auteurId;
+
+    // Origine des fonds côté investisseur/déposant — utile pour l'admin
+    // (backoffice Transactions) afin de distinguer wallet interne, mobile
+    // money (FedaPay/PayDunya) et carte bancaire (Stripe). Par défaut
+    // WALLET_GROWZAPP : couvre tous les mouvements internes (retraits,
+    // virements, dividendes, déblocages de trésorerie) qui ne transitent
+    // jamais par un prestataire de paiement externe.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_paiement")
+    @Builder.Default
+    private SourcePaiement sourcePaiement = SourcePaiement.WALLET_GROWZAPP;
 
     // Méthodes utilitaires
     public void markAsSuccess() {

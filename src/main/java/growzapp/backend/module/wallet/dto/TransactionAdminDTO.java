@@ -1,5 +1,6 @@
 package growzapp.backend.module.wallet.dto;
 
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -24,6 +25,7 @@ public record TransactionAdminDTO(
         @Schema(description = "Nom complet du titulaire du wallet source, si wallet utilisateur") String utilisateurNom,
         @Schema(description = "Email du titulaire du wallet source, si wallet utilisateur") String utilisateurEmail,
         @Schema(description = "Libellé du projet lié, si wallet projet") String projetLibelle,
-        @Schema(description = "Nom complet du destinataire, pour les virements internes") String destinataireNom
+        @Schema(description = "Nom complet du destinataire, pour les virements internes") String destinataireNom,
+        @Schema(description = "Origine des fonds : WALLET_GROWZAPP (portefeuille interne), MOBILE_MONEY (FedaPay/PayDunya) ou CARTE_BANCAIRE (Stripe)", example = "MOBILE_MONEY") SourcePaiement sourcePaiement
 ) {
 }
