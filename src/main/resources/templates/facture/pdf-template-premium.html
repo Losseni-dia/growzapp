@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Facture GrowzApp</title>
+    <title>Facture GrowzApp — Premium</title>
     <style>
         @page {
             size: A4;
@@ -23,7 +23,6 @@
             padding: 0;
         }
 
-        /* ── HEADER VERT (identique au contrat) ── */
         .header-band {
             background-color: #1B5E20;
             width: 100%;
@@ -61,7 +60,6 @@
             border: 1px solid rgba(255, 255, 255, 0.25);
         }
 
-        /* ── CORPS ── */
         .body-content {
             padding: 6mm 12mm 6mm 12mm;
         }
@@ -140,7 +138,6 @@
             font-weight: bold;
         }
 
-        /* ── TABLEAU LIGNE DE FACTURATION ── */
         .fin-table {
             width: 100%;
             border-collapse: collapse;
@@ -170,7 +167,6 @@
             border-bottom: 2px solid #1B5E20;
         }
 
-        /* ── SOUS-TOTAL / TOTAL ── */
         .totals-box {
             width: 55%;
             margin-left: 45%;
@@ -200,7 +196,6 @@
             border-radius: 4px;
         }
 
-        /* ── TAMPON PAYÉ ── */
         .stamp-paid {
             position: absolute;
             top: 75mm;
@@ -218,7 +213,6 @@
             letter-spacing: 3px;
         }
 
-        /* ── CODE-BARRES ── */
         .barcode-section {
             text-align: center;
             margin-top: 18px;
@@ -244,7 +238,6 @@
             margin-top: 2px;
         }
 
-        /* ── FOOTER ── */
         .footer {
             text-align: center;
             font-size: 6.5pt;
@@ -270,16 +263,16 @@
         <table>
             <tr>
                 <td style="width:65%">
-                    <div class="header-title" th:text="#{invoice.title}">FACTURE<br />DE DIVIDENDE</div>
-                    <div class="header-subtitle" th:text="${investissement.projet.libelle}">Projet X</div>
+                    <div class="header-title" th:utext="#{invoice.premium.title}">FACTURE<br />STATUT PREMIUM</div>
+                    <div class="header-subtitle" th:text="${projet.libelle}">Projet X</div>
                 </td>
                 <td style="width:35%; vertical-align:top; padding-top:4mm">
                     <div class="ref-box">
-                        <strong th:text="#{invoice.ref} + ' :'">N° FACTURE :</strong>
+                        <strong th:text="#{invoice.ref}">N° FACTURE</strong> :
                         <span th:text="${facture.numeroFacture}">FAC-2026-000033</span><br />
-                        <strong th:text="#{invoice.date_emission} + ' :'">DATE D'ÉMISSION :</strong>
+                        <strong th:text="#{invoice.date_emission}">DATE D'ÉMISSION</strong> :
                         <span th:text="${#temporals.format(facture.dateEmission,'dd/MM/yyyy')}">10/09/2026</span><br />
-                        <strong th:text="#{invoice.date_payment} + ' :'">DATE DE PAIEMENT :</strong>
+                        <strong th:text="#{invoice.date_payment}">DATE DE PAIEMENT</strong> :
                         <span th:text="${#temporals.format(facture.datePaiement,'dd/MM/yyyy')}">15/09/2026</span>
                     </div>
                 </td>
@@ -299,18 +292,18 @@
                         <h3 th:text="#{invoice.billed_to}">FACTURÉ À</h3>
                         <table class="summary-table">
                             <tr>
-                                <td class="label" th:text="#{pdf.label.fullname}">Nom complet</td>
+                                <td class="label" th:text="#{contract.label.fullname}">Nom complet</td>
                                 <td class="value"
-                                    th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">
+                                    th:text="${porteur.prenom + ' ' + porteur.nom}">
                                     Losseni Diakité</td>
                             </tr>
                             <tr>
-                                <td class="label" th:text="#{pdf.label.email}">Email</td>
-                                <td class="value" th:text="${investissement.investisseur.email}">email@ex.com</td>
+                                <td class="label" th:text="#{contract.label.email}">Email</td>
+                                <td class="value" th:text="${porteur.email}">email@ex.com</td>
                             </tr>
                             <tr>
-                                <td class="label" th:text="#{pdf.label.account_id}">ID Compte</td>
-                                <td class="value" th:text="${'USR-' + investissement.investisseur.id}">USR-1</td>
+                                <td class="label" th:text="#{contract.label.account_id}">ID Compte</td>
+                                <td class="value" th:text="${'USR-' + porteur.id}">USR-1</td>
                             </tr>
                         </table>
                     </div>
@@ -319,17 +312,14 @@
                         <h3 th:text="#{invoice.project}">PROJET</h3>
                         <table class="summary-table">
                             <tr>
-                                <td class="label" th:text="#{pdf.label.project_name}">Libellé</td>
-                                <td class="value" th:text="${investissement.projet.libelle}">Projet X</td>
+                                <td class="label" th:text="#{contract.label.project_name}">Libellé</td>
+                                <td class="value" th:text="${projet.libelle}">Projet X</td>
                             </tr>
                             <tr>
-                                <td class="label">Parts détenues</td>
-                                <td class="value" th:text="${investissement.nombrePartsPris}">10</td>
-                            </tr>
-                            <tr>
-                                <td class="label" th:text="#{pdf.label.equity}">Équité acquise</td>
-                                <td class="value" th:text="${investissement.valeurPartsPrisEnPourcent + ' %'}">2.5 %
-                                </td>
+                                <td class="label" th:text="#{invoice.label.premium_until}">Statut Premium jusqu'au</td>
+                                <td class="value"
+                                    th:text="${projet.premiumFin != null ? #temporals.format(projet.premiumFin,'dd/MM/yyyy') : #messages.msg('invoice.none_value')}">
+                                    18/12/2026</td>
                             </tr>
                         </table>
                     </div>
@@ -341,7 +331,7 @@
                         <div class="highlight-amount">
                             <div class="amount-label" th:text="#{invoice.total}">TOTAL PAYÉ</div>
                             <div class="amount-value">
-                                <span th:text="${montantTTCValue}">150
+                                <span th:text="${montantTTCValue}">5
                                     000</span>
                                 <span class="amount-currency" th:text="${' ' + deviseLabel}"> FCFA</span>
                             </div>
@@ -349,12 +339,12 @@
 
                         <table class="summary-table">
                             <tr>
-                                <td class="label">Montant / part</td>
-                                <td class="value" th:text="${montantParPartFormatted}">15 000 FCFA</td>
+                                <td class="label" th:text="#{invoice.label.duration}">Durée</td>
+                                <td class="value" th:text="#{invoice.value.premium_duration}">3 mois</td>
                             </tr>
                             <tr>
-                                <td class="label">Motif</td>
-                                <td class="value" th:text="${dividende.motif}">Dividendes T4</td>
+                                <td class="label" th:text="#{invoice.label.payment_method}">Mode de paiement</td>
+                                <td class="value" th:text="${sourcePaiement}">Mobile Money</td>
                             </tr>
                         </table>
                     </div>
@@ -363,7 +353,6 @@
             </tr>
         </table>
 
-        <!-- Ligne de facturation détaillée -->
         <table class="fin-table">
             <thead>
                 <tr>
@@ -374,14 +363,13 @@
             <tbody>
                 <tr>
                     <td>
-                        <strong th:text="#{invoice.desc.dividend}">Versement de dividendes</strong><br />
-                        <span style="font-size:8pt; color:#666">
-                            <span th:text="${investissement.nombrePartsPris}">10</span> parts ×
-                            <span th:text="${montantParPartFormatted}">15 000 FCFA</span>
+                        <strong th:text="#{invoice.desc.premium_title}">Statut Premium — mise en avant catalogue</strong><br />
+                        <span style="font-size:8pt; color:#666" th:text="#{invoice.desc.premium_sub}">
+                            Projet mis en tête du catalogue pendant 3 mois
                         </span>
                     </td>
                     <td class="amount-col" th:text="${montantHTFormatted}">
-                        150 000 FCFA</td>
+                        5 000 FCFA</td>
                 </tr>
             </tbody>
         </table>
@@ -390,12 +378,12 @@
             <table>
                 <tr class="subtotal-row">
                     <td th:text="#{invoice.subtotal}">SOUS-TOTAL</td>
-                    <td style="text-align:right" th:text="${montantHTFormatted}">150 000
+                    <td style="text-align:right" th:text="${montantHTFormatted}">5 000
                         FCFA</td>
                 </tr>
                 <tr class="total-row">
                     <td th:text="#{invoice.total}">TOTAL PAYÉ</td>
-                    <td style="text-align:right" th:text="${montantTTCValue + ' ' + deviseLabel}">150
+                    <td style="text-align:right" th:text="${montantTTCValue + ' ' + deviseLabel}">5
                         000
                         FCFA</td>
                 </tr>
@@ -404,20 +392,18 @@
 
         <div class="thanks-note" th:text="#{invoice.footer.thanks}">Merci de votre confiance !</div>
 
-        <!-- ── CODE-BARRES (unique, encode le numéro de facture) ── -->
         <div class="barcode-section">
             <img th:if="${barcodeBase64 != null}" th:src="@{'data:image/png;base64,' + ${barcodeBase64}}"
                 alt="Code-barres facture" />
             <div class="barcode-number" th:text="${facture.numeroFacture}">FAC-2026-000033</div>
-            <div class="barcode-hint">Scannable pour retrouver cette facture dans nos systèmes</div>
+            <div class="barcode-hint" th:text="#{invoice.barcode_hint}">Scannable pour retrouver cette facture dans nos systèmes</div>
         </div>
 
     </div>
 
     <div class="footer">
         GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire — RC: CI-ABJ-2025-B-12345 — contact@growzapp.ci<br />
-        <span th:text="#{invoice.footer.notice}">Ce document est une preuve comptable générée électroniquement par la
-            plateforme GrowzApp.</span>
+        <span th:text="#{invoice.footer.notice}">Ce document est une preuve comptable générée électroniquement par la plateforme GrowzApp.</span>
     </div>
 
 </body>

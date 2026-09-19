@@ -1,6 +1,7 @@
 package growzapp.backend.module.facture.dto;
 
 import growzapp.backend.module.facture.enums.StatutFacture;
+import growzapp.backend.module.facture.enums.TypeFacture;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,8 @@ public record FactureAdminDTO(
         LocalDateTime dateEmission,
         LocalDateTime datePaiement,
         @Schema(description = "Nom complet de l'investisseur", example = "John Doe") String investisseurNom,
-        @Schema(description = "Email de l'investisseur", example = "john.doe@example.com") String investisseurEmail
+        @Schema(description = "Email de l'investisseur", example = "john.doe@example.com") String investisseurEmail,
+        @Schema(description = "Type de facture", example = "DIVIDENDE") TypeFacture type,
+        @Schema(description = "Libellé du projet lié, si applicable") String projetLibelle
 ) {
 }

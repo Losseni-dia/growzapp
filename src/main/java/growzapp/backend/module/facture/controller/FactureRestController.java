@@ -43,6 +43,15 @@ public class FactureRestController {
         return isAdmin || isOwner;
     }
 
+    @GetMapping("/mes-factures")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "Mes factures", description = "Retourne toutes les factures de l'utilisateur connecté — dividendes reçus et achats Premium.", tags = {"Factures"})
+    public ResponseEntity<ApiResponseDTO<java.util.List<FactureDTO>>> getMesFactures() {
+        User current = userService.getCurrentUser();
+        return ResponseEntity.ok(ApiResponseDTO.success(factureService.getMesFactures(current.getId())));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     @SecurityRequirement(name = "BearerAuth")
@@ -90,13 +99,15 @@ public class FactureRestController {
             @PathVariable Long factureId,
             @Parameter(description = "Langue du document PDF généré", example = "fr",
                 schema = @Schema(allowableValues = {"fr", "en", "es"}))
-            @RequestParam(name = "lang", defaultValue = "fr") String lang) {
+            @RequestParam(name = "lang", defaultValue = "fr") String lang,
+            @Parameter(description = "Devise d'affichage des montants", example = "XOF")
+            @RequestParam(name = "currency", defaultValue = "XOF") String currency) {
         Facture facture = factureService.findById(factureId);
         if (!canAccess(facture, userService.getCurrentUser())) {
             return ResponseEntity.status(403).build();
         }
         try {
-            byte[] pdfBytes = factureService.genererPdf(factureId, lang);
+            byte[] pdfBytes = factureService.genererPdf(factureId, lang, currency);
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_PDF)
                     .header(HttpHeaders.CONTENT_DISPOSITION,

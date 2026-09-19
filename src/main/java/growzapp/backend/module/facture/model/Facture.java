@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import growzapp.backend.module.dividende.model.Dividende;
 import growzapp.backend.module.facture.enums.StatutFacture;
+import growzapp.backend.module.facture.enums.TypeFacture;
+import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.user.model.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -47,8 +49,9 @@ public class Facture {
     @Enumerated(EnumType.STRING)
     private StatutFacture statut = StatutFacture.EMISE;
 
+    // Nullable : une facture Premium n'a pas de dividende associé.
     @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "dividende_id", nullable = false, unique = true)
+    @JoinColumn(name = "dividende_id", unique = true)
     @JsonIgnoreProperties("facture")
     @ToString.Exclude
     private Dividende dividende;
@@ -58,6 +61,29 @@ public class Facture {
     @JsonIgnoreProperties({ "wallet", "investissements", "roles", "password" })
     @ToString.Exclude
     private User investisseur;
+
+    // === FACTURES NON LIÉES À UN DIVIDENDE (ex: achat Premium) ===
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false, length = 20)
+    private TypeFacture type = TypeFacture.DIVIDENDE;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "projet_id")
+    @JsonIgnoreProperties({ "porteur", "investissements", "documents" })
+    @ToString.Exclude
+    private Projet projet;
+
+    @Column(name = "libelle", length = 255)
+    private String libelle;
+
+    // === ARCHIVAGE ===
+    // Une facture est un document légal, jamais supprimable — seulement
+    // sortie des listes actives via un archivage.
+    @Column(name = "archive_le")
+    private LocalDateTime archiveLe;
+
+    @Column(name = "archive_par")
+    private String archivePar;
 
     @Override
     public boolean equals(Object o) {

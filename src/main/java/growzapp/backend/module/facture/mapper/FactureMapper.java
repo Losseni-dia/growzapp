@@ -14,6 +14,7 @@ public interface FactureMapper {
     @Mapping(source = "dividende.id", target = "dividendeId")
     @Mapping(source = "investisseur.id", target = "investisseurId")
     @Mapping(target = "investisseurNom", expression = "java(facture.getInvestisseur() != null ? facture.getInvestisseur().getPrenom() + \" \" + facture.getInvestisseur().getNom() : \"Inconnu\")")
+    @Mapping(source = "projet.libelle", target = "projetLibelle")
     FactureDTO toFactureDto(Facture facture);
 
     List<FactureDTO> toFactureDtoList(List<Facture> factures);

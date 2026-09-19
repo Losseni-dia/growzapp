@@ -1,6 +1,7 @@
 package growzapp.backend.module.facture.dto;
 
 import growzapp.backend.module.facture.enums.StatutFacture;
+import growzapp.backend.module.facture.enums.TypeFacture;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
@@ -41,6 +42,15 @@ public record FactureDTO(
         String investisseurNom,
 
         @Schema(description = "URL du fichier PDF stocké", example = "/uploads/factures/facture-dividende-8.pdf")
-        String fichierUrl
+        String fichierUrl,
+
+        @Schema(description = "Type de facture", example = "DIVIDENDE")
+        TypeFacture type,
+
+        @Schema(description = "Libellé libre (utilisé pour les factures hors dividende, ex: achat Premium)")
+        String libelle,
+
+        @Schema(description = "Libellé du projet lié, si applicable")
+        String projetLibelle
 ) {
 }

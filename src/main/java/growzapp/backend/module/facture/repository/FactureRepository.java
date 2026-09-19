@@ -19,22 +19,27 @@ public interface FactureRepository extends JpaRepository<Facture, Long> {
 
     java.util.Optional<Facture> findByFichierUrlContaining(String filename);
 
+    java.util.List<Facture> findByInvestisseurIdOrderByDateEmissionDesc(Long investisseurId);
+
     @Query("""
                 SELECT NEW growzapp.backend.module.facture.dto.FactureAdminDTO(
                     f.id, f.numeroFacture, f.montantHT, f.montantTTC, f.statut,
                     f.dateEmission, f.datePaiement,
-                    CONCAT(u.prenom, ' ', u.nom), u.email)
+                    CONCAT(u.prenom, ' ', u.nom), u.email, f.type, p.libelle)
                 FROM Facture f
                 JOIN f.investisseur u
+                LEFT JOIN f.projet p
                 WHERE (CAST(:search AS string) IS NULL OR :search = '' OR
                        LOWER(f.numeroFacture) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
                        LOWER(CONCAT(u.prenom, ' ', u.nom)) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
                        LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
                   AND (:statut IS NULL OR f.statut = :statut)
+                  AND (( :archive = TRUE AND f.archiveLe IS NOT NULL) OR (:archive = FALSE AND f.archiveLe IS NULL))
                 ORDER BY f.dateEmission DESC
             """)
     Page<FactureAdminDTO> rechercherAdminDTO(
             @Param("search") String search,
             @Param("statut") StatutFacture statut,
+            @Param("archive") boolean archive,
             Pageable pageable);
 }

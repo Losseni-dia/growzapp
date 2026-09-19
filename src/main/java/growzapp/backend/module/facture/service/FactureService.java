@@ -21,6 +21,7 @@ import growzapp.backend.module.dividende.repository.DividendeRepository;
 import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.facture.dto.FactureDTO;
 import growzapp.backend.module.facture.enums.StatutFacture;
+import growzapp.backend.module.facture.enums.TypeFacture;
 import growzapp.backend.module.facture.mapper.FactureMapper;
 import growzapp.backend.module.facture.model.Facture;
 import growzapp.backend.module.facture.repository.FactureRepository;
@@ -28,7 +29,9 @@ import growzapp.backend.module.files.FileStorageService;
 import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +48,8 @@ public class FactureService {
     private final DividendeRepository dividendeRepository;
     private final FactureMapper factureMapper;
     private final NotificationService notificationService;
+    private final UserRepository utilisateurRepository;
+    private final ProjetRepository projetRepository;
 
     @Async
     @Transactional
@@ -112,6 +117,68 @@ public class FactureService {
         }
     }
 
+    /**
+     * Génère la facture (reçu de paiement) pour un achat de statut Premium
+     * et notifie le porteur — exécuté en tâche de fond après l'activation du
+     * Premium. On ne reçoit que des identifiants (pas les entités JPA) :
+     * l'appelant tourne dans une transaction/session Hibernate différente de
+     * ce thread @Async, donc réutiliser ses entités directement provoquerait
+     * une LazyInitializationException dès qu'un champ non chargé est
+     * touché — on recharge tout fraîchement ici.
+     */
+    @Async
+    @Transactional
+    public void genererFacturePremium(Long porteurId, Long projetId, double montant, String sourcePaiement) {
+        try {
+            User porteur = utilisateurRepository.findById(porteurId)
+                    .orElseThrow(() -> new EntityNotFoundException("Porteur introuvable : " + porteurId));
+            Projet projet = projetRepository.findById(projetId)
+                    .orElseThrow(() -> new EntityNotFoundException("Projet introuvable : " + projetId));
+
+            // numeroFacture est NOT NULL en base : il doit être connu AVANT le
+            // premier save (contrairement à facture.getId(), qui n'existe
+            // qu'après l'insert) — on se base donc sur findMaxId(), pas sur
+            // l'id généré de cette facture.
+            Long prochainNumero = factureRepository.findMaxId() + 1;
+
+            Facture facture = new Facture();
+            facture.setInvestisseur(porteur);
+            facture.setType(TypeFacture.PREMIUM);
+            facture.setProjet(projet);
+            facture.setLibelle("Achat du statut Premium — " + projet.getLibelle());
+            facture.setMontantHT(montant);
+            facture.setTva(0.0);
+            facture.setMontantTTC(montant);
+            facture.setDateEmission(LocalDateTime.now());
+            facture.setDatePaiement(LocalDateTime.now());
+            facture.setStatut(StatutFacture.PAYEE);
+            facture.setNumeroFacture(
+                    "FAC-" + Year.now().getValue() + "-P" + String.format("%06d", prochainNumero));
+
+            facture = factureRepository.save(facture);
+
+            byte[] barcodeBytes = generateBarcode(facture.getNumeroFacture());
+            byte[] pdfBytes = facturePdfService.generatePremiumFacture(facture, projet, porteur, sourcePaiement,
+                    barcodeBytes);
+
+            String fileName = "facture-premium-" + facture.getId() + ".pdf";
+            String fichierUrl = fileStorageService.saveFacture(pdfBytes, fileName);
+            facture.setFichierUrl(fichierUrl);
+            factureRepository.save(facture);
+
+            notificationService.notifyFactureEmise(
+                    porteur,
+                    "⭐ Statut Premium activé",
+                    "Votre projet « " + projet.getLibelle() + " » est maintenant Premium. Facture "
+                            + facture.getNumeroFacture() + " disponible.",
+                    facture.getId());
+
+            log.info("Facture Premium générée : {} pour projet {}", facture.getNumeroFacture(), projet.getId());
+        } catch (Exception e) {
+            log.error("Échec génération facture Premium pour projet {}", projetId, e);
+        }
+    }
+
     public Facture findById(Long id) {
         return factureRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Facture non trouvée : " + id));
@@ -122,6 +189,10 @@ public class FactureService {
     }
 
     public byte[] genererPdf(Long factureId, String lang) throws Exception {
+        return genererPdf(factureId, lang, "XOF");
+    }
+
+    public byte[] genererPdf(Long factureId, String lang, String devise) throws Exception {
         Facture facture = findById(factureId);
 
         Locale locale = Locale.FRENCH;
@@ -130,7 +201,9 @@ public class FactureService {
         else if ("es".equalsIgnoreCase(lang))
             locale = Locale.forLanguageTag("es");
 
-        if (locale.equals(Locale.FRENCH)) {
+        boolean deviseParDefaut = devise == null || devise.isBlank() || "XOF".equalsIgnoreCase(devise);
+
+        if (locale.equals(Locale.FRENCH) && deviseParDefaut) {
             try {
                 return fileStorageService.loadAsBytes(facture.getFichierUrl());
             } catch (Exception e) {
@@ -139,7 +212,18 @@ public class FactureService {
         }
 
         byte[] barcodeBytes = generateBarcode(facture.getNumeroFacture());
-        return facturePdfService.generateDividendeFacture(facture.getDividende(), barcodeBytes, locale);
+
+        if (facture.getType() == TypeFacture.PREMIUM) {
+            return facturePdfService.generatePremiumFacture(
+                    facture, facture.getProjet(), facture.getInvestisseur(), null, barcodeBytes, locale, devise);
+        }
+
+        return facturePdfService.generateDividendeFacture(facture.getDividende(), barcodeBytes, locale, devise);
+    }
+
+    /** Toutes les factures (dividendes + Premium) émises pour un utilisateur. */
+    public java.util.List<FactureDTO> getMesFactures(Long userId) {
+        return factureMapper.toFactureDtoList(factureRepository.findByInvestisseurIdOrderByDateEmissionDesc(userId));
     }
 
     // ── Génération du code-barres (encode le numéro de facture) ─────────────
