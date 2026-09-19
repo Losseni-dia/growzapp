@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import growzapp.backend.module.files.validation.FileValidationService;
+import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.referentiel.model.Langue;
 import growzapp.backend.module.referentiel.model.Localite;
 import growzapp.backend.module.referentiel.repository.LangueRepository;
@@ -49,6 +50,7 @@ public class UserService {
     private final LocaliteRepository localiteRepository;
     private final LangueRepository langueRepository;
     private final FileValidationService fileValidationService;
+    private final InvestissementRepository investissementRepository;
 
     private final String AVATAR_DIR = System.getProperty("user.dir") + "/uploads/avatars/";
 
@@ -246,12 +248,102 @@ public class UserService {
         return userMapper.toDto(user);
     }
 
+    private static final String TEMP_PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans 0/O/1/I — évite les confusions à l'oral
+
+    /**
+     * Réinitialisation de compte assistée par un admin — mécanisme de
+     * secours quand l'utilisateur n'a pas d'accès email fiable. L'admin doit
+     * avoir vérifié l'identité hors application (téléphone/WhatsApp,
+     * comparaison avec les documents KYC déjà en base) : le motif est
+     * obligatoire et conservé pour traçabilité. Retourne le mot de passe
+     * temporaire en clair — jamais stocké ni journalisé ailleurs qu'ici,
+     * l'admin doit le communiquer immédiatement à l'utilisateur (téléphone).
+     */
     @Transactional
-    public void deleteUserById(Long id) {
+    public String resetPasswordByAdmin(Long userId, String adminLogin, String motifVerification) {
+        if (motifVerification == null || motifVerification.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Le motif de vérification d'identité est obligatoire (comment l'identité a été confirmée).");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        String motDePasseTemporaire = genererMotDePasseTemporaire();
+
+        user.setPassword(passwordEncoder.encode(motDePasseTemporaire));
+        user.setMustChangePassword(true);
+        user.setPasswordResetAt(java.time.LocalDateTime.now());
+        user.setPasswordResetBy(adminLogin);
+        user.setPasswordResetMotif(motifVerification);
+        // Un reset assisté est aussi l'occasion de débloquer un compte
+        // verrouillé par des tentatives échouées — l'utilisateur qui
+        // demande un reset est très probablement dans ce cas.
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+
+        userRepository.save(user);
+        return motDePasseTemporaire;
+    }
+
+    private String genererMotDePasseTemporaire() {
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder(8);
+        for (int i = 0; i < 8; i++) {
+            sb.append(TEMP_PASSWORD_ALPHABET.charAt(random.nextInt(TEMP_PASSWORD_ALPHABET.length())));
+        }
+        return sb.toString();
+    }
+
+    @Transactional
+    public void softDeleteUser(Long id, String adminLogin, String motif) {
+        verifierSuppressionUserAutorisee(id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        user.setSupprimeLe(java.time.LocalDateTime.now());
+        user.setSupprimePar(adminLogin);
+        user.setMotifSuppression(motif);
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void restaurerUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        user.setSupprimeLe(null);
+        user.setSupprimePar(null);
+        user.setMotifSuppression(null);
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void purgerUser(Long id) {
         if (!userRepository.existsById(id)) {
             throw new RuntimeException("Utilisateur non trouvé");
         }
+        verifierSuppressionUserAutorisee(id);
         userRepository.deleteById(id);
+    }
+
+    /**
+     * Un utilisateur ne peut être supprimé (ni soft delete ni purge) s'il a
+     * lui-même des investissements enregistrés, ou s'il possède un projet
+     * ayant déjà reçu au moins un investissement — pour ne jamais perdre la
+     * traçabilité d'un mouvement financier réel.
+     */
+    private void verifierSuppressionUserAutorisee(Long userId) {
+        if (investissementRepository.existsByInvestisseurId(userId)) {
+            throw new IllegalStateException(
+                    "Impossible de supprimer cet utilisateur : il a des investissements enregistrés.");
+        }
+        if (investissementRepository.existsByProjet_PorteurId(userId)) {
+            throw new IllegalStateException(
+                    "Impossible de supprimer cet utilisateur : il a un projet ayant déjà reçu des investissements.");
+        }
+    }
+
+    public Page<UserDTO> getArchivedUsers(String search, Pageable pageable) {
+        return userRepository.findArchived(search, pageable).map(userMapper::toDto);
     }
 
     @Transactional
@@ -412,6 +504,32 @@ public class UserService {
         if (!userRepository.existsById(id)) {
             throw new RuntimeException("Utilisateur introuvable");
         }
+        userRepository.save(user);
+    }
+
+    /**
+     * Attribue automatiquement un rôle métier (PORTEUR, INVESTISSEUR) à un
+     * utilisateur lors de son premier projet/investissement validé, sans
+     * retirer ses rôles existants. Idempotent — sans effet si déjà présent.
+     */
+    @Transactional
+    public void attribuerRoleSiAbsent(Long userId, String roleName) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return;
+        }
+        boolean dejaPresent = user.getRoles().stream()
+                .anyMatch(r -> r.getRole().equalsIgnoreCase(roleName));
+        if (dejaPresent) {
+            return;
+        }
+        Role role = roleRepository.findByRole(roleName)
+                .orElseGet(() -> {
+                    Role newRole = new Role();
+                    newRole.setRole(roleName);
+                    return roleRepository.save(newRole);
+                });
+        user.getRoles().add(role);
         userRepository.save(user);
     }
 

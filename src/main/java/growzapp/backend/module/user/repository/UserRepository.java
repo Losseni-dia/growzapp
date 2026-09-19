@@ -13,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import growzapp.backend.module.kyc.enums.KycStatus;
+import growzapp.backend.module.user.enums.StatutFichePorteur;
 import growzapp.backend.module.user.model.User;
 
 @Repository
@@ -46,13 +47,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         " LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
                         " LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
                         " LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
-                        "AND (:role IS NULL OR r.role = :role)")
+                        "AND (:role IS NULL OR r.role = :role) AND u.supprimeLe IS NULL")
         Page<User> findByFiltres(@Param("search") String search, @Param("role") String role, Pageable pageable);
+
+        @Query("SELECT DISTINCT u FROM User u LEFT JOIN u.roles r WHERE " +
+                        "(CAST(:search AS string) IS NULL OR :search = '' OR " +
+                        " LOWER(u.login) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+                        "AND u.supprimeLe IS NOT NULL")
+        Page<User> findArchived(@Param("search") String search, Pageable pageable);
 
         Optional<User> findByLogin(String login); // celle-là marche sans @Query
 
         @EntityGraph(attributePaths = "roles")
-        @Query("SELECT u FROM User u WHERE u.login = :login")
+        @Query("SELECT u FROM User u WHERE u.login = :login AND u.supprimeLe IS NULL")
         Optional<User> findByLoginForAuth(@Param("login") String login);
 
         @Query("SELECT new map(" +
@@ -93,6 +103,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         List<User> findByKycStatus(KycStatus status);
 
+        List<User> findByRoles_Role(String role);
+
         @Query("SELECT u FROM User u WHERE u.kycStatus = :statut AND " +
                         "(CAST(:search AS string) IS NULL OR :search = '' OR " +
                         " LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
@@ -100,6 +112,24 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         " LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
                         "ORDER BY u.kycSubmittedAt DESC NULLS LAST")
         Page<User> findKycEnAttente(@Param("statut") KycStatus statut, @Param("search") String search, Pageable pageable);
+
+        @Query("SELECT u FROM User u WHERE u.ficheStatut = :statut AND " +
+                        "(CAST(:search AS string) IS NULL OR :search = '' OR " +
+                        " LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+                        "ORDER BY u.ficheSubmittedAt DESC NULLS LAST")
+        Page<User> findFichePorteurEnAttente(@Param("statut") StatutFichePorteur statut, @Param("search") String search,
+                        Pageable pageable);
+
+        @Query("SELECT u FROM User u WHERE u.ficheStatut <> growzapp.backend.module.user.enums.StatutFichePorteur.NON_SOUMISE AND "
+                        +
+                        "(CAST(:search AS string) IS NULL OR :search = '' OR " +
+                        " LOWER(u.prenom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        " LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+                        "ORDER BY u.ficheValidatedAt DESC NULLS LAST")
+        Page<User> findFichesPorteurCreees(@Param("search") String search, Pageable pageable);
 
         @Query("""
                     SELECT NEW growzapp.backend.module.kyc.dto.KycHistoriqueDTO(

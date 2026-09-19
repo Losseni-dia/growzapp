@@ -105,4 +105,26 @@ public class UserDTO {
 
     @Schema(description = "Motif de rejet des documents KYC par l'administrateur", example = "Documents illisibles, veuillez soumettre à nouveau.")
     private String kycCommentaireRejet;
+
+    @Schema(
+        description = "Statut de la fiche de présentation porteur (crédibilité professionnelle, distincte du KYC)",
+        example = "NON_SOUMISE",
+        allowableValues = {"NON_SOUMISE", "EN_ATTENTE", "VALIDEE", "REJETEE"}
+    )
+    private growzapp.backend.module.user.enums.StatutFichePorteur ficheStatut;
+
+    @Schema(description = "Motif de rejet de la fiche porteur par l'administrateur")
+    private String ficheCommentaireRejet;
+
+    @Schema(description = "true si l'utilisateur doit changer son mot de passe à la prochaine connexion (suite à une réinitialisation assistée par l'admin)")
+    private boolean mustChangePassword;
+
+    @Schema(description = "Date de suppression logique du compte (null si actif)")
+    private java.time.LocalDateTime supprimeLe;
+
+    @Schema(description = "Login de l'admin ayant supprimé le compte")
+    private String supprimePar;
+
+    @Schema(description = "Motif de suppression du compte")
+    private String motifSuppression;
 }

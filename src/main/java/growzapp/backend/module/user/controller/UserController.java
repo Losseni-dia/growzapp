@@ -390,4 +390,39 @@ public class UserController {
                 ApiResponseDTO.<String>success(null)
                         .message("Mot de passe réinitialisé avec succès."));
     }
+
+    @PostMapping("/change-password")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "Changer son propre mot de passe (connecté)", description = "Nécessite le mot de passe actuel. Utilisé notamment après une réinitialisation assistée par un admin (mot de passe temporaire à remplacer).", tags = {
+            "Authentication" }, requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Mot de passe actuel et nouveau mot de passe", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"currentPassword\": \"TEMP1234\", \"newPassword\": \"MonNouveauMdp456!\"}"))))
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Mot de passe changé avec succès"),
+            @ApiResponse(responseCode = "400", description = "Mot de passe actuel incorrect ou nouveau mot de passe invalide")
+    })
+    public ResponseEntity<ApiResponseDTO<String>> changePassword(
+            @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        String currentPassword = request.get("currentPassword");
+        String newPassword = request.get("newPassword");
+
+        if (newPassword == null || newPassword.length() < 8) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponseDTO.error("Le nouveau mot de passe doit contenir au moins 8 caractères."));
+        }
+
+        User user = userRepository.findByLoginForAuth(userDetails.getUsername())
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
+
+        if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPassword())) {
+            return ResponseEntity.badRequest().body(ApiResponseDTO.error("Mot de passe actuel incorrect."));
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(ApiResponseDTO.<String>success(null).message("Mot de passe changé avec succès."));
+    }
 }

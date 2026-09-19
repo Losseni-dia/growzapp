@@ -24,7 +24,8 @@ public class StaticResourceConfig implements WebMvcConfigurer {
         // générique.
         String[] subfolders = {
                 "posters",
-                "avatars"
+                "avatars",
+                "fiches-porteur"
         };
 
         for (String folder : subfolders) {

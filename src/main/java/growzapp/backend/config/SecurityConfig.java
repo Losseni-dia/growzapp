@@ -92,6 +92,7 @@ public class SecurityConfig {
                                                 // FICHIERS PUBLICS
                                                 .requestMatchers("/uploads/posters/**").permitAll()
                                                 .requestMatchers("/uploads/avatars/**").permitAll()
+                                                .requestMatchers("/uploads/fiches-porteur/**").permitAll()
 
                                                 // BLOQUE TOUT ACCÈS DIRECT AUX DOCUMENTS PRIVÉS
 

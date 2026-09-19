@@ -22,7 +22,7 @@ public class FileValidationService {
             "image/jpeg", "image/png", "image/webp");
 
     private static final Set<String> DOCUMENT_TYPES = Set.of(
-            "image/jpeg", "image/png", "application/pdf");
+            "image/jpeg", "image/png", "image/webp", "application/pdf");
 
     private static final long MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 Mo
 

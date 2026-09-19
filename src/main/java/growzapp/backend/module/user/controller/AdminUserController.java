@@ -190,14 +190,52 @@ public class AdminUserController {
         return ApiResponseDTO.success(updated).message("Compte " + status + " avec succès");
     }
 
+    @PostMapping("/{id}/reset-password")
+    @Operation(
+        summary = "Réinitialiser le mot de passe d'un utilisateur (assisté par l'admin)",
+        description = "Mécanisme de secours quand l'utilisateur n'a pas d'accès email fiable (courant en Afrique). "
+            + "L'admin DOIT avoir vérifié l'identité hors application (téléphone/WhatsApp, comparaison avec les "
+            + "documents KYC déjà en base — cf panel KYC) avant d'appeler cet endpoint : le motif de vérification "
+            + "est obligatoire et conservé pour traçabilité. Génère un mot de passe temporaire à usage unique "
+            + "(l'utilisateur devra le changer à sa prochaine connexion) et débloque le compte s'il était verrouillé. "
+            + "Le mot de passe temporaire est retourné en clair UNE SEULE FOIS — à communiquer immédiatement par "
+            + "téléphone, jamais par email ni sauvegardé ailleurs.",
+        tags = {"Admin - Utilisateurs"},
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Motif de vérification d'identité (obligatoire)",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(example = "{\"motifVerification\": \"Appel téléphonique — pièce d'identité comparée au recto KYC, correspond.\"}")))
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Mot de passe temporaire généré",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class))),
+        @ApiResponse(responseCode = "400", description = "Motif de vérification manquant",
+            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))),
+        @ApiResponse(responseCode = "404", description = "Utilisateur introuvable",
+            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
+    })
+    public ApiResponseDTO<String> resetPassword(
+            @Parameter(description = "Identifiant de l'utilisateur", example = "42", required = true)
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> body,
+            org.springframework.security.core.Authentication authentication) {
+
+        String motif = body.get("motifVerification");
+        String tempPassword = userService.resetPasswordByAdmin(id, authentication.getName(), motif);
+
+        return ApiResponseDTO.success(tempPassword)
+                .message("Mot de passe temporaire généré — communiquez-le immédiatement à l'utilisateur par téléphone.");
+    }
+
     @DeleteMapping("/{id}")
     @Operation(
-        summary = "Supprimer un utilisateur",
-        description = "Supprime définitivement un compte utilisateur et toutes ses données associées. Action irréversible.",
+        summary = "Supprimer un utilisateur (corbeille)",
+        description = "Suppression logique (soft delete) : le compte est masqué des listes actives et ne peut plus se connecter, mais reste restaurable depuis la corbeille. Aucune donnée n'est perdue.",
         tags = {"Admin - Utilisateurs"}
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Utilisateur supprimé définitivement",
+        @ApiResponse(responseCode = "200", description = "Utilisateur déplacé dans la corbeille",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ApiResponseDTO.class))),
         @ApiResponse(responseCode = "404", description = "Utilisateur introuvable",
@@ -205,8 +243,39 @@ public class AdminUserController {
     })
     public ApiResponseDTO<String> deleteUser(
             @Parameter(description = "Identifiant de l'utilisateur à supprimer", example = "42", required = true)
-            @PathVariable Long id) {
-        userService.deleteUserById(id);
-        return ApiResponseDTO.success("Utilisateur supprimé définitivement").message("Suppression effectuée");
+            @PathVariable Long id,
+            @Parameter(description = "Motif de suppression (facultatif, conservé pour audit)")
+            @RequestParam(required = false) String motif,
+            org.springframework.security.core.Authentication authentication) {
+        userService.softDeleteUser(id, authentication.getName(), motif);
+        return ApiResponseDTO.<String>success(null).message("Utilisateur déplacé dans la corbeille");
+    }
+
+    @GetMapping("/corbeille")
+    @Operation(summary = "Lister les utilisateurs supprimés (corbeille)", tags = {"Admin - Utilisateurs"})
+    public ApiResponseDTO<Page<UserDTO>> getCorbeille(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        return ApiResponseDTO.success(userService.getArchivedUsers(search, pageable));
+    }
+
+    @PostMapping("/{id}/restaurer")
+    @Operation(summary = "Restaurer un utilisateur depuis la corbeille", tags = {"Admin - Utilisateurs"})
+    public ApiResponseDTO<String> restaurerUser(@PathVariable Long id) {
+        userService.restaurerUser(id);
+        return ApiResponseDTO.<String>success(null).message("Utilisateur restauré");
+    }
+
+    @DeleteMapping("/{id}/purger")
+    @Operation(
+        summary = "Supprimer définitivement un utilisateur",
+        description = "Purge définitive et irréversible d'un utilisateur déjà présent dans la corbeille. Toutes ses données associées sont perdues.",
+        tags = {"Admin - Utilisateurs"}
+    )
+    public ApiResponseDTO<String> purgerUser(@PathVariable Long id) {
+        userService.purgerUser(id);
+        return ApiResponseDTO.<String>success(null).message("Utilisateur supprimé définitivement");
     }
 }

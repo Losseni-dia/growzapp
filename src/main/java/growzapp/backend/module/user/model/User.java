@@ -3,6 +3,8 @@ package growzapp.backend.module.user.model;
 
 import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.kyc.enums.KycStatus;
+import growzapp.backend.module.user.enums.StatutFichePorteur;
+import growzapp.backend.module.user.enums.StatutJuridiquePorteur;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.referentiel.model.Langue;
 import growzapp.backend.module.referentiel.model.Localite;
@@ -154,4 +156,89 @@ public class User {
 
     @Column(name = "devise_preferee", length = 10)
     private String devisePreferee = "XOF";
+
+    // === FICHE DE PRÉSENTATION PORTEUR ===
+    // Profil de crédibilité professionnelle (distinct du KYC qui couvre
+    // l'identité civile) — validé par un admin, aucun projet ne peut être
+    // soumis ni validé tant que la fiche de son porteur n'est pas VALIDEE.
+
+    @Column(name = "fiche_bio", columnDefinition = "TEXT")
+    private String ficheBio;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fiche_statut_juridique", length = 20)
+    private StatutJuridiquePorteur ficheStatutJuridique;
+
+    @Column(name = "fiche_raison_sociale", length = 150)
+    private String ficheRaisonSociale;
+
+    @Column(name = "fiche_annees_experience")
+    private Integer ficheAnneesExperience;
+
+    @Column(name = "fiche_projets_precedents", columnDefinition = "TEXT")
+    private String ficheProjetsPrecedents;
+
+    @Column(name = "fiche_contact_telephone", length = 30)
+    private String ficheContactTelephone;
+
+    @Column(name = "fiche_contact_email", length = 191)
+    private String ficheContactEmail;
+
+    @Column(name = "fiche_site_web", length = 255)
+    private String ficheSiteWeb;
+
+    @Column(name = "fiche_linkedin", length = 255)
+    private String ficheLinkedin;
+
+    @Column(name = "fiche_reseaux_autres", length = 255)
+    private String ficheReseauxAutres;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fiche_statut", nullable = false, length = 20)
+    private StatutFichePorteur ficheStatut = StatutFichePorteur.NON_SOUMISE;
+
+    @Column(name = "fiche_submitted_at")
+    private LocalDateTime ficheSubmittedAt;
+
+    @Column(name = "fiche_validated_at")
+    private LocalDateTime ficheValidatedAt;
+
+    @Column(name = "fiche_commentaire_rejet")
+    private String ficheCommentaireRejet;
+
+    // Photo dédiée à la fiche, distincte de l'avatar de compte (`image`) que
+    // le porteur gère lui-même — l'admin peut choisir une photo différente.
+    @Column(name = "fiche_photo_url")
+    private String fichePhotoUrl;
+
+    // === RÉINITIALISATION DE COMPTE ASSISTÉE PAR L'ADMIN ===
+    // Mécanisme de secours quand l'utilisateur n'a pas d'accès email fiable.
+    // L'admin vérifie l'identité hors application (téléphone/WhatsApp,
+    // comparaison avec les documents KYC déjà en base) avant de déclencher.
+
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword = false;
+
+    @Column(name = "password_reset_at")
+    private LocalDateTime passwordResetAt;
+
+    @Column(name = "password_reset_by")
+    private String passwordResetBy;
+
+    @Column(name = "password_reset_motif", length = 500)
+    private String passwordResetMotif;
+
+    // === SUPPRESSION LOGIQUE (SOFT DELETE) ===
+    // Masque le compte des listes actives et empêche la connexion, sans
+    // perdre l'historique (KYC, investissements, projets). Restaurable par
+    // un admin ; purge définitive possible séparément.
+
+    @Column(name = "supprime_le")
+    private LocalDateTime supprimeLe;
+
+    @Column(name = "supprime_par")
+    private String supprimePar;
+
+    @Column(name = "motif_suppression", length = 500)
+    private String motifSuppression;
 }

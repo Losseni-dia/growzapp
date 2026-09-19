@@ -23,11 +23,15 @@ public class FileUploadService {
     private static final Path UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
             .resolve("uploads").resolve("posters");
 
+    private static final Path FICHE_PORTEUR_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
+            .resolve("uploads").resolve("fiches-porteur");
+
     static {
         try {
             Files.createDirectories(UPLOAD_ROOT);
+            Files.createDirectories(FICHE_PORTEUR_UPLOAD_ROOT);
         } catch (IOException e) {
-            throw new RuntimeException("Impossible de créer le dossier uploads/posters", e);
+            throw new RuntimeException("Impossible de créer les dossiers d'upload", e);
         }
     }
 
@@ -51,6 +55,25 @@ public class FileUploadService {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Échec upload poster", e);
+        }
+    }
+
+    public String uploadFichePorteurPhoto(MultipartFile file, Long userId) {
+        try {
+            fileValidationService.validateImage(file);
+
+            String original = file.getOriginalFilename();
+            String safeName = userId + "_" + System.currentTimeMillis() + "_" +
+                    original.replaceAll("[^a-zA-Z0-9.-]", "_");
+
+            Path destination = FICHE_PORTEUR_UPLOAD_ROOT.resolve(safeName);
+            Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+
+            return "/uploads/fiches-porteur/" + safeName;
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Échec upload photo fiche porteur", e);
         }
     }
 }
