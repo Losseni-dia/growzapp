@@ -74,6 +74,16 @@ public class Investissement {
     @OneToMany(mappedBy = "investissement", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Dividende> dividendes = new ArrayList<>();
 
+    // === SUPPRESSION LOGIQUE (SOFT DELETE) ===
+    @Column(name = "supprime_le")
+    private LocalDateTime supprimeLe;
+
+    @Column(name = "supprime_par")
+    private String supprimePar;
+
+    @Column(name = "motif_suppression", length = 500)
+    private String motifSuppression;
+
     // ── MÉTHODES UTILITAIRES ──────────────────────────────────────────────────
 
     public void calculerPourcentageEquity() {

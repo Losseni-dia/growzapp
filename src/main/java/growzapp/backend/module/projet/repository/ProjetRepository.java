@@ -26,16 +26,18 @@ public interface ProjetRepository extends JpaRepository<Projet, Long> {
     long countByPorteurId(Long porteurId);
 
     @Override
-    @Query("SELECT p FROM Projet p LEFT JOIN FETCH p.porteur LEFT JOIN FETCH p.secteur")
+    @Query("SELECT p FROM Projet p LEFT JOIN FETCH p.porteur LEFT JOIN FETCH p.secteur WHERE p.supprimeLe IS NULL")
     List<Projet> findAll();
 
+    @Query("SELECT p FROM Projet p LEFT JOIN FETCH p.porteur LEFT JOIN FETCH p.secteur WHERE p.supprimeLe IS NOT NULL")
+    List<Projet> findArchived();
 
     @Query("SELECT p FROM Projet p " +
             "LEFT JOIN FETCH p.porteur " +
             "LEFT JOIN FETCH p.secteur " +
             "LEFT JOIN FETCH p.siteProjet site " +
             "LEFT JOIN FETCH site.localite " +
-            "WHERE p.statutProjet = :statut")
+            "WHERE p.statutProjet = :statut AND p.supprimeLe IS NULL")
     List<Projet> findByStatutProjet(@Param("statut") StatutProjet statut);
 
     @Query("SELECT p FROM Projet p " +
@@ -43,7 +45,7 @@ public interface ProjetRepository extends JpaRepository<Projet, Long> {
             "LEFT JOIN FETCH p.secteur " +
             "LEFT JOIN FETCH p.siteProjet site " +
             "LEFT JOIN FETCH site.localite " +
-            "WHERE p.slug = :slug")
+            "WHERE p.slug = :slug AND p.supprimeLe IS NULL")
     Optional<Projet> findBySlug(@Param("slug") String slug);
 
     @Query("SELECT p FROM Projet p " +
@@ -51,7 +53,7 @@ public interface ProjetRepository extends JpaRepository<Projet, Long> {
             "LEFT JOIN FETCH p.secteur " +
             "LEFT JOIN FETCH p.siteProjet site " +
             "LEFT JOIN FETCH site.localite " +
-            "WHERE p.porteur.id = :id")
+            "WHERE p.porteur.id = :id AND p.supprimeLe IS NULL")
     List<Projet> findByPorteurId(@Param("id") Long id);
 
     @Query("SELECT p FROM Projet p " +
@@ -60,11 +62,12 @@ public interface ProjetRepository extends JpaRepository<Projet, Long> {
             "LEFT JOIN FETCH p.siteProjet site " +
             "LEFT JOIN FETCH site.localite loc " +
             "LEFT JOIN FETCH loc.pays " +
-            "WHERE LOWER(p.libelle) LIKE LOWER(:search) " +
+            "WHERE (LOWER(p.libelle) LIKE LOWER(:search) " +
             "   OR LOWER(p.description) LIKE LOWER(:search) " +
             "   OR LOWER(porteur.nom) LIKE LOWER(:search) " +
             "   OR LOWER(porteur.prenom) LIKE LOWER(:search) " +
-            "   OR LOWER(loc.nom) LIKE LOWER(:search)")
+            "   OR LOWER(loc.nom) LIKE LOWER(:search)) " +
+            "   AND p.supprimeLe IS NULL")
     List<Projet> findBySearchTerm(@Param("search") String search);
 
 

@@ -72,11 +72,13 @@ public interface ContratRepository
                        AND (CAST(:dateDebut AS timestamp) IS NULL OR c.dateGeneration >= :dateDebut)
                        AND (CAST(:dateFin AS timestamp) IS NULL OR c.dateGeneration <= :dateFin)
                        AND (CAST(:statut AS string) IS NULL OR i.statutPartInvestissement = :statut)
+                       AND (( :archive = TRUE AND c.archiveLe IS NOT NULL) OR (:archive = FALSE AND c.archiveLe IS NULL))
                     """)
     Page<ContratAdminDTO> rechercherAdminDTO(
                     @Param("search") String search,
                     @Param("dateDebut") LocalDateTime dateDebut,
                     @Param("dateFin") LocalDateTime dateFin,
                     @Param("statut") StatutPartInvestissement statut,
+                    @Param("archive") boolean archive,
                     Pageable pageable);
 }

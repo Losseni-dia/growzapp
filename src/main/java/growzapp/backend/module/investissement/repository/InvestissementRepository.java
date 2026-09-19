@@ -23,13 +23,22 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
             
     boolean existsByReferenceExterneStripe(String referenceExterneStripe);
 
+    // ── Contraintes métier suppression (tout statut confondu, y compris déjà
+    // supprimés logiquement — on ne perd jamais la trace d'un mouvement
+    // financier réel) ──────────────────────────────────────────────────────
+    boolean existsByProjetId(Long projetId);
+
+    boolean existsByInvestisseurId(Long investisseurId);
+
+    boolean existsByProjet_PorteurId(Long porteurId);
+
     List<Investissement> findByProjetIdAndStatutPartInvestissement(
             Long projetId, StatutPartInvestissement statut);
 
   @Query("SELECT i FROM Investissement i JOIN FETCH i.projet p JOIN FETCH i.investisseur u")
   List<Investissement> findAllWithDetails();
 
-  @Query("SELECT i FROM Investissement i WHERE i.investisseur.id = :investisseurId")
+  @Query("SELECT i FROM Investissement i WHERE i.investisseur.id = :investisseurId AND i.supprimeLe IS NULL")
   List<Investissement> findByInvestisseurId(@Param("investisseurId") Long investisseurId);
 
   long countByInvestisseurId(Long investisseurId);
@@ -37,12 +46,12 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
   @Query("""
       SELECT DISTINCT i FROM Investissement i
       LEFT JOIN FETCH i.dividendes
-      WHERE i.investisseur.id = :investisseurId
+      WHERE i.investisseur.id = :investisseurId AND i.supprimeLe IS NULL
       ORDER BY i.date DESC
       """)
   List<Investissement> findByInvestisseurIdWithDividendes(@Param("investisseurId") Long investisseurId);
 
-  @Query("SELECT i FROM Investissement i WHERE i.projet.id = :projetId")
+  @Query("SELECT i FROM Investissement i WHERE i.projet.id = :projetId AND i.supprimeLe IS NULL")
   List<Investissement> findByProjetId(@Param("projetId") Long projetId);
 
   @Query("SELECT i FROM Investissement i " +
@@ -63,6 +72,7 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
       "       LOWER(u.nom) LIKE LOWER(CONCAT('%', CAST(:term AS string), '%')) OR " +
       "       LOWER(p.libelle) LIKE LOWER(CONCAT('%', CAST(:term AS string), '%'))) " +
       "  AND (:statut IS NULL OR i.statutPartInvestissement = :statut) " +
+      "  AND i.supprimeLe IS NULL " +
       "  ORDER BY i.date DESC")
   Page<Investissement> rechercherAdmin(
       @Param("term") String term,
@@ -92,7 +102,7 @@ public interface InvestissementRepository extends JpaRepository<Investissement, 
 
 
   @Query("SELECT SUBSTRING(CAST(i.date AS string), 1, 7) as mois, SUM(i.montantInvesti) as total " +
-      "FROM Investissement i WHERE i.statutPartInvestissement = 'VALIDE' " +
+      "FROM Investissement i WHERE i.statutPartInvestissement = 'VALIDE' AND i.supprimeLe IS NULL " +
       "GROUP BY SUBSTRING(CAST(i.date AS string), 1, 7) ORDER BY mois ASC")
   List<Object[]> getGlobalInvestmentEvolution();
 }

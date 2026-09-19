@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 @Tag(name = "Investissements", description = "Création, consultation et gestion des investissements — accessible aux utilisateurs connectés et aux administrateurs selon l'endpoint")
 public class InvestissementController {
 
-    private final InvestissementRepository investissementRepository;
     private final InvestissementService investissementService;
     private final UserRepository userRepository;
     private final InvestissementMapper investissementMapper;
@@ -214,20 +213,6 @@ public class InvestissementController {
         return ApiResponseDTO.success(dto).message("Investissement refusé — fonds restitués et investisseur notifié");
     }
 
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    @SecurityRequirement(name = "BearerAuth")
-    @Operation(summary = "[Admin] Supprimer un investissement", description = "Supprime définitivement un investissement de la base de données. Action irréversible. Réservé aux administrateurs.", tags = {
-            "Investissements" })
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Investissement supprimé", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-            @ApiResponse(responseCode = "403", description = "Accès refusé — rôle ADMIN requis", content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
-    })
-    public ApiResponseDTO<String> delete(
-            @Parameter(description = "Identifiant de l'investissement à supprimer", example = "15", required = true) @PathVariable Long id) {
-        investissementRepository.deleteById(id);
-        return ApiResponseDTO.success("Investissement supprimé");
-    }
 
     // ── Helper : appliquer traduction sur un InvestissementDTO ──────────────
     private InvestissementDTO applyTraductionInvestissement(InvestissementDTO dto, String langue) {

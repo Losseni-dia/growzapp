@@ -37,4 +37,13 @@ public class Contrat {
     private String hashSha256;
 
     private LocalDateTime dateGeneration = LocalDateTime.now();
+
+    // === ARCHIVAGE ===
+    // Un contrat est un document légal, jamais supprimable — seulement
+    // sorti des listes actives via un archivage.
+    @Column(name = "archive_le")
+    private LocalDateTime archiveLe;
+
+    @Column(name = "archive_par")
+    private String archivePar;
 }

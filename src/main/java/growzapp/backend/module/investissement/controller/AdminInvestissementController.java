@@ -124,10 +124,4 @@ public class AdminInvestissementController {
         return ApiResponseDTO.success(dto).message("Investissement refusé — fonds restitués et investisseur notifié");
     }
 
-    @DeleteMapping("/{id}")
-    @Operation(summary = "Supprimer un investissement", tags = { "Admin - Investissements" })
-    public ApiResponseDTO<String> delete(@PathVariable Long id) {
-        investissementRepository.deleteById(id);
-        return ApiResponseDTO.success("Investissement supprimé");
-    }
 }
