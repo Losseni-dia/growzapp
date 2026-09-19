@@ -33,5 +33,8 @@ public enum TypeTransaction {
     // Refonte wallet projet (déblocage de trésorerie séquestrée)
     DEBLOCAGE_PROJET,
     TRANSFER_PROJET_VERS_PERSONNEL,
-    RETRAIT_PROJET
+    RETRAIT_PROJET,
+
+    // Achat du statut Premium (mise en avant catalogue)
+    PREMIUM_PROJET
 }

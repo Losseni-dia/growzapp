@@ -200,14 +200,74 @@ public class AdminProjetController {
         return changerStatut(id, StatutProjet.VALIDE);
     }
 
+    @PostMapping("/{id}/premium/revoquer")
+    @Operation(summary = "Révoquer le statut Premium d'un projet", description = "Désactive immédiatement le Premium (utile en cas d'abus ou de projet clôturé). Aucun remboursement automatique.", tags = {"Admin - Projets"})
+    public ApiResponseDTO<String> revoquerPremium(@PathVariable Long id) {
+        projetService.revoquerPremium(id);
+        return ApiResponseDTO.<String>success(null).message("Statut Premium révoqué");
+    }
+
+    @GetMapping("/premium/en-attente")
+    @Operation(summary = "Lister les achats Premium bloqués en attente de paiement", description = "Cas où le webhook FedaPay/PayDunya n'a jamais atteint le backend (tunnel fermé, dashboard mal configuré...).", tags = {"Admin - Projets"})
+    public ApiResponseDTO<List<growzapp.backend.module.projet.dto.PremiumEnAttenteDTO>> getPremiumEnAttente() {
+        List<growzapp.backend.module.projet.dto.PremiumEnAttenteDTO> dtos = projetService.getPremiumEnAttente().stream()
+                .map(tx -> {
+                    String libelle = "Projet #" + tx.getReferenceId();
+                    try {
+                        libelle = projetService.getById(tx.getReferenceId()).getLibelle();
+                    } catch (Exception ignored) {
+                    }
+                    return new growzapp.backend.module.projet.dto.PremiumEnAttenteDTO(
+                            tx.getId(), tx.getReferenceId(), libelle, tx.getMontant(),
+                            tx.getCreatedAt(), tx.getSourcePaiement() != null ? tx.getSourcePaiement().name() : null);
+                })
+                .toList();
+        return ApiResponseDTO.success(dtos);
+    }
+
+    @PostMapping("/premium/en-attente/{transactionId}/reconcilier")
+    @Operation(summary = "Vérifier et régulariser un achat Premium bloqué", description = "Interroge directement FedaPay/PayDunya : active le Premium si le paiement a réellement été confirmé, sinon annule la trace en attente (aucune somme n'a été débitée du wallet interne dans ce flux).", tags = {"Admin - Projets"})
+    public ApiResponseDTO<String> reconcilierPremiumEnAttente(@PathVariable Long transactionId) {
+        String resultat = projetService.reconcilierPremiumEnAttente(transactionId);
+        String message = "CONFIRME".equals(resultat)
+                ? "Paiement confirmé — statut Premium activé"
+                : "Paiement non confirmé — achat annulé";
+        return ApiResponseDTO.success(resultat).message(message);
+    }
+
+    @GetMapping("/corbeille")
+    @Operation(summary = "Lister les projets supprimés (corbeille)", tags = {"Admin - Projets"})
+    public ApiResponseDTO<List<ProjetDTO>> getCorbeille() {
+        List<Projet> entities = projetService.getArchived();
+        return ApiResponseDTO.success(projetMapper.toDtoList(entities));
+    }
+
+    @PostMapping("/{id}/restaurer")
+    @Operation(summary = "Restaurer un projet depuis la corbeille", tags = {"Admin - Projets"})
+    public ApiResponseDTO<String> restaurer(@PathVariable Long id) {
+        projetService.restaurer(id);
+        return ApiResponseDTO.<String>success(null).message("Projet restauré");
+    }
+
+    @DeleteMapping("/{id}/purger")
+    @Operation(
+        summary = "Supprimer définitivement un projet",
+        description = "Purge définitive et irréversible d'un projet déjà présent dans la corbeille.",
+        tags = {"Admin - Projets"}
+    )
+    public ApiResponseDTO<String> purger(@PathVariable Long id) {
+        projetService.purger(id);
+        return ApiResponseDTO.<String>success(null).message("Projet supprimé définitivement");
+    }
+
     @DeleteMapping("/{id}")
     @Operation(
-        summary = "Supprimer un projet",
-        description = "Supprime définitivement un projet et toutes ses données associées. Action irréversible.",
+        summary = "Supprimer un projet (corbeille)",
+        description = "Suppression logique (soft delete) : le projet est masqué des listes actives et du catalogue public, mais reste restaurable depuis la corbeille.",
         tags = {"Admin - Projets"}
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Projet supprimé avec succès",
+        @ApiResponse(responseCode = "200", description = "Projet déplacé dans la corbeille",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ApiResponseDTO.class))),
         @ApiResponse(responseCode = "404", description = "Projet introuvable",
@@ -215,9 +275,12 @@ public class AdminProjetController {
     })
     public ApiResponseDTO<Void> delete(
             @Parameter(description = "Identifiant du projet à supprimer", example = "7", required = true)
-            @PathVariable Long id) {
-        projetService.deleteById(id);
-        return new ApiResponseDTO<>(true, "Projet supprimé avec succès", null);
+            @PathVariable Long id,
+            @Parameter(description = "Motif de suppression (facultatif, conservé pour audit)")
+            @RequestParam(required = false) String motif,
+            org.springframework.security.core.Authentication authentication) {
+        projetService.softDeleteById(id, authentication.getName(), motif);
+        return new ApiResponseDTO<>(true, "Projet déplacé dans la corbeille", null);
     }
 
     private void updateEntityFromNode(Projet p, JsonNode node) {

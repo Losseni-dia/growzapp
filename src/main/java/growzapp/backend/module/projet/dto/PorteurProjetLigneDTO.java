@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Builder(toBuilder = true)
@@ -37,5 +38,9 @@ public record PorteurProjetLigneDTO(
 
         @Schema(description = "Historique de collecte du projet (pour tracer une courbe d'évolution)") List<ValorisationSnapshotDTO> historiqueCollecte,
 
-        @Schema(description = "Vitesse de levée de fonds par mois (agrégats, aucune identité)") List<VelocitePointDTO> vitesseLevee) {
+        @Schema(description = "Vitesse de levée de fonds par mois (agrégats, aucune identité)") List<VelocitePointDTO> vitesseLevee,
+
+        @Schema(description = "true si le statut Premium est actuellement actif sur ce projet") boolean premiumActif,
+
+        @Schema(description = "Date de fin du statut Premium (null si jamais acheté)") LocalDateTime premiumFin) {
 }

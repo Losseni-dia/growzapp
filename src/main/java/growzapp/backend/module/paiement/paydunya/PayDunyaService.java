@@ -62,6 +62,35 @@ public class PayDunyaService implements PaymentProviderService {
         }
 
         @Override
+        public boolean verifierPaiementReussi(String referenceExterne) {
+                if (referenceExterne == null || referenceExterne.isBlank()) {
+                        return false;
+                }
+                String url = getBaseUrl() + "/checkout-invoice/confirm/" + referenceExterne;
+                try {
+                        ResponseEntity<Map> response = restTemplate.exchange(
+                                        url, org.springframework.http.HttpMethod.GET,
+                                        new HttpEntity<>(buildHeaders()), Map.class);
+                        Map<String, Object> body = response.getBody();
+                        if (body == null) {
+                                return false;
+                        }
+                        String status = String.valueOf(body.get("status"));
+                        return "completed".equalsIgnoreCase(status);
+                } catch (Exception e) {
+                        log.warn("Vérification PayDunya échouée pour {} : {}", referenceExterne, e.getMessage());
+                        return false;
+                }
+        }
+
+        @Override
+        public PaymentSessionResponse creerSessionPremium(
+                        BigDecimal montant, Long userId, Long projetId, String projetSlug) {
+                PayDunyaResponse r = createPremiumCheckoutSession(montant, userId, projetId, projetSlug);
+                return new PaymentSessionResponse(r.redirectUrl(), r.invoiceToken());
+        }
+
+        @Override
         public PayoutResponse initierRetrait(
                         BigDecimal montant, String phone, String moyenPaiement, Long referenceId) {
                 PayDunyaDisburseResponse r = initiatePayoutDetailed(montant, phone, moyenPaiement, referenceId);
@@ -169,6 +198,38 @@ public class PayDunyaService implements PaymentProviderService {
                         return parseResponse(response.getBody(), "INVESTISSEMENT");
                 } catch (HttpClientErrorException e) {
                         log.error("Erreur HTTP PayDunya investissement : {}", e.getResponseBodyAsString());
+                        throw new RuntimeException("Erreur PayDunya.", e);
+                }
+        }
+
+        // ── 2bis. ACHAT DU STATUT PREMIUM PAR MOBILE MONEY ──────────────────────
+        public PayDunyaResponse createPremiumCheckoutSession(
+                        BigDecimal montantFCFA, Long userId, Long projetId, String projetSlug) {
+
+                String url = getBaseUrl() + "/checkout-invoice/create";
+
+                Map<String, Object> payload = Map.of(
+                                "invoice", Map.of(
+                                                "total_amount", montantFCFA.doubleValue(),
+                                                "description", "Statut Premium — mise en avant catalogue"),
+                                "store", Map.of(
+                                                "name", "GrowzApp",
+                                                "website_url", "https://my-growzapp.com"),
+                                "actions", Map.of(
+                                                "cancel_url", frontendUrl + "/projet/" + projetSlug + "?premium=cancel",
+                                                "return_url", frontendUrl + "/projet/" + projetSlug + "?premium=success"),
+                                "custom_data", Map.of(
+                                                "type", "PREMIUM",
+                                                "user_id", userId.toString(),
+                                                "projet_id", projetId.toString()));
+
+                try {
+                        ResponseEntity<Map> response = restTemplate.postForEntity(
+                                        url, new HttpEntity<>(payload, buildHeaders()), Map.class);
+                        log.info("Réponse PayDunya premium : {}", response.getBody());
+                        return parseResponse(response.getBody(), "PREMIUM");
+                } catch (HttpClientErrorException e) {
+                        log.error("Erreur HTTP PayDunya premium : {}", e.getResponseBodyAsString());
                         throw new RuntimeException("Erreur PayDunya.", e);
                 }
         }

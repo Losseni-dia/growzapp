@@ -8,11 +8,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import growzapp.backend.module.facture.service.FactureService;
 import growzapp.backend.module.files.FileUploadService;
 import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.investissement.model.Investissement;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
+import growzapp.backend.module.kyc.enums.KycStatus;
 import growzapp.backend.module.notification.service.NotificationService;
+import growzapp.backend.module.paiement.common.PaymentProviderRouter;
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.enums.StatutProjet;
 import growzapp.backend.module.projet.enums.TypeEvenementValorisation;
@@ -26,8 +29,14 @@ import growzapp.backend.module.referentiel.repository.LocaliteRepository;
 import growzapp.backend.module.referentiel.repository.SecteurRepository;
 import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.service.UserService;
+import growzapp.backend.module.wallet.enums.SourcePaiement;
+import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
+import growzapp.backend.module.wallet.model.Transaction;
 import growzapp.backend.module.wallet.model.Wallet;
+import growzapp.backend.module.wallet.repository.TransactionRepository;
 import growzapp.backend.module.wallet.repository.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +58,14 @@ public class ProjetService {
     private final DeepLTranslationService deepLTranslationService;
     private final ProjetValorisationService projetValorisationService;
     private final InvestissementRepository investissementRepository;
+    private final UserService userService;
+    private final TransactionRepository transactionRepository;
+    private final PaymentProviderRouter paymentProviderRouter;
+    private final FactureService factureService;
+
+    // === STATUT PREMIUM ===
+    public static final BigDecimal PRIX_PREMIUM_FCFA = BigDecimal.valueOf(5000);
+    private static final int DUREE_PREMIUM_MOIS = 3;
 
 
     // ========================
@@ -79,6 +96,172 @@ public class ProjetService {
         return projetRepository.findByPorteurId(porteurId);
     }
 
+    // ========================
+    // STATUT PREMIUM
+    // ========================
+
+    /**
+     * Vérifie que le porteur peut acheter le Premium pour ce projet (c'est
+     * bien le sien, et il est publié) — appelé avant toute initiation de
+     * paiement (wallet, carte ou mobile money).
+     */
+    public Projet verifierAchatPremiumAutorise(Long projetId, User porteur) {
+        Projet projet = getById(projetId);
+        if (projet.getPorteur() == null || !projet.getPorteur().getId().equals(porteur.getId())) {
+            throw new IllegalStateException("Vous n'êtes pas le porteur de ce projet.");
+        }
+        if (projet.getStatutProjet() != StatutProjet.VALIDE) {
+            throw new IllegalStateException("Seul un projet publié (validé) peut devenir Premium.");
+        }
+        return projet;
+    }
+
+    @Transactional
+    public void acheterPremiumWallet(Long projetId, User porteur) {
+        Projet projet = verifierAchatPremiumAutorise(projetId, porteur);
+
+        Wallet wallet = walletRepository.findByUserIdWithPessimisticLock(porteur.getId())
+                .orElseThrow(() -> new IllegalStateException("Wallet introuvable"));
+        if (wallet.getSoldeDisponible().compareTo(PRIX_PREMIUM_FCFA) < 0) {
+            throw new IllegalStateException(
+                    "Solde insuffisant pour activer le Premium (5 000 FCFA requis).");
+        }
+        wallet.setSoldeDisponible(wallet.getSoldeDisponible().subtract(PRIX_PREMIUM_FCFA));
+        walletRepository.save(wallet);
+
+        activerPremium(projet, SourcePaiement.WALLET_GROWZAPP, wallet.getId());
+    }
+
+    /** Appelé par les webhooks de paiement (Stripe, FedaPay, PayDunya) après confirmation. */
+    @Transactional
+    public void activerPremiumExterne(Long projetId, SourcePaiement source) {
+        Projet projet = getById(projetId);
+        Wallet wallet = walletRepository.findByUserId(projet.getPorteur().getId())
+                .orElseThrow(() -> new IllegalStateException("Wallet introuvable"));
+        activerPremium(projet, source, wallet.getId());
+    }
+
+    @Transactional
+    public void revoquerPremium(Long projetId) {
+        Projet projet = getById(projetId);
+        projet.setPremiumFin(LocalDateTime.now());
+        projetRepository.save(projet);
+    }
+
+    /**
+     * Achats Premium restés bloqués en EN_ATTENTE_PAIEMENT — typiquement
+     * parce que le webhook du fournisseur (FedaPay/PayDunya) n'a jamais pu
+     * joindre le backend (tunnel ngrok fermé, dashboard mal configuré...).
+     */
+    public List<Transaction> getPremiumEnAttente() {
+        return transactionRepository.findByReferenceTypeAndStatut(
+                "PREMIUM_INITIATION", StatutTransaction.EN_ATTENTE_PAIEMENT);
+    }
+
+    /**
+     * Interroge directement le fournisseur de paiement pour savoir si un
+     * achat Premium resté en attente a réellement été payé — et active le
+     * Premium (ou annule la trace) en conséquence. Retourne "CONFIRME" ou
+     * "ANNULE".
+     */
+    @Transactional
+    public String reconcilierPremiumEnAttente(Long transactionId) {
+        Transaction tx = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new EntityNotFoundException("Transaction introuvable"));
+        return reconcilier(tx);
+    }
+
+    /**
+     * Variante self-service : le porteur revient sur son projet après avoir
+     * payé (redirection ?premium=success) et l'app vérifie tout de suite,
+     * sans dépendre du webhook ni d'une action admin. Pas d'erreur si aucune
+     * initiation n'est trouvée (retour normal si déjà régularisée entre
+     * temps par le webhook).
+     */
+    @Transactional
+    public String verifierPremiumEnAttentePourPorteur(Long projetId, User porteur) {
+        List<Transaction> initiations = transactionRepository
+                .findByReferenceTypeAndStatut("PREMIUM_INITIATION", StatutTransaction.EN_ATTENTE_PAIEMENT)
+                .stream()
+                .filter(tx -> tx.getReferenceId().equals(projetId))
+                .toList();
+
+        if (initiations.isEmpty()) {
+            Projet projet = getById(projetId);
+            return projet.isPremiumActif() ? "CONFIRME" : "AUCUNE_INITIATION";
+        }
+
+        Projet projet = getById(projetId);
+        if (projet.getPorteur() == null || !projet.getPorteur().getId().equals(porteur.getId())) {
+            throw new IllegalStateException("Vous n'êtes pas le porteur de ce projet.");
+        }
+
+        String resultat = "ANNULE";
+        for (Transaction tx : initiations) {
+            resultat = reconcilier(tx);
+        }
+        return resultat;
+    }
+
+    private String reconcilier(Transaction tx) {
+        if (!"PREMIUM_INITIATION".equals(tx.getReferenceType())) {
+            throw new IllegalStateException("Cette transaction n'est pas une initiation de paiement Premium.");
+        }
+        if (tx.getStatut() != StatutTransaction.EN_ATTENTE_PAIEMENT) {
+            throw new IllegalStateException("Cette transaction a déjà été traitée.");
+        }
+
+        boolean paye = paymentProviderRouter.verifierPaiementReussi(tx.getReferenceExterne());
+        transactionRepository.delete(tx);
+
+        if (paye) {
+            activerPremiumExterne(tx.getReferenceId(), tx.getSourcePaiement());
+            return "CONFIRME";
+        }
+        return "ANNULE";
+    }
+
+    private void activerPremium(Projet projet, SourcePaiement source, Long walletId) {
+        LocalDateTime maintenant = LocalDateTime.now();
+        LocalDateTime base = projet.isPremiumActif() ? projet.getPremiumFin() : maintenant;
+        if (!projet.isPremiumActif()) {
+            projet.setPremiumDebut(maintenant);
+        }
+        projet.setPremiumFin(base.plusMonths(DUREE_PREMIUM_MOIS));
+        projetRepository.save(projet);
+
+        Transaction tx = Transaction.builder()
+                .walletId(walletId)
+                .walletType(WalletType.USER)
+                .montant(PRIX_PREMIUM_FCFA)
+                .type(TypeTransaction.PREMIUM_PROJET)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Statut Premium activé — " + projet.getLibelle())
+                .referenceType("PREMIUM_PROJET")
+                .referenceId(projet.getId())
+                .createdAt(maintenant)
+                .completedAt(maintenant)
+                .sourcePaiement(source)
+                .build();
+        transactionRepository.save(tx);
+
+        notificationService.notifyUser(
+                projet.getPorteur(),
+                "⭐ Statut Premium activé",
+                "Votre projet « " + projet.getLibelle() + " » est maintenant Premium jusqu'au "
+                        + projet.getPremiumFin().toLocalDate() + ".",
+                projet.getId(),
+                projet.getSlug());
+
+        // Reçu de paiement — génère la facture (PDF + notification dédiée avec
+        // lien de téléchargement) et l'ajoute à l'espace "Mes factures" du porteur.
+        // On passe des IDs, pas les entités : genererFacturePremium tourne en
+        // tâche de fond (@Async) dans une session Hibernate différente.
+        factureService.genererFacturePremium(
+                projet.getPorteur().getId(), projet.getId(), PRIX_PREMIUM_FCFA.doubleValue(),
+                source.name());
+    }
+
     public Projet getBySlug(String slug) {
         return projetRepository.findBySlug(slug)
                 .orElseThrow(() -> new EntityNotFoundException("Slug introuvable : " + slug));
@@ -88,30 +271,71 @@ public class ProjetService {
     // CRÉATION ET MODIFICATION
     // ========================
 
-    @Transactional
-    public Projet create(Projet projet, String secteurNom, String localiteNom, User currentUser) {
-        log.info("Traitement métier pour le nouveau projet : {}", projet.getLibelle());
+    // Un porteur doit avoir son KYC VALIDÉ par un administrateur avant de
+    // pouvoir soumettre un projet — même exigence que pour investir
+    // (InvestissementService.investir). Un KYC simplement soumis
+    // (EN_ATTENTE) ne suffit pas : tant que l'admin n'a pas validé, aucune
+    // soumission de projet ni aucun investissement n'est possible.
+    private void requireKycValide(User currentUser) {
+        if (currentUser.getKycStatus() != KycStatus.VALIDE) {
+            throw new IllegalStateException(
+                    "Votre dossier KYC doit être validé par un administrateur avant de pouvoir soumettre un projet.");
+        }
+    }
 
-        // 1. Gestion du Secteur (Récupération ou création)
-        Secteur secteur = secteurRepository.findByNomIgnoreCase(secteurNom.trim())
-                .orElseGet(() -> secteurRepository.save(new Secteur(secteurNom.trim())));
+    // La fiche de présentation du porteur (crédibilité professionnelle,
+    // distincte du KYC) doit elle aussi être VALIDEE par un admin avant toute
+    // soumission de projet.
+    private void requireFichePorteurValidee(User currentUser) {
+        if (currentUser.getFicheStatut() != growzapp.backend.module.user.enums.StatutFichePorteur.VALIDEE) {
+            throw new IllegalStateException(
+                    "Votre fiche de présentation porteur doit être validée par un administrateur avant de pouvoir soumettre un projet.");
+        }
+    }
 
-        // 2. Gestion de la Localité
-        Localite localite = localiteRepository.findByNomIgnoreCase(localiteNom.trim())
+    private Secteur resolveSecteur(String secteurNom) {
+        return secteurRepository.findByNomIgnoreCase(secteurNom.trim())
+                .orElseGet(() -> {
+                    Secteur nouveau = secteurRepository.save(new Secteur(secteurNom.trim()));
+                    try {
+                        deepLTranslationService.traduireSecteur(nouveau);
+                    } catch (Exception e) {
+                        log.warn("Traduction automatique échouée pour le secteur '{}' : {}",
+                                nouveau.getNom(), e.getMessage());
+                    }
+                    return nouveau;
+                });
+    }
+
+    private Localite resolveLocalite(String localiteNom) {
+        return localiteRepository.findByNomIgnoreCase(localiteNom.trim())
                 .orElseGet(() -> {
                     Localite l = new Localite();
                     l.setNom(localiteNom.trim());
                     l.setCodePostal("00000");
                     return localiteRepository.save(l);
                 });
+    }
 
-        // 3. Gestion du Site (Localisation)
+    private Localisation resolveSite(Localite localite, String libelle, User currentUser) {
         Localisation site = new Localisation();
-        site.setNom("Site du projet : " + projet.getLibelle());
+        site.setNom("Site du projet : " + libelle);
         site.setLocalite(localite);
         site.setResponsable(currentUser.getPrenom() + " " + currentUser.getNom());
         site.setContact(currentUser.getContact() != null ? currentUser.getContact() : "Non renseigné");
-        site = localisationRepository.save(site);
+        return localisationRepository.save(site);
+    }
+
+    @Transactional
+    public Projet create(Projet projet, String secteurNom, String localiteNom, User currentUser) {
+        log.info("Traitement métier pour le nouveau projet : {}", projet.getLibelle());
+
+        requireKycValide(currentUser);
+        requireFichePorteurValidee(currentUser);
+
+        Secteur secteur = resolveSecteur(secteurNom);
+        Localite localite = resolveLocalite(localiteNom);
+        Localisation site = resolveSite(localite, projet.getLibelle(), currentUser);
 
         // 4. Finalisation du Projet
         projet.setPorteur(currentUser);
@@ -121,9 +345,8 @@ public class ProjetService {
         projet.setCreatedAt(LocalDateTime.now());
         projet.setPartsPrises(0);
         projet.setMontantCollecte(BigDecimal.ZERO);
-        if (projet.getDureeMois() == null) {
-            projet.setDureeMois(36); // Valeur par défaut
-        }
+        // dureeMois laissé tel quel : null = durée indéterminée, choix
+        // explicite du porteur, pas une valeur à défaulter.
 
         Projet saved = projetRepository.save(projet);
 
@@ -143,14 +366,169 @@ public class ProjetService {
         return saved;
     }
 
+    // ========================
+    // BROUILLON
+    // ========================
+    // Un porteur peut enregistrer un formulaire de projet incomplet (statut
+    // BROUILLON) le temps de rassembler toutes les informations, puis le
+    // soumettre explicitement une fois prêt (soumettreBrouillon). Aucune
+    // validation stricte n'est appliquée tant que le projet reste en
+    // BROUILLON — c'est justement l'intérêt de ce statut.
+
+    @Transactional
+    public Projet createBrouillon(Projet projetPartiel, String secteurNom, String localiteNom, User currentUser) {
+        if (secteurNom != null && !secteurNom.isBlank()) {
+            projetPartiel.setSecteur(resolveSecteur(secteurNom));
+        }
+        if (localiteNom != null && !localiteNom.isBlank()) {
+            Localite localite = resolveLocalite(localiteNom);
+            projetPartiel.setSiteProjet(resolveSite(localite, projetPartiel.getLibelle(), currentUser));
+        }
+
+        projetPartiel.setPorteur(currentUser);
+        projetPartiel.setStatutProjet(StatutProjet.BROUILLON);
+        projetPartiel.setCreatedAt(LocalDateTime.now());
+        projetPartiel.setPartsPrises(0);
+        projetPartiel.setMontantCollecte(BigDecimal.ZERO);
+
+        return projetRepository.save(projetPartiel);
+    }
+
+    @Transactional
+    public Projet updateBrouillon(Long id, Projet projetPartiel, String secteurNom, String localiteNom,
+            User currentUser) {
+        Projet existant = getById(id);
+        if (existant.getPorteur() == null || !existant.getPorteur().getId().equals(currentUser.getId())) {
+            throw new SecurityException("Ce brouillon ne vous appartient pas.");
+        }
+        if (existant.getStatutProjet() != StatutProjet.BROUILLON) {
+            throw new IllegalStateException("Ce projet n'est plus au statut brouillon, il ne peut plus être modifié via cet endpoint.");
+        }
+
+        existant.setLibelle(projetPartiel.getLibelle());
+        existant.setDescription(projetPartiel.getDescription());
+        existant.setObjectifFinancement(projetPartiel.getObjectifFinancement());
+        existant.setPrixUnePart(projetPartiel.getPrixUnePart());
+        existant.setPartsDisponible(projetPartiel.getPartsDisponible());
+        existant.setRoiProjete(projetPartiel.getRoiProjete());
+        existant.setValuation(projetPartiel.getValuation());
+        existant.setDureeMois(projetPartiel.getDureeMois());
+        existant.setDateDebut(projetPartiel.getDateDebut());
+        existant.setDateFin(projetPartiel.getDateFin());
+
+        if (secteurNom != null && !secteurNom.isBlank()) {
+            existant.setSecteur(resolveSecteur(secteurNom));
+        }
+        if (localiteNom != null && !localiteNom.isBlank()) {
+            Localite localite = resolveLocalite(localiteNom);
+            if (existant.getSiteProjet() == null) {
+                existant.setSiteProjet(resolveSite(localite, existant.getLibelle(), currentUser));
+            } else {
+                existant.getSiteProjet().setLocalite(localite);
+                existant.getSiteProjet().setNom("Site du projet : " + existant.getLibelle());
+            }
+        }
+
+        return projetRepository.save(existant);
+    }
+
+    @Transactional
+    public Projet soumettreBrouillon(Long id, User currentUser) {
+        Projet projet = getById(id);
+        if (projet.getPorteur() == null || !projet.getPorteur().getId().equals(currentUser.getId())) {
+            throw new SecurityException("Ce brouillon ne vous appartient pas.");
+        }
+        if (projet.getStatutProjet() != StatutProjet.BROUILLON) {
+            throw new IllegalStateException("Ce projet n'est pas au statut brouillon.");
+        }
+
+        requireKycValide(currentUser);
+        requireFichePorteurValidee(currentUser);
+
+        List<String> manquants = new java.util.ArrayList<>();
+        if (projet.getLibelle() == null || projet.getLibelle().isBlank())
+            manquants.add("titre du projet");
+        if (projet.getDescription() == null || projet.getDescription().isBlank() || projet.getDescription().length() < 20)
+            manquants.add("pitch (au moins 20 caractères)");
+        if (projet.getSecteur() == null)
+            manquants.add("secteur d'activité");
+        if (projet.getSiteProjet() == null || projet.getSiteProjet().getLocalite() == null)
+            manquants.add("ville / localité");
+        if (projet.getObjectifFinancement() == null || projet.getObjectifFinancement().compareTo(BigDecimal.ZERO) <= 0)
+            manquants.add("montant à lever");
+        if (projet.getPrixUnePart() == null || projet.getPrixUnePart().compareTo(BigDecimal.ZERO) <= 0)
+            manquants.add("prix d'une part");
+        if (projet.getPartsDisponible() <= 0)
+            manquants.add("nombre de parts");
+        if (projet.getValuation() == null || projet.getValuation().compareTo(BigDecimal.ZERO) <= 0)
+            manquants.add("valorisation totale");
+        if (projet.getDateDebut() == null)
+            manquants.add("date de début");
+        if (projet.getDateFin() == null)
+            manquants.add("date de fin");
+        if (projet.getDateDebut() != null && projet.getDateFin() != null
+                && projet.getDateFin().isBefore(projet.getDateDebut()))
+            manquants.add("date de fin doit être après la date de début");
+
+        if (!manquants.isEmpty()) {
+            throw new IllegalStateException(
+                    "Impossible de soumettre : champs manquants ou invalides — " + String.join(", ", manquants));
+        }
+
+        projet.setStatutProjet(StatutProjet.SOUMIS);
+        Projet saved = projetRepository.save(projet);
+
+        projetValorisationService.enregistrerSnapshot(saved, TypeEvenementValorisation.CREATION, null);
+        initializeWallet(saved.getId());
+
+        try {
+            deepLTranslationService.traduireProjet(saved);
+        } catch (Exception e) {
+            log.warn("Traduction automatique échouée pour le projet {} — le projet est quand même soumis : {}",
+                    saved.getId(), e.getMessage());
+        }
+
+        return saved;
+    }
+
     @Transactional
     public Projet update(Projet projet) {
         return projetRepository.save(projet);
     }
 
     @Transactional
-    public void deleteById(Long id) {
+    public void softDeleteById(Long id, String adminLogin, String motif) {
+        if (investissementRepository.existsByProjetId(id)) {
+            throw new IllegalStateException(
+                    "Impossible de supprimer ce projet : il a déjà reçu au moins un investissement.");
+        }
+        Projet projet = getById(id);
+        projet.setSupprimeLe(java.time.LocalDateTime.now());
+        projet.setSupprimePar(adminLogin);
+        projet.setMotifSuppression(motif);
+        projetRepository.save(projet);
+    }
+
+    @Transactional
+    public void restaurer(Long id) {
+        Projet projet = getById(id);
+        projet.setSupprimeLe(null);
+        projet.setSupprimePar(null);
+        projet.setMotifSuppression(null);
+        projetRepository.save(projet);
+    }
+
+    @Transactional
+    public void purger(Long id) {
+        if (investissementRepository.existsByProjetId(id)) {
+            throw new IllegalStateException(
+                    "Impossible de supprimer ce projet : il a déjà reçu au moins un investissement.");
+        }
         projetRepository.deleteById(id);
+    }
+
+    public List<Projet> getArchived() {
+        return projetRepository.findArchived();
     }
 
     // ========================
@@ -161,6 +539,20 @@ public class ProjetService {
     public Projet changerStatut(Long id, StatutProjet nouveauStatut) {
         Projet projet = getById(id);
         StatutProjet ancienStatut = projet.getStatutProjet();
+
+        // Aucun projet ne peut être VALIDÉ tant que la fiche de présentation
+        // de son porteur n'est pas elle-même VALIDEE par un admin — même si
+        // le porteur a réussi à soumettre le projet (ex: fiche validée puis
+        // invalidée entretemps, ou données historiques).
+        if (nouveauStatut == StatutProjet.VALIDE) {
+            User porteur = projet.getPorteur();
+            if (porteur == null
+                    || porteur.getFicheStatut() != growzapp.backend.module.user.enums.StatutFichePorteur.VALIDEE) {
+                throw new IllegalStateException(
+                        "Impossible de valider ce projet : la fiche de présentation de son porteur n'est pas validée.");
+            }
+        }
+
         log.info("changerStatut : projet {} — {} → {}", id, ancienStatut, nouveauStatut);
         projet.setStatutProjet(nouveauStatut);
 
@@ -174,6 +566,10 @@ public class ProjetService {
 
         if (estUneNouvelleValidation) {
             projetValorisationService.enregistrerSnapshot(saved, TypeEvenementValorisation.VALIDATION, null);
+
+            if (saved.getPorteur() != null) {
+                userService.attribuerRoleSiAbsent(saved.getPorteur().getId(), "PORTEUR");
+            }
 
             notificationService.notifyAllUsersWithSlug(
                     "🚀 Nouveau projet disponible !",

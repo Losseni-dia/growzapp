@@ -176,6 +176,8 @@ public class PorteurDashboardController {
                     .totalDividendesVerses(dividendesVerses)
                     .historiqueCollecte(historiqueDto)
                     .vitesseLevee(vitesseLevee)
+                    .premiumActif(projet.isPremiumActif())
+                    .premiumFin(projet.getPremiumFin())
                     .build();
 
             lignes.add(ligne);

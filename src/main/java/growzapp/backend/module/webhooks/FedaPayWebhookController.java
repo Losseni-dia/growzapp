@@ -18,8 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 import growzapp.backend.module.investissement.service.InvestissementService;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
-import growzapp.backend.module.wallet.model.Wallet;
-import growzapp.backend.module.wallet.repository.WalletRepository;
+import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.model.Transaction;
+import growzapp.backend.module.wallet.repository.TransactionRepository;
 import growzapp.backend.module.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,9 +35,10 @@ public class FedaPayWebhookController {
     private String webhookSecret;
 
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
     private final WalletService walletService;
     private final InvestissementService investissementService;
+    private final TransactionRepository transactionRepository;
+    private final growzapp.backend.module.projet.service.ProjetService projetService;
 
     @PostMapping
     @Transactional
@@ -69,6 +71,22 @@ public class FedaPayWebhookController {
                 return ResponseEntity.ok().build();
             }
 
+            // ── IDEMPOTENCE ──────────────────────────────────────────────────
+            // FedaPay envoie plusieurs événements pour un même paiement
+            // (ex: "approved" PUIS "transferred"), tous deux acceptés par le
+            // filtre ci-dessus — sans ce garde-fou, chaque événement relançait
+            // investissementService.investir(), créant un second
+            // investissement/blocage de fonds pour un seul paiement réel.
+            // La transaction "EN_ATTENTE_PAIEMENT" créée à l'initiation du
+            // paiement (referenceExterne = id FedaPay) sert de verrou : un
+            // événement qui la trouve déjà consommée est un rejeu, ignoré.
+            String fedapayId = String.valueOf(entity.get("id"));
+            java.util.Optional<Transaction> initiationOpt = transactionRepository.findByReferenceExterne(fedapayId);
+            if (initiationOpt.isPresent() && initiationOpt.get().getStatut() != StatutTransaction.EN_ATTENTE_PAIEMENT) {
+                log.info("Webhook FedaPay id={} déjà traité — événement rejoué ignoré (status={})", fedapayId, status);
+                return ResponseEntity.ok().build();
+            }
+
             String type = String.valueOf(metadata.getOrDefault("type", "DEPOSIT"));
             String userIdStr = String.valueOf(metadata.get("user_id"));
             Object amountObj = entity.get("amount");
@@ -87,18 +105,30 @@ public class FedaPayWebhookController {
                 User user = userRepository.findById(userId)
                         .orElseThrow(() -> new RuntimeException("User introuvable : " + userId));
 
-                Wallet wallet = walletRepository.findByUserId(userId)
-                        .orElseThrow(() -> new RuntimeException("Wallet introuvable : " + userId));
-                wallet.setSoldeDisponible(wallet.getSoldeDisponible().add(montant));
-                walletRepository.save(wallet);
-
-                investissementService.investir(projetId, nombreParts, user);
+                // L'argent vient de FedaPay, jamais du wallet interne : crédite
+                // directement soldeBloque (pas de passage artificiel par
+                // soldeDisponible, qui faussait le solde affiché — cf
+                // Wallet.crediterDirectementBloque).
+                investissementService.investirDepuisPaiementExterne(projetId, nombreParts, user,
+                        growzapp.backend.module.wallet.enums.SourcePaiement.MOBILE_MONEY);
                 log.info("INVESTISSEMENT FEDAPAY EN_ATTENTE → user={} projet={} parts={} montant={}",
                         userId, projetId, nombreParts, montant);
+            } else if ("PREMIUM".equals(type)) {
+                Long projetId = Long.parseLong(String.valueOf(metadata.get("projet_id")));
+                projetService.activerPremiumExterne(projetId,
+                        growzapp.backend.module.wallet.enums.SourcePaiement.MOBILE_MONEY);
+                log.info("PREMIUM FEDAPAY ACTIVÉ → projet={} user={}", projetId, userId);
             } else {
                 walletService.deposerFonds(userId, montant.doubleValue(), "FEDAPAY_MM");
                 log.info("DÉPÔT FEDAPAY CRÉDITÉ → user={} montant={}", userId, montant);
             }
+
+            // Consomme la transaction d'initiation : supprime l'entrée
+            // "en attente de paiement" orpheline qui restait affichée
+            // indéfiniment dans l'historique du wallet à côté de
+            // l'investissement réel, et verrouille l'idempotence pour tout
+            // événement FedaPay ultérieur portant le même id.
+            initiationOpt.ifPresent(transactionRepository::delete);
 
             return ResponseEntity.ok().build();
 

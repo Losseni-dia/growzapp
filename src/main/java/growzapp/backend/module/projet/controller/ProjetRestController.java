@@ -83,6 +83,7 @@ public class ProjetRestController {
     private final ProjetTraductionRepository traductionRepository;
     private final DeepLTranslationService deepLTranslationService;
     private final ProjetValorisationRepository projetValorisationRepository;
+    private final growzapp.backend.module.traduction.DeepL.repository.SecteurTraductionRepository secteurTraductionRepository;
 
     // ── LISTE PUBLIQUE ────────────────────────────────────────────────────────
     @Operation(summary = "Lister les projets validés")
@@ -170,6 +171,109 @@ public class ProjetRestController {
         } catch (Exception e) {
             log.error("Erreur création projet", e);
             return ApiResponseDTO.error("Erreur : " + e.getMessage());
+        }
+    }
+
+    // ── BROUILLON — ENREGISTRER ──────────────────────────────────────────────
+    @Operation(summary = "Enregistrer un nouveau brouillon de projet", security = @SecurityRequirement(name = "BearerAuth"))
+    @PostMapping(value = "/brouillon", consumes = "multipart/form-data")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponseDTO<ProjetDTO> creerBrouillon(
+            Authentication authentication,
+            @RequestPart("projet") String projetJson,
+            @RequestPart(value = "poster", required = false) MultipartFile poster) {
+
+        User currentUser = getCurrentUser(authentication);
+        try {
+            growzapp.backend.module.projet.dto.ProjetBrouillonDTO dto = objectMapper.readValue(projetJson,
+                    growzapp.backend.module.projet.dto.ProjetBrouillonDTO.class);
+
+            Set<ConstraintViolation<growzapp.backend.module.projet.dto.ProjetBrouillonDTO>> violations = validator
+                    .validate(dto);
+            if (!violations.isEmpty()) {
+                String errors = violations.stream()
+                        .map(v -> v.getPropertyPath() + " : " + v.getMessage())
+                        .collect(Collectors.joining(", "));
+                return ApiResponseDTO.error(errors);
+            }
+
+            Projet projetPartiel = projetMapper.toEntity(dto);
+            Projet saved = projetService.createBrouillon(projetPartiel, dto.secteurNom(), dto.localiteNom(),
+                    currentUser);
+
+            if (poster != null && !poster.isEmpty()) {
+                if (poster.getSize() > 10 * 1024 * 1024)
+                    return ApiResponseDTO.error("Le poster ne doit pas dépasser 10 Mo");
+                String posterUrl = fileUploadService.uploadPoster(poster, saved.getId());
+                saved.setPoster(posterUrl);
+                saved = projetService.update(saved);
+            }
+
+            return ApiResponseDTO.success(projetMapper.toDto(saved))
+                    .message("Brouillon enregistré");
+        } catch (Exception e) {
+            log.error("Erreur enregistrement brouillon", e);
+            return ApiResponseDTO.error("Erreur : " + e.getMessage());
+        }
+    }
+
+    // ── BROUILLON — METTRE À JOUR ─────────────────────────────────────────────
+    @Operation(summary = "Mettre à jour un brouillon de projet existant", security = @SecurityRequirement(name = "BearerAuth"))
+    @org.springframework.web.bind.annotation.PutMapping(value = "/brouillon/{id}", consumes = "multipart/form-data")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponseDTO<ProjetDTO> mettreAJourBrouillon(
+            Authentication authentication,
+            @PathVariable Long id,
+            @RequestPart("projet") String projetJson,
+            @RequestPart(value = "poster", required = false) MultipartFile poster) {
+
+        User currentUser = getCurrentUser(authentication);
+        try {
+            growzapp.backend.module.projet.dto.ProjetBrouillonDTO dto = objectMapper.readValue(projetJson,
+                    growzapp.backend.module.projet.dto.ProjetBrouillonDTO.class);
+
+            Set<ConstraintViolation<growzapp.backend.module.projet.dto.ProjetBrouillonDTO>> violations = validator
+                    .validate(dto);
+            if (!violations.isEmpty()) {
+                String errors = violations.stream()
+                        .map(v -> v.getPropertyPath() + " : " + v.getMessage())
+                        .collect(Collectors.joining(", "));
+                return ApiResponseDTO.error(errors);
+            }
+
+            Projet projetPartiel = projetMapper.toEntity(dto);
+            Projet saved = projetService.updateBrouillon(id, projetPartiel, dto.secteurNom(), dto.localiteNom(),
+                    currentUser);
+
+            if (poster != null && !poster.isEmpty()) {
+                if (poster.getSize() > 10 * 1024 * 1024)
+                    return ApiResponseDTO.error("Le poster ne doit pas dépasser 10 Mo");
+                String posterUrl = fileUploadService.uploadPoster(poster, saved.getId());
+                saved.setPoster(posterUrl);
+                saved = projetService.update(saved);
+            }
+
+            return ApiResponseDTO.success(projetMapper.toDto(saved))
+                    .message("Brouillon mis à jour");
+        } catch (Exception e) {
+            log.error("Erreur mise à jour brouillon", e);
+            return ApiResponseDTO.error("Erreur : " + e.getMessage());
+        }
+    }
+
+    // ── BROUILLON — SOUMETTRE ─────────────────────────────────────────────────
+    @Operation(summary = "Soumettre un brouillon de projet pour validation admin", security = @SecurityRequirement(name = "BearerAuth"))
+    @PostMapping("/brouillon/{id}/soumettre")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponseDTO<ProjetDTO> soumettreBrouillon(Authentication authentication, @PathVariable Long id) {
+        User currentUser = getCurrentUser(authentication);
+        try {
+            Projet saved = projetService.soumettreBrouillon(id, currentUser);
+            return ApiResponseDTO.success(projetMapper.toDto(saved))
+                    .message("Projet soumis avec succès !");
+        } catch (Exception e) {
+            log.error("Erreur soumission brouillon", e);
+            return ApiResponseDTO.error(e.getMessage());
         }
     }
 
@@ -313,8 +417,9 @@ public class ProjetRestController {
                     .description("Investissement Mobile Money — " + projet.getLibelle())
                     .createdAt(LocalDateTime.now())
                     .referenceExterne(response.sessionToken())
-                    .referenceType("INVESTISSEMENT")
+                    .referenceType("INVESTISSEMENT_INITIATION")
                     .referenceId(projetId)
+                    .sourcePaiement(growzapp.backend.module.wallet.enums.SourcePaiement.MOBILE_MONEY)
                     .build();
             transactionRepository.save(tx);
 
@@ -325,6 +430,86 @@ public class ProjetRestController {
 
         } catch (Exception e) {
             log.error("Erreur Mobile Money projet={}", projetId, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ── STATUT PREMIUM — ACHAT PAR LE PORTEUR ───────────────────────────────────
+
+    @Operation(summary = "Vérifier un paiement Premium en attente (retour de redirection)", description = "Appelé automatiquement quand le porteur revient sur son projet après paiement Mobile Money/Carte (?premium=success) — interroge directement le fournisseur au lieu d'attendre le webhook, pour un déblocage fiable même si le webhook n'a pas pu joindre le backend.", security = @SecurityRequirement(name = "BearerAuth"))
+    @PostMapping("/{projetId}/premium/verifier")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> verifierPremium(@PathVariable Long projetId, Authentication auth) {
+        try {
+            User user = getCurrentUser(auth);
+            String resultat = projetService.verifierPremiumEnAttentePourPorteur(projetId, user);
+            return ResponseEntity.ok(Map.of("resultat", resultat));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "Acheter le statut Premium via le wallet interne", security = @SecurityRequirement(name = "BearerAuth"))
+    @PostMapping("/{projetId}/premium/wallet")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> acheterPremiumWallet(@PathVariable Long projetId, Authentication auth) {
+        try {
+            User user = getCurrentUser(auth);
+            projetService.acheterPremiumWallet(projetId, user);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Statut Premium activé"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "Acheter le statut Premium par carte bancaire (Stripe)", security = @SecurityRequirement(name = "BearerAuth"))
+    @PostMapping("/{projetId}/premium/carte")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> acheterPremiumCarte(@PathVariable Long projetId, Authentication auth) {
+        try {
+            User user = getCurrentUser(auth);
+            Projet projet = projetService.verifierAchatPremiumAutorise(projetId, user);
+
+            String url = stripeDepositService.createPremiumSession(
+                    user.getId(), projetId, projet.getSlug(), ProjetService.PRIX_PREMIUM_FCFA);
+
+            return ResponseEntity.ok(Map.of("redirectUrl", url));
+        } catch (Exception e) {
+            log.error("Erreur achat Premium par carte, projet={}", projetId, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "Acheter le statut Premium par Mobile Money", security = @SecurityRequirement(name = "BearerAuth"))
+    @PostMapping("/{projetId}/premium/mobile")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> acheterPremiumMobile(@PathVariable Long projetId, Authentication auth) {
+        try {
+            User user = getCurrentUser(auth);
+            Projet projet = projetService.verifierAchatPremiumAutorise(projetId, user);
+
+            var response = paymentProviderRouter.creerSessionPremium(
+                    ProjetService.PRIX_PREMIUM_FCFA, user.getId(), projetId, projet.getSlug());
+
+            Transaction tx = Transaction.builder()
+                    .walletId(walletRepository.findByUserId(user.getId())
+                            .orElseThrow(() -> new RuntimeException("Wallet introuvable")).getId())
+                    .walletType(WalletType.USER)
+                    .montant(ProjetService.PRIX_PREMIUM_FCFA)
+                    .type(TypeTransaction.PREMIUM_PROJET)
+                    .statut(StatutTransaction.EN_ATTENTE_PAIEMENT)
+                    .description("Achat Premium Mobile Money — " + projet.getLibelle())
+                    .createdAt(LocalDateTime.now())
+                    .referenceExterne(response.sessionToken())
+                    .referenceType("PREMIUM_INITIATION")
+                    .referenceId(projetId)
+                    .sourcePaiement(growzapp.backend.module.wallet.enums.SourcePaiement.MOBILE_MONEY)
+                    .build();
+            transactionRepository.save(tx);
+
+            return ResponseEntity.ok(Map.of("redirectUrl", response.redirectUrl()));
+        } catch (Exception e) {
+            log.error("Erreur achat Premium Mobile Money, projet={}", projetId, e);
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
@@ -349,6 +534,14 @@ public class ProjetRestController {
             if (t.getDescription() != null && !t.getDescription().isBlank())
                 dto.setDescriptionTradu(t.getDescription());
         });
+
+        if (dto.getSecteurId() != null) {
+            secteurTraductionRepository.findBySecteurIdAndLangue(dto.getSecteurId(), langue)
+                    .ifPresent(st -> {
+                        if (st.getNom() != null && !st.getNom().isBlank())
+                            dto.setSecteurNomTradu(st.getNom());
+                    });
+        }
 
         return dto;
     }

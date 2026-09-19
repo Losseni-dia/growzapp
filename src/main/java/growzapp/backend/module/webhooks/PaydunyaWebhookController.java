@@ -45,6 +45,7 @@ public class PaydunyaWebhookController {
     private final WalletRepository walletRepository;
     private final UserRepository userRepository;
     private final InvestissementService investissementService;
+    private final growzapp.backend.module.projet.service.ProjetService projetService;
 
     // PayDunya envoie application/x-www-form-urlencoded avec data[field][subfield]
     @PostMapping(consumes = { MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.ALL_VALUE })
@@ -121,13 +122,11 @@ public class PaydunyaWebhookController {
                     User user = userRepository.findById(userId)
                             .orElseThrow(() -> new RuntimeException("User introuvable : " + userId));
 
-                    // Créditer wallet puis bloquer via investir()
-                    Wallet wallet = walletRepository.findByUserId(userId)
-                            .orElseThrow(() -> new RuntimeException("Wallet introuvable : " + userId));
-                    wallet.setSoldeDisponible(wallet.getSoldeDisponible().add(tx.getMontant()));
-                    walletRepository.save(wallet);
-
-                    investissementService.investir(projetId, parts, user);
+                    // L'argent vient de PayDunya, jamais du wallet interne : crédite
+                    // directement soldeBloque, sans passage artificiel par
+                    // soldeDisponible (cf Wallet.crediterDirectementBloque).
+                    investissementService.investirDepuisPaiementExterne(projetId, parts, user,
+                            growzapp.backend.module.wallet.enums.SourcePaiement.MOBILE_MONEY);
 
                     tx.setStatut(StatutTransaction.SUCCESS);
                     tx.setCompletedAt(LocalDateTime.now());
@@ -135,6 +134,17 @@ public class PaydunyaWebhookController {
 
                     log.info("INVESTISSEMENT PAYDUNYA EN_ATTENTE → user={} projet={} parts={} montant={}",
                             userId, projetId, parts, tx.getMontant());
+
+                } else if ("PREMIUM".equals(type) && projetIdStr != null) {
+                    Long projetId = Long.parseLong(projetIdStr);
+                    projetService.activerPremiumExterne(projetId,
+                            growzapp.backend.module.wallet.enums.SourcePaiement.MOBILE_MONEY);
+
+                    tx.setStatut(StatutTransaction.SUCCESS);
+                    tx.setCompletedAt(LocalDateTime.now());
+                    transactionRepository.save(tx);
+
+                    log.info("PREMIUM PAYDUNYA ACTIVÉ → projet={} user={}", projetId, userIdStr);
 
                 } else {
                     // ── Flux dépôt wallet classique ───────────────────────

@@ -7,6 +7,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 
+import growzapp.backend.module.projet.dto.ProjetBrouillonDTO;
 import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.dto.ProjetDTO;
 import growzapp.backend.module.projet.model.Projet;
@@ -50,4 +51,20 @@ public interface ProjetMapper {
 
 
     List<ProjetDTO> toDtoList(List<Projet> projets);
+
+    // --- BROUILLON DTO -> ENTITY (Pour l'enregistrement d'un brouillon) ---
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "slug", ignore = true)
+    @Mapping(target = "statutProjet", constant = "BROUILLON")
+    @Mapping(target = "partsDisponible", expression = "java(dto.partsDisponible() != null ? dto.partsDisponible() : 0)")
+    @Mapping(target = "roiProjete", expression = "java(dto.roiProjete() != null ? dto.roiProjete() : 0.0)")
+    @Mapping(target = "montantCollecte", ignore = true)
+    @Mapping(target = "partsPrises", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "porteur", ignore = true)
+    @Mapping(target = "siteProjet", ignore = true)
+    @Mapping(target = "secteur", ignore = true)
+    @Mapping(target = "documents", ignore = true)
+    @Mapping(target = "investissements", ignore = true)
+    Projet toEntity(ProjetBrouillonDTO dto);
 }

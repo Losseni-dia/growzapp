@@ -42,6 +42,27 @@ public class PaymentProviderRouter {
         }
     }
 
+    public PaymentProviderService.PaymentSessionResponse creerSessionPremium(
+            BigDecimal montant, Long userId, Long projetId, String projetSlug) {
+        try {
+            return fedaPayService.creerSessionPremium(montant, userId, projetId, projetSlug);
+        } catch (Exception e) {
+            log.warn("FedaPay indisponible pour l'achat Premium (user={}), bascule sur PayDunya : {}", userId, e.getMessage());
+            return payDunyaService.creerSessionPremium(montant, userId, projetId, projetSlug);
+        }
+    }
+
+    /**
+     * Vérifie auprès des deux fournisseurs si un paiement a réellement été
+     * confirmé — on ne sait pas a priori lequel des deux a traité la
+     * référence, donc on essaie les deux (chacun renvoie false silencieusement
+     * si la référence ne lui appartient pas).
+     */
+    public boolean verifierPaiementReussi(String referenceExterne) {
+        return fedaPayService.verifierPaiementReussi(referenceExterne)
+                || payDunyaService.verifierPaiementReussi(referenceExterne);
+    }
+
     public PaymentProviderService.PayoutResponse initierRetrait(
             BigDecimal montant, String phone, String moyenPaiement, Long referenceId) {
         try {

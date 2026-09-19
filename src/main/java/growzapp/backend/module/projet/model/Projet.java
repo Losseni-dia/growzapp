@@ -30,6 +30,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -52,6 +53,8 @@ public class Projet {
     private String poster; // URL
     private Integer reference;
     private String libelle;
+
+    @Column(name = "description", length = 5000)
     private String description;
     private BigDecimal valuation;
     private double roiProjete;
@@ -71,11 +74,12 @@ public class Projet {
     private BigDecimal prixUnePart;
 
 
-    // NOUVEAU CHAMP : Durée du projet en mois
-    @Column(name = "duree_mois", nullable = false)
+    // Durée du projet en mois — null = durée indéterminée (choix explicite du
+    // porteur, pas une valeur manquante à défaulter).
+    @Column(name = "duree_mois")
     @Min(1)
-    private Integer dureeMois = 36; // valeur par défaut : 36 mois
-    
+    private Integer dureeMois;
+
 
     @Min(0)
     @Column(name = "objectif_financement")
@@ -109,8 +113,18 @@ public class Projet {
     @JoinColumn(name = "secteur_id")
     private Secteur secteur;
 
-    @Column(name = "certified_at")
-    private LocalDateTime certifiedAt;
+    // === STATUT PREMIUM (mise en avant catalogue, remplace l'ancienne
+    // "certification" qui n'était jamais réellement câblée) ===
+    @Column(name = "premium_debut")
+    private LocalDateTime premiumDebut;
+
+    @Column(name = "premium_fin")
+    private LocalDateTime premiumFin;
+
+    @Transient
+    public boolean isPremiumActif() {
+        return premiumFin != null && premiumFin.isAfter(LocalDateTime.now());
+    }
 
     @OneToMany(mappedBy = "projet", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Document> documents = new ArrayList<>();
@@ -119,6 +133,15 @@ public class Projet {
     @OneToMany(mappedBy = "projet", cascade = CascadeType.ALL)
     private List<Investissement> investissements = new ArrayList<>();
 
+    // === SUPPRESSION LOGIQUE (SOFT DELETE) ===
+    @Column(name = "supprime_le")
+    private LocalDateTime supprimeLe;
+
+    @Column(name = "supprime_par")
+    private String supprimePar;
+
+    @Column(name = "motif_suppression", length = 500)
+    private String motifSuppression;
 
     // --- LOGIQUE DE GÉNÉRATION DU SLUG ---
     // Cette méthode s'exécute automatiquement avant l'enregistrement en base

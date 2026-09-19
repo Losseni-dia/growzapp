@@ -117,6 +117,12 @@ public class StripeDepositService {
                                         .putMetadata("user_id", userId.toString())
                                         .putMetadata("projet_id", projetId.toString())
                                         .putMetadata("nombre_parts", String.valueOf(nombreParts))
+                                        // Montant FCFA d'origine, exact — le webhook doit créditer CE
+                                        // montant précis, jamais le reconvertir depuis l'EUR arrondi par
+                                        // Stripe (même correctif que createCheckoutSession ci-dessus,
+                                        // manquant ici jusqu'à présent : source du léger écart de solde
+                                        // observé après chaque investissement payé par carte).
+                                        .putMetadata("montant_fcfa", montantTotalFCFA.toPlainString())
                                         .addLineItem(
                                                         SessionCreateParams.LineItem.builder()
                                                                         .setQuantity((long) nombreParts)
@@ -154,6 +160,52 @@ public class StripeDepositService {
 
                 } catch (StripeException e) {
                         log.error("Erreur création session investissement Stripe", e);
+                        throw new RuntimeException("Impossible de créer le paiement Stripe: " + e.getMessage());
+                }
+        }
+
+        // ── 3. ACHAT DU STATUT PREMIUM PAR CARTE ─────────────────────────────────
+        public String createPremiumSession(Long userId, Long projetId, String projetSlug, BigDecimal montantFCFA) {
+                try {
+                        BigDecimal montantEUR = montantFCFA.divide(TAUX_FCFA_PAR_EUR, 2, RoundingMode.HALF_UP);
+                        long amountInCents = montantEUR.multiply(BigDecimal.valueOf(100)).longValueExact();
+
+                        SessionCreateParams params = SessionCreateParams.builder()
+                                        .setLocale(SessionCreateParams.Locale.FR)
+                                        .setMode(SessionCreateParams.Mode.PAYMENT)
+                                        .setSuccessUrl(frontendUrl + "/projet/" + projetSlug + "?premium=success")
+                                        .setCancelUrl(frontendUrl + "/projet/" + projetSlug + "?premium=cancel")
+                                        .setClientReferenceId(userId.toString())
+                                        .putMetadata("type", "PREMIUM")
+                                        .putMetadata("user_id", userId.toString())
+                                        .putMetadata("projet_id", projetId.toString())
+                                        .putMetadata("montant_fcfa", montantFCFA.toPlainString())
+                                        .addLineItem(
+                                                        SessionCreateParams.LineItem.builder()
+                                                                        .setQuantity(1L)
+                                                                        .setPriceData(
+                                                                                        SessionCreateParams.LineItem.PriceData
+                                                                                                        .builder()
+                                                                                                        .setCurrency("eur")
+                                                                                                        .setUnitAmount(amountInCents)
+                                                                                                        .setProductData(
+                                                                                                                        SessionCreateParams.LineItem.PriceData.ProductData
+                                                                                                                                        .builder()
+                                                                                                                                        .setName("Statut Premium")
+                                                                                                                                        .setDescription(
+                                                                                                                                                        "Mise en avant catalogue — 3 mois")
+                                                                                                                                        .build())
+                                                                                                        .build())
+                                                                        .build())
+                                        .build();
+
+                        Session session = Session.create(params);
+                        log.info("Session Stripe premium créée : {} pour user={} projet={}",
+                                        session.getId(), userId, projetId);
+                        return session.getUrl();
+
+                } catch (StripeException e) {
+                        log.error("Erreur création session premium Stripe", e);
                         throw new RuntimeException("Impossible de créer le paiement Stripe: " + e.getMessage());
                 }
         }

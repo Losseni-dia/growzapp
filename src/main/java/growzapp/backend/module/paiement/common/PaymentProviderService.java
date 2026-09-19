@@ -24,6 +24,20 @@ public interface PaymentProviderService {
             String projetLibelle,
             String projetSlug);
 
+    /** Achat du statut Premium pour un projet (mise en avant catalogue). */
+    PaymentSessionResponse creerSessionPremium(
+            BigDecimal montant,
+            Long userId,
+            Long projetId,
+            String projetSlug);
+
+    /**
+     * Vérifie auprès du fournisseur si un paiement a réellement été confirmé
+     * — utilisé pour rattraper les cas où le webhook n'a jamais été reçu
+     * (tunnel ngrok fermé, dashboard mal configuré, etc.).
+     */
+    boolean verifierPaiementReussi(String referenceExterne);
+
     /** Décaissement (retrait) vers un numéro Mobile Money. */
     PayoutResponse initierRetrait(
             BigDecimal montant,

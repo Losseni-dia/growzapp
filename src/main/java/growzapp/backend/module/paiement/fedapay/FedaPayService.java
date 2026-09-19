@@ -75,6 +75,23 @@ public class FedaPayService implements PaymentProviderService {
                 frontendUrl + "/projet/" + projetSlug + "?mm=success");
     }
 
+    @Override
+    public boolean verifierPaiementReussi(String referenceExterne) {
+        return isTransactionApprovedForBooking(referenceExterne);
+    }
+
+    @Override
+    public PaymentSessionResponse creerSessionPremium(
+            BigDecimal montant, Long userId, Long projetId, String projetSlug) {
+        return creerSession(montant,
+                "Statut Premium — mise en avant catalogue",
+                Map.of(
+                        "type", "PREMIUM",
+                        "user_id", userId.toString(),
+                        "projet_id", projetId.toString()),
+                frontendUrl + "/projet/" + projetSlug + "?premium=success");
+    }
+
     private PaymentSessionResponse creerSession(
             BigDecimal montant, String description, Map<String, String> customMetadata, String callbackUrl) {
         applyApiConfig();

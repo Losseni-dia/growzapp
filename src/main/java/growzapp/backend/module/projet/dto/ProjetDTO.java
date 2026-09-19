@@ -79,8 +79,11 @@ public class ProjetDTO {
         @Schema(description = "Date de création du projet")
         private LocalDateTime createdAt;
 
-        @Schema(description = "Date de certification du projet")
-        private LocalDateTime certifiedAt;
+        @Schema(description = "true si le statut Premium est actuellement actif sur ce projet")
+        private boolean premiumActif;
+
+        @Schema(description = "Date de fin du statut Premium (null si jamais acheté)")
+        private LocalDateTime premiumFin;
 
         // ── Relations ─────────────────────────────────────────────────────────
         @Schema(description = "ID de la localité")
@@ -137,4 +140,7 @@ public class ProjetDTO {
 
         @Schema(description = "Description traduite selon la langue de l'utilisateur")
         private String descriptionTradu;
+
+        @Schema(description = "Nom du secteur traduit selon la langue de l'utilisateur — le secteur est un champ libre, non couvert par le dictionnaire i18n statique")
+        private String secteurNomTradu;
 }

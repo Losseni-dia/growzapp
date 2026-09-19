@@ -28,8 +28,6 @@ import growzapp.backend.module.paiement.repository.PayoutModelRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
-import growzapp.backend.module.wallet.model.Wallet;
-import growzapp.backend.module.wallet.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,9 +46,9 @@ public class StripeWebhookController {
     private final UserRepository userRepository;
     private final InvestissementRepository investissementRepository;
     private final DepositService depositService;
-    private final WalletRepository walletRepository;
     private final ExchangeRateRepository exchangeRateRepository;
     private final InvestissementService investissementService;
+    private final growzapp.backend.module.projet.service.ProjetService projetService;
 
     @PostMapping
     public ResponseEntity<String> handle(
@@ -108,6 +106,7 @@ public class StripeWebhookController {
             long amountTotal = root.path("amount_total").asLong(0);
             String projetIdStr = root.path("metadata").path("projet_id").asText();
             String nombrePartsStr = root.path("metadata").path("nombre_parts").asText();
+            String montantFcfaInvestissementMetadata = root.path("metadata").path("montant_fcfa").asText(null);
 
             log.info("Session parsée : id={} user={} type={} amount={}", sessionId, userIdStr, type, amountTotal);
 
@@ -121,7 +120,13 @@ public class StripeWebhookController {
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
             if ("INVESTISSEMENT".equals(type)) {
-                handleInvestissementPayeRaw(sessionId, userId, montantEUR, projetIdStr, nombrePartsStr);
+                handleInvestissementPayeRaw(sessionId, userId, montantEUR, projetIdStr, nombrePartsStr,
+                        montantFcfaInvestissementMetadata);
+            } else if ("PREMIUM".equals(type)) {
+                Long projetId = Long.parseLong(projetIdStr);
+                projetService.activerPremiumExterne(projetId,
+                        growzapp.backend.module.wallet.enums.SourcePaiement.CARTE_BANCAIRE);
+                log.info("PREMIUM STRIPE ACTIVÉ → projet={} user={}", projetId, userId);
             } else {
                 // ── Source de vérité : le montant FCFA d'ORIGINE saisi par l'utilisateur ──
                 // (stocké en metadata lors de la création de session, voir
@@ -247,7 +252,7 @@ public class StripeWebhookController {
 
     @Transactional
     public void handleInvestissementPayeRaw(String sessionId, Long userId, BigDecimal montantEUR, String projetIdStr,
-            String nombrePartsStr) {
+            String nombrePartsStr, String montantFcfaMetadata) {
         try {
             // ── Idempotence — évite double traitement ─────────────────────
             boolean dejaTraite = investissementRepository
@@ -263,28 +268,32 @@ public class StripeWebhookController {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User introuvable : " + userId));
 
-            // ── 1. Conversion EUR → FCFA ──────────────────────────────────
-            BigDecimal tauxXOF = exchangeRateRepository.findByCurrencyCode("XOF")
-                    .map(r -> r.getRateToBase())
-                    .orElse(TAUX_XOF_PAR_EUR);
-
-            BigDecimal montantFCFA = montantEUR.multiply(tauxXOF)
-                    .setScale(0, RoundingMode.HALF_UP);
+            // ── 1. Montant FCFA d'ORIGINE (jamais recalculé depuis l'EUR
+            // arrondi par Stripe — même logique que le dépôt, cf
+            // handleCheckoutCompleted). Fallback de reconversion uniquement
+            // pour les sessions créées avant ce correctif.
+            BigDecimal montantFCFA;
+            if (montantFcfaMetadata != null && !montantFcfaMetadata.isBlank()) {
+                montantFCFA = new BigDecimal(montantFcfaMetadata);
+                log.info("INVESTISSEMENT STRIPE → montant FCFA d'origine utilisé (depuis metadata) : {}",
+                        montantFCFA);
+            } else {
+                BigDecimal tauxXOF = exchangeRateRepository.findByCurrencyCode("XOF")
+                        .map(r -> r.getRateToBase())
+                        .orElse(TAUX_XOF_PAR_EUR);
+                montantFCFA = montantEUR.multiply(tauxXOF).setScale(0, RoundingMode.HALF_UP);
+                log.warn("INVESTISSEMENT STRIPE → metadata montant_fcfa absente, fallback reconversion : {} FCFA",
+                        montantFCFA);
+            }
 
             log.info("Stripe investissement : {}€ = {} FCFA pour user={} projet={} parts={}",
                     montantEUR, montantFCFA, userId, projetId, nombreParts);
 
-            // ── 2. Créditer le wallet utilisateur (argent externe Stripe) ─
-            Wallet wallet = walletRepository.findByUserId(userId)
-                    .orElseThrow(() -> new RuntimeException("Wallet introuvable pour user " + userId));
-
-            wallet.setSoldeDisponible(wallet.getSoldeDisponible().add(montantFCFA));
-            walletRepository.save(wallet);
-
-            log.info("Wallet crédité : user={} +{} FCFA (solde disponible temporaire)", userId, montantFCFA);
-
-            // ── 3. Appeler exactement le même flux que wallet interne ──────
-            var investissementDTO = investissementService.investir(projetId, nombreParts, user);
+            // ── 2. Créditer directement soldeBloque — l'argent vient de
+            // Stripe, jamais du wallet interne, donc pas de passage
+            // artificiel par soldeDisponible (cf Wallet.crediterDirectementBloque).
+            var investissementDTO = investissementService.investirDepuisPaiementExterne(projetId, nombreParts, user,
+                    growzapp.backend.module.wallet.enums.SourcePaiement.CARTE_BANCAIRE);
 
             // ── 4. Enregistrer la référence Stripe pour idempotence ───────
             investissementRepository.findById(investissementDTO.id()).ifPresent(inv -> {
