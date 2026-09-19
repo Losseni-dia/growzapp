@@ -4,14 +4,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Schema(description = "DTO pour la création d'un nouveau projet d'investissement")
 public record ProjetCreateDTO(
 
                 @NotBlank(message = "Le titre du projet est obligatoire") @Size(min = 3, max = 150, message = "Le titre doit contenir entre 3 et 150 caractères") @Schema(example = "Résidence Horizon", description = "Titre du projet") String libelle,
 
-                @NotBlank(message = "La description est obligatoire") @Size(min = 20, message = "La description doit contenir au moins 20 caractères") @Schema(example = "Construction d'un complexe immobilier de 10 appartements.") String description,
+                @NotBlank(message = "La description est obligatoire") @Size(min = 20, max = 5000, message = "La description doit contenir entre 20 et 5000 caractères") @Schema(example = "Construction d'un complexe immobilier de 10 appartements.") String description,
 
                 @NotBlank(message = "Le secteur d'activité est obligatoire") @Schema(example = "Immobilier", description = "Nom du secteur d'activité") String secteurNom,
 
@@ -29,7 +28,7 @@ public record ProjetCreateDTO(
 
                 @NotNull(message = "La valorisation est obligatoire") @DecimalMin(value = "100000", message = "La valorisation minimum est de 100 000 FCFA") @Schema(example = "100000000", description = "Valorisation totale du projet") BigDecimal valuation,
 
-                @NotNull(message = "La durée est obligatoire") @Min(value = 1, message = "La durée minimum est de 1 mois") @Max(value = 240, message = "La durée maximum est de 240 mois") @Schema(example = "36", description = "Durée du projet en mois") Integer dureeMois,
+                @Min(value = 1, message = "La durée minimum est de 1 mois") @Max(value = 240, message = "La durée maximum est de 240 mois") @Schema(example = "36", description = "Durée du projet en mois — laisser vide pour une durée indéterminée") Integer dureeMois,
 
                 @Schema(example = "XOF", description = "Code de la devise (ISO 4217)") String currencyCode,
 
@@ -37,7 +36,5 @@ public record ProjetCreateDTO(
 
                @NotNull(message = "La date de début est obligatoire") @Schema(example = "2026-06-01") LocalDate dateDebut,
 
-                @NotNull(message = "La date de fin est obligatoire") @Schema(example = "2026-12-31") LocalDate dateFin,
-
-                @Schema(hidden = true) LocalDateTime certifiedAt) {
+                @NotNull(message = "La date de fin est obligatoire") @Schema(example = "2026-12-31") LocalDate dateFin) {
 }
