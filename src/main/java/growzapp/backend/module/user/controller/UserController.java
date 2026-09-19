@@ -141,7 +141,20 @@ public class UserController {
                             }
                             userRepository.save(userEntity);
                     }
-                    throw ex;
+
+                    // On sait déjà, avant même d'appeler authenticationManager, si le
+                    // login existe (userEntity a été chargé plus haut) — l'échec ne
+                    // peut donc venir que de là (compte introuvable) ou du mot de
+                    // passe. Choix produit explicite : afficher l'erreur sous le
+                    // champ concerné plutôt qu'un message générique anti-énumération.
+                    String field = userEntity == null ? "login" : "password";
+                    String message = userEntity == null
+                                    ? "Identifiant introuvable"
+                                    : "Mot de passe incorrect";
+                    return ResponseEntity.status(401).body(Map.of(
+                                    "success", false,
+                                    "field", field,
+                                    "error", message));
             }
     }
 
