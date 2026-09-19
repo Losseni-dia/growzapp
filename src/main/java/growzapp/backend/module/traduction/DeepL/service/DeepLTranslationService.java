@@ -5,8 +5,12 @@ import com.deepl.api.DeepLException;
 import com.deepl.api.TextResult;
 import com.deepl.api.Translator;
 import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.referentiel.model.Secteur;
+import growzapp.backend.module.referentiel.repository.SecteurRepository;
 import growzapp.backend.module.traduction.DeepL.model.ProjetTraduction;
+import growzapp.backend.module.traduction.DeepL.model.SecteurTraduction;
 import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
+import growzapp.backend.module.traduction.DeepL.repository.SecteurTraductionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +25,8 @@ import java.util.List;
 public class DeepLTranslationService {
 
     private final ProjetTraductionRepository traductionRepository;
+    private final SecteurTraductionRepository secteurTraductionRepository;
+    private final SecteurRepository secteurRepository;
 
     @Value("${deepl.api-key}")
     private String deeplApiKey;
@@ -67,10 +73,79 @@ public class DeepLTranslationService {
                 }
             }
 
+            // Le secteur est un champ libre (créé à la volée par le porteur,
+            // pas une liste fermée), donc jamais couvert par le dictionnaire
+            // i18n statique — traduit une fois pour tout le secteur (partagé
+            // par tous les projets), pas dupliqué par projet.
+            if (projet.getSecteur() != null) {
+                traduireSecteur(translator, projet.getSecteur());
+            }
+
         } catch (Exception e) {
             log.error("Erreur initialisation DeepL pour projet {} : {}",
                     projet.getId(), e.getMessage());
         }
+    }
+
+    /**
+     * Traduit le nom d'un secteur (une fois, partagé par tous les projets de
+     * ce secteur) et sauvegarde le résultat. Idempotent — écrase la
+     * traduction existante si le nom du secteur a changé.
+     */
+    @Transactional
+    public void traduireSecteur(Secteur secteur) {
+        try {
+            com.deepl.api.TranslatorOptions options = new com.deepl.api.TranslatorOptions()
+                    .setServerUrl(deeplBaseUrl);
+            Translator translator = new Translator(deeplApiKey, options);
+            traduireSecteur(translator, secteur);
+        } catch (Exception e) {
+            log.error("Erreur initialisation DeepL pour secteur {} : {}", secteur.getId(), e.getMessage());
+        }
+    }
+
+    private void traduireSecteur(Translator translator, Secteur secteur) {
+        saveSecteurTraduction(secteur, "fr", secteur.getNom());
+        for (String targetLang : TARGET_LANGUAGES) {
+            try {
+                String nomTradu = translate(translator, secteur.getNom(), targetLang);
+                String langCode = DEEPL_LANG_MAP.get(targetLang);
+                saveSecteurTraduction(secteur, langCode, nomTradu.isBlank() ? secteur.getNom() : nomTradu);
+                log.info("Secteur {} ({}) traduit en {}", secteur.getId(), secteur.getNom(), langCode);
+            } catch (Exception e) {
+                log.error("Erreur traduction secteur {} en {} : {}",
+                        secteur.getId(), targetLang, e.getMessage());
+            }
+        }
+    }
+
+    private void saveSecteurTraduction(Secteur secteur, String langue, String nom) {
+        SecteurTraduction traduction = secteurTraductionRepository
+                .findBySecteurIdAndLangue(secteur.getId(), langue)
+                .orElse(new SecteurTraduction());
+        traduction.setSecteur(secteur);
+        traduction.setLangue(langue);
+        traduction.setNom(nom);
+        secteurTraductionRepository.save(traduction);
+    }
+
+    /**
+     * Retraduit tous les secteurs existants en base — à utiliser en backfill
+     * après ajout de cette fonctionnalité, ou en maintenance ponctuelle.
+     */
+    @Transactional
+    public int traduireTousLesSecteurs() {
+        List<Secteur> secteurs = secteurRepository.findAll();
+        int count = 0;
+        for (Secteur secteur : secteurs) {
+            try {
+                traduireSecteur(secteur);
+                count++;
+            } catch (Exception e) {
+                log.warn("Erreur traduction secteur {} : {}", secteur.getId(), e.getMessage());
+            }
+        }
+        return count;
     }
 
     /**

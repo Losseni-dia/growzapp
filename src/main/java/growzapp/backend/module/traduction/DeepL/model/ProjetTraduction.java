@@ -31,7 +31,6 @@ public class ProjetTraduction {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-
     public ProjetTraduction(Long id, String langue, String libelle, String description) {
         this.id = id;
         this.langue = langue;
