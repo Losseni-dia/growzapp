@@ -169,11 +169,13 @@ public class ContratRestController {
             @Parameter(description = "Numéro officiel du contrat", example = "CONTRAT-2025-00015", required = true)
             @PathVariable String numero,
             @Parameter(description = "Langue du contrat généré", example = "fr", schema = @Schema(allowableValues = {"fr", "en", "es"}))
-            @RequestParam(defaultValue = "fr") String lang) throws Exception {
+            @RequestParam(defaultValue = "fr") String lang,
+            @Parameter(description = "Devise d'affichage des montants", example = "XOF")
+            @RequestParam(defaultValue = "XOF") String currency) throws Exception {
         Contrat contrat = contratService.trouverParNumero(numero);
         if (!contratService.utilisateurPeutVoirContrat(contrat))
             throw new AccessDeniedException("Accès refusé.");
-        byte[] pdf = contratService.genererPdf(contrat, lang);
+        byte[] pdf = contratService.genererPdf(contrat, lang, currency);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"Contrat_" + numero + ".pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
@@ -202,11 +204,13 @@ public class ContratRestController {
             @Parameter(description = "true = affichage inline, false = téléchargement forcé", example = "false")
             @RequestParam(defaultValue = "false") boolean view,
             @Parameter(description = "Langue du document", example = "fr", schema = @Schema(allowableValues = {"fr", "en", "es"}))
-            @RequestParam(defaultValue = "fr") String lang) throws Exception {
+            @RequestParam(defaultValue = "fr") String lang,
+            @Parameter(description = "Devise d'affichage des montants", example = "XOF")
+            @RequestParam(defaultValue = "XOF") String currency) throws Exception {
         Contrat contrat = contratService.trouverParNumero(numero);
         if (!contratService.utilisateurPeutVoirContrat(contrat))
             throw new AccessDeniedException("Accès refusé.");
-        byte[] pdf = contratService.genererPdf(contrat, lang);
+        byte[] pdf = contratService.genererPdf(contrat, lang, currency);
         String disp = view ? "inline" : "attachment";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disp + "; filename=\"Contrat_" + numero + ".pdf\"")
@@ -276,15 +280,34 @@ public class ContratRestController {
             @Parameter(description = "Date de fin (yyyy-MM-dd)")
             @RequestParam(required = false) String dateFin,
             @Parameter(description = "Statut de l'investissement lié (EN_ATTENTE, VALIDE, ANNULE)")
-            @RequestParam(required = false) String statut) {
+            @RequestParam(required = false) String statut,
+            @Parameter(description = "true pour afficher uniquement les contrats archivés")
+            @RequestParam(required = false, defaultValue = "false") boolean archive) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("dateGeneration").descending());
         Page<ContratAdminDTO> resultats = contratService.rechercherAdminDTO(
-                search, dateDebut, dateFin, statut, pageable);
+                search, dateDebut, dateFin, statut, archive, pageable);
         return ResponseEntity.ok(Map.of(
                 "contrats", resultats.getContent(),
                 "totalPages", resultats.getTotalPages(),
                 "totalElements", resultats.getTotalElements(),
                 "page", resultats.getNumber()));
+    }
+
+    @PostMapping("/admin/{id}/archiver")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[Admin] Archiver un contrat", description = "Masque un contrat des listes actives sans jamais le supprimer (document légal). Réversible via /desarchiver.", tags = {"Contrats"})
+    public ResponseEntity<?> archiverContrat(@PathVariable Long id,
+            org.springframework.security.core.Authentication authentication) {
+        contratService.archiver(id, authentication.getName());
+        return ResponseEntity.ok(ApiResponseDTO.<String>success(null).message("Contrat archivé"));
+    }
+
+    @PostMapping("/admin/{id}/desarchiver")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[Admin] Désarchiver un contrat", tags = {"Contrats"})
+    public ResponseEntity<?> desarchiverContrat(@PathVariable Long id) {
+        contratService.desarchiver(id);
+        return ResponseEntity.ok(ApiResponseDTO.<String>success(null).message("Contrat désarchivé"));
     }
 
     private ResponseEntity<?> handleFailedAttempt(String email) {

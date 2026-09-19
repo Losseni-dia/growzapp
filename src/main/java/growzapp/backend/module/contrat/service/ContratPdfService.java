@@ -9,6 +9,7 @@ import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import com.lowagie.text.DocumentException;
 
+import growzapp.backend.module.exchangerate.service.CurrencyService;
 import growzapp.backend.module.investissement.model.Investissement;
 
 import java.io.ByteArrayOutputStream;
@@ -21,16 +22,25 @@ import java.util.Locale;
 public class ContratPdfService {
 
     private final TemplateEngine templateEngine;
+    private final CurrencyService currencyService;
 
     public byte[] genererContratInvestissement(Investissement investissement, String numeroContrat, byte[] qrCodePng)
             throws IOException, DocumentException {
-        return genererContratInvestissement(investissement, numeroContrat, qrCodePng, Locale.FRENCH);
+        return genererContratInvestissement(investissement, numeroContrat, qrCodePng, Locale.FRENCH, "XOF");
     }
 
     public byte[] genererContratInvestissement(Investissement investissement,
             String numeroContrat,
             byte[] qrCodePng,
             Locale locale) throws IOException, DocumentException {
+        return genererContratInvestissement(investissement, numeroContrat, qrCodePng, locale, "XOF");
+    }
+
+    public byte[] genererContratInvestissement(Investissement investissement,
+            String numeroContrat,
+            byte[] qrCodePng,
+            Locale locale,
+            String devise) throws IOException, DocumentException {
 
         Context context = new Context(locale);
 
@@ -46,6 +56,14 @@ public class ContratPdfService {
 
         String descriptionSafe = cleanForXml(investissement.getProjet().getDescription());
         context.setVariable("safeDescription", descriptionSafe);
+
+        context.setVariable("deviseLabel", currencyService.getLabel(devise));
+        context.setVariable("montantInvestiValue",
+                currencyService.formatAmountValue(investissement.getMontantInvesti(), devise));
+        context.setVariable("prixUnePartFormatted",
+                currencyService.format(investissement.getProjet().getPrixUnePart(), devise));
+        context.setVariable("valeurTotaleFormatted",
+                currencyService.format(investissement.getProjet().getObjectifFinancement(), devise));
 
         if (qrCodePng != null) {
             String qrCodeBase64 = Base64.getEncoder().encodeToString(qrCodePng);

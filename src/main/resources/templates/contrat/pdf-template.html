@@ -351,7 +351,6 @@
             color: white;
             padding: 3mm 12mm;
             font-size: 8pt;
-            display: table;
             width: 100%;
         }
 
@@ -422,17 +421,21 @@
         <table>
             <tr>
                 <td style="width:65%">
-                    <div class="header-title">CONTRAT<br />D'INVESTISSEMENT</div>
-                    <div class="header-subtitle" th:text="${'PARTICIPATION — ' + investissement.projet.libelle}">
+                    <div class="header-title" th:utext="#{contract.page.title}">CONTRAT<br />D'INVESTISSEMENT</div>
+                    <div class="header-subtitle"
+                        th:text="${#messages.msg('contract.header.subtitle_prefix') + ' ' + investissement.projet.libelle}">
                         PARTICIPATION AU CAPITAL — GROWZAPP</div>
                 </td>
                 <td style="width:35%; vertical-align:top; padding-top:4mm">
                     <div class="ref-box">
-                        <strong>RÉFÉRENCE :</strong> <span th:text="${numeroContrat}">CTR-2026-000001</span><br />
-                        <strong>DATE :</strong>
+                        <strong th:text="#{contract.ref.label}">RÉFÉRENCE</strong> : <span
+                            th:text="${numeroContrat}">CTR-2026-000001</span><br />
+                        <strong th:text="#{contract.date.label}">DATE</strong> :
                         <span
                             th:text="${contrat != null ? #temporals.format(contrat.dateGeneration,'dd/MM/yyyy') : #temporals.format(#temporals.createNow(),'dd/MM/yyyy')}">01/01/2026</span><br />
-                        <strong>STATUT :</strong> <span style="color:#FFC107; font-weight:bold">VALIDÉ &amp; PAYÉ</span>
+                        <strong th:text="#{contract.status.label}">STATUT</strong> : <span
+                            style="color:#FFC107; font-weight:bold" th:text="#{contract.status.value}">VALIDÉ &amp;
+                            PAYÉ</span>
                     </div>
                 </td>
             </tr>
@@ -441,7 +444,7 @@
 
     <div class="body-content">
 
-        <div class="intro-text">
+        <div class="intro-text" th:utext="#{contract.intro}">
             Le présent contrat formalise l'accord d'investissement conclu entre la société <strong>GrowzApp
                 S.A.R.L</strong>,
             plateforme de financement participatif agréée, et l'investisseur soussigné, conformément aux dispositions de
@@ -456,85 +459,94 @@
                 <td class="col-left">
 
                     <div class="summary-box">
-                        <h3>👤 L'INVESTISSEUR</h3>
+                        <h3 th:text="#{contract.investor.title}">👤 L'INVESTISSEUR</h3>
                         <table class="summary-table">
                             <tr>
-                                <td class="label">Nom complet</td>
+                                <td class="label" th:text="#{contract.label.fullname}">Nom complet</td>
                                 <td class="value"
                                     th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">
                                     Losseni Diakité</td>
                             </tr>
                             <tr>
-                                <td class="label">Email</td>
+                                <td class="label" th:text="#{contract.label.email}">Email</td>
                                 <td class="value" th:text="${investissement.investisseur.email}">email@ex.com</td>
                             </tr>
                             <tr>
-                                <td class="label">ID Compte</td>
+                                <td class="label" th:text="#{contract.label.account_id}">ID Compte</td>
                                 <td class="value" th:text="${'USR-' + investissement.investisseur.id}">USR-1</td>
                             </tr>
                             <tr>
-                                <td class="label">Téléphone</td>
-                                <td class="value" th:text="${investissement.investisseur.contact ?: 'N/A'}">—</td>
-                            </tr>
-                            <tr>
-                                <td class="label">Date de naissance</td>
+                                <td class="label" th:text="#{contract.label.phone}">Téléphone</td>
                                 <td class="value"
-                                    th:text="${investissement.investisseur.dateNaissance != null ? #temporals.format(investissement.investisseur.dateNaissance, 'dd/MM/yyyy') : 'N/A'}">
+                                    th:text="${investissement.investisseur.contact ?: #messages.msg('contract.value.na')}">
                                     —</td>
                             </tr>
                             <tr>
-                                <td class="label">Adresse</td>
+                                <td class="label" th:text="#{contract.label.birthdate}">Date de naissance</td>
                                 <td class="value"
-                                    th:text="${investissement.investisseur.adresseResidencielle ?: 'N/A'}">—</td>
+                                    th:text="${investissement.investisseur.dateNaissance != null ? #temporals.format(investissement.investisseur.dateNaissance, 'dd/MM/yyyy') : #messages.msg('contract.value.na')}">
+                                    —</td>
                             </tr>
                             <tr>
-                                <td class="label">Statut KYC</td>
-                                <td class="value" th:text="${investissement.investisseur.kycStatus ?: 'N/A'}">—</td>
+                                <td class="label" th:text="#{contract.label.address}">Adresse</td>
+                                <td class="value"
+                                    th:text="${investissement.investisseur.adresseResidencielle ?: #messages.msg('contract.value.na')}">
+                                    —</td>
+                            </tr>
+                            <tr>
+                                <td class="label" th:text="#{contract.label.kyc_status}">Statut KYC</td>
+                                <td class="value"
+                                    th:text="${investissement.investisseur.kycStatus ?: #messages.msg('contract.value.na')}">
+                                    —</td>
                             </tr>
                         </table>
                     </div>
 
                     <div class="summary-box">
-                        <h3>🌱 LE PROJET</h3>
+                        <h3 th:text="#{contract.project.title}">🌱 LE PROJET</h3>
                         <table class="summary-table">
                             <tr>
-                                <td class="label">Libellé</td>
+                                <td class="label" th:text="#{contract.label.project_name}">Libellé</td>
                                 <td class="value" th:text="${investissement.projet.libelle}">Projet X</td>
                             </tr>
                             <tr>
-                                <td class="label">Secteur</td>
-                                <td class="value" th:text="${investissement.projet.secteur?.nom ?: 'N/A'}">Agriculture
+                                <td class="label" th:text="#{contract.label.sector}">Secteur</td>
+                                <td class="value"
+                                    th:text="${investissement.projet.secteur?.nom ?: #messages.msg('contract.value.na')}">
+                                    Agriculture
                                 </td>
                             </tr>
                             <tr>
-                                <td class="label">Durée</td>
-                                <td class="value"><span th:text="${investissement.projet.dureeMois}">36</span> mois</td>
+                                <td class="label" th:text="#{contract.label.duration}">Durée</td>
+                                <td class="value"><span th:text="${investissement.projet.dureeMois}">36</span> <span
+                                        th:text="#{contract.unit.months}">mois</span></td>
                             </tr>
                             <tr>
-                                <td class="label">Localisation</td>
-                                <td class="value" th:text="${investissement.projet.siteProjet?.localite?.nom ?: 'N/A'}">
+                                <td class="label" th:text="#{contract.label.location}">Localisation</td>
+                                <td class="value"
+                                    th:text="${investissement.projet.siteProjet?.localite?.nom ?: #messages.msg('contract.value.na')}">
                                     Abidjan</td>
                             </tr>
                             <tr>
-                                <td class="label">ROI projeté</td>
+                                <td class="label" th:text="#{contract.label.roi}">ROI projeté</td>
                                 <td class="value" th:text="${investissement.projet.roiProjete + ' %'}">15 %</td>
                             </tr>
                         </table>
                     </div>
 
                     <div class="summary-box">
-                        <h3>🏢 LE PORTEUR</h3>
+                        <h3 th:text="#{contract.porteur.title}">🏢 LE PORTEUR</h3>
                         <table class="summary-table">
                             <tr>
-                                <td class="label">Porteur de projet</td>
+                                <td class="label" th:text="#{contract.label.porteur}">Porteur de projet</td>
                                 <td class="value"
-                                    th:text="${investissement.projet.porteur != null ? (investissement.projet.porteur.prenom + ' ' + investissement.projet.porteur.nom) : 'N/A'}">
+                                    th:text="${investissement.projet.porteur != null ? (investissement.projet.porteur.prenom + ' ' + investissement.projet.porteur.nom) : #messages.msg('contract.value.na')}">
                                     N/A</td>
                             </tr>
                             <tr>
-                                <td class="label">Email porteur</td>
+                                <td class="label" th:text="#{contract.label.porteur_email}">Email porteur</td>
                                 <td class="value"
-                                    th:text="${investissement.projet.porteur != null ? investissement.projet.porteur.email : 'N/A'}">
+                                    th:text="${investissement.projet.porteur != null ? investissement.projet.porteur.email : #messages.msg('contract.value.na')}">
                                     N/A</td>
                             </tr>
                         </table>
@@ -544,70 +556,73 @@
                 <td class="col-right">
 
                     <div class="finance-box" style="height: 100%;">
-                        <h3 style="color:#f57f17; text-align:center; margin-top:0">💰 DÉTAILS FINANCIERS</h3>
+                        <h3 style="color:#f57f17; text-align:center; margin-top:0"
+                            th:text="#{contract.finance.title}">💰 DÉTAILS FINANCIERS</h3>
 
                         <div class="highlight-amount">
-                            <div class="amount-label">MONTANT INVESTI</div>
+                            <div class="amount-label" th:text="#{contract.label.invested_amount}">MONTANT INVESTI
+                            </div>
                             <div class="amount-value">
-                                <span
-                                    th:text="${#numbers.formatDecimal(investissement.montantInvesti,0,'DEFAULT',0,'DEFAULT')}">500
+                                <span th:text="${montantInvestiValue}">500
                                     000</span>
-                                <span class="amount-currency"> FCFA</span>
+                                <span class="amount-currency" th:text="${' ' + deviseLabel}"> FCFA</span>
                             </div>
                         </div>
 
                         <table class="summary-table">
                             <tr>
-                                <td class="label">Nombre de parts</td>
+                                <td class="label" th:text="#{contract.label.shares_count}">Nombre de parts</td>
                                 <td class="value" th:text="${investissement.nombrePartsPris}">10</td>
                             </tr>
                             <tr>
-                                <td class="label">Prix unitaire</td>
-                                <td class="value"
-                                    th:text="${#numbers.formatDecimal(investissement.projet.prixUnePart,0,'DEFAULT',0,'DEFAULT') + ' FCFA'}">
+                                <td class="label" th:text="#{contract.label.unit_price}">Prix unitaire</td>
+                                <td class="value" th:text="${prixUnePartFormatted}">
                                     50 000 FCFA</td>
                             </tr>
                             <tr>
-                                <td class="label">Valeur totale projet</td>
-                                <td class="value"
-                                    th:text="${#numbers.formatDecimal(investissement.projet.objectifFinancement,0,'DEFAULT',0,'DEFAULT') + ' FCFA'}">
+                                <td class="label" th:text="#{contract.label.total_value}">Valeur totale projet</td>
+                                <td class="value" th:text="${valeurTotaleFormatted}">
                                     N/A</td>
                             </tr>
                             <tr>
-                                <td class="label">Équité acquise</td>
+                                <td class="label" th:text="#{contract.label.equity}">Équité acquise</td>
                                 <td class="value" th:text="${investissement.valeurPartsPrisEnPourcent + ' %'}">2.5 %
                                 </td>
                             </tr>
                             <tr>
-                                <td class="label">ROI annuel projeté</td>
+                                <td class="label" th:text="#{contract.label.annual_roi}">ROI annuel projeté</td>
                                 <td class="value" th:text="${investissement.projet.roiProjete + ' %'}">15 %</td>
                             </tr>
                             <tr>
-                                <td class="label">Durée engagement</td>
-                                <td class="value"><span th:text="${investissement.projet.dureeMois}">36</span> mois</td>
+                                <td class="label" th:text="#{contract.label.commitment_duration}">Durée engagement</td>
+                                <td class="value"><span th:text="${investissement.projet.dureeMois}">36</span> <span
+                                        th:text="#{contract.unit.months}">mois</span></td>
                             </tr>
                             <tr>
-                                <td class="label" style="color:#2E7D32">STATUT</td>
-                                <td class="value" style="color:#1B5E20">VALIDÉ &amp; PAYÉ ✓</td>
+                                <td class="label" style="color:#2E7D32" th:text="#{contract.label.status}">STATUT</td>
+                                <td class="value" style="color:#1B5E20" th:text="#{contract.status.paid_check}">VALIDÉ
+                                    &amp; PAYÉ ✓</td>
                             </tr>
                         </table>
 
                         <div class="info-box" style="margin-top:10px">
-                            <strong>📅 Calendrier prévisionnel</strong><br />
+                            <strong th:text="#{contract.calendar.title}">📅 Calendrier prévisionnel</strong><br />
                             <span style="font-size:7.5pt">
-                                Début : <span
-                                    th:text="${investissement.projet.dateDebut != null ? #temporals.format(investissement.projet.dateDebut,'dd/MM/yyyy') : 'À définir'}">À
+                                <span th:text="#{contract.calendar.start}">Début :</span> <span
+                                    th:text="${investissement.projet.dateDebut != null ? #temporals.format(investissement.projet.dateDebut,'dd/MM/yyyy') : #messages.msg('contract.calendar.tbd')}">À
                                     définir</span><br />
-                                Fin : <span
-                                    th:text="${investissement.projet.dateFin != null ? #temporals.format(investissement.projet.dateFin,'dd/MM/yyyy') : 'À définir'}">À
+                                <span th:text="#{contract.calendar.end}">Fin :</span> <span
+                                    th:text="${investissement.projet.dateFin != null ? #temporals.format(investissement.projet.dateFin,'dd/MM/yyyy') : #messages.msg('contract.calendar.tbd')}">À
                                     définir</span><br />
-                                1er dividende estimé : M+12 après validation projet
+                                <span th:text="#{contract.calendar.first_dividend}">1er dividende estimé : M+12 après
+                                    validation projet</span>
                             </span>
                         </div>
 
                         <div class="warning-box">
-                            <strong>⚠ Avertissement risque</strong><br />
-                            <span style="font-size:7.5pt">Tout investissement comporte des risques.
+                            <strong th:text="#{contract.warning.title}">⚠ Avertissement risque</strong><br />
+                            <span style="font-size:7.5pt" th:text="#{contract.warning.text}">Tout investissement
+                                comporte des risques.
                                 Les performances passées ne préjugent pas des performances futures.
                                 Le capital investi peut ne pas être intégralement restitué.</span>
                         </div>
@@ -619,34 +634,36 @@
 
         <!-- Signature page 1 abrégée -->
         <div class="signature-section">
-            <div class="signature-title">IDENTIFICATION DES PARTIES — ENGAGEMENT PRÉLIMINAIRE</div>
+            <div class="signature-title" th:text="#{contract.sig1.title}">IDENTIFICATION DES PARTIES — ENGAGEMENT
+                PRÉLIMINAIRE</div>
             <table class="two-col">
                 <tr>
                     <td class="sig-col" style="width:33%">
-                        <div class="sig-role">L'Investisseur</div>
-                        <div class="stamp">SIGNÉ NUMÉRIQUEMENT</div>
+                        <div class="sig-role" th:text="#{contract.sig.investor_role}">L'Investisseur</div>
+                        <div class="stamp" th:text="#{contract.sig.signed_digitally}">SIGNÉ NUMÉRIQUEMENT</div>
                         <div class="sig-line"></div>
                         <div class="sig-name"
                             th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">Nom
                             Prénom</div>
                         <div style="font-size:7pt; color:#888; margin-top:2px">
-                            Date : <span
+                            <span th:text="#{contract.sig.date_label}">Date :</span> <span
                                 th:text="${contrat != null ? #temporals.format(contrat.dateGeneration,'dd/MM/yyyy') : #temporals.format(#temporals.createNow(),'dd/MM/yyyy')}">—</span>
                         </div>
                     </td>
                     <td style="width:33%; text-align:center; vertical-align:middle">
                         <img th:if="${qrCodeBase64 != null}" th:src="@{'data:image/png;base64,' + ${qrCodeBase64}}"
                             width="80" height="80" alt="QR Code" />
-                        <div style="font-size:6pt; color:#999; margin-top:2px">Scannez pour vérifier l'authenticité
+                        <div style="font-size:6pt; color:#999; margin-top:2px" th:text="#{contract.sig.qr_hint}">
+                            Scannez pour vérifier l'authenticité
                         </div>
                         <div style="font-size:6.5pt; color:#1B5E20; margin-top:3px" th:text="${numeroContrat}">CTR-REF
                         </div>
                     </td>
                     <td class="sig-col" style="width:33%">
-                        <div class="sig-role">Pour GrowzApp</div>
-                        <div class="stamp stamp-growz">CERTIFIÉ CONFORME</div>
+                        <div class="sig-role" th:text="#{contract.sig.growzapp_role}">Pour GrowzApp</div>
+                        <div class="stamp stamp-growz" th:text="#{contract.sig.certified}">CERTIFIÉ CONFORME</div>
                         <div class="sig-line"></div>
-                        <div class="sig-name">La Direction Générale</div>
+                        <div class="sig-name" th:text="#{contract.sig.direction}">La Direction Générale</div>
                         <div style="font-size:7pt; color:#888; margin-top:2px">GrowzApp S.A.R.L — RC:
                             CI-ABJ-2025-B-12345</div>
                     </td>
@@ -658,7 +675,8 @@
 
     <div class="footer">
         GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire — RC: CI-ABJ-2025-B-12345 — contact@growzapp.ci<br />
-        Document généré électroniquement — Réf. <span th:text="${numeroContrat}">CTR</span> — Page 1/3
+        <span th:text="#{contract.footer.notice}">Document généré électroniquement — Réf.</span> <span
+            th:text="${numeroContrat}">CTR</span> — <span th:text="#{contract.footer.page}">Page</span> 1/3
     </div>
 
     <div class="page-break"></div>
@@ -670,9 +688,12 @@
     <div class="page-header-mini">
         <table style="width:100%; border-collapse:collapse">
             <tr>
-                <td style="color:white; font-weight:bold; font-size:9pt">GrowzApp — Contrat d'Investissement</td>
+                <td style="color:white; font-weight:bold; font-size:9pt" th:text="#{contract.mini_header.title}">
+                    GrowzApp — Contrat d'Investissement</td>
                 <td style="text-align:right; color:#FFC107; font-size:8pt">
-                    Réf. <span th:text="${numeroContrat}">CTR</span> · Page 2/3
+                    <span th:text="#{contract.mini_header.ref}">Réf.</span> <span
+                        th:text="${numeroContrat}">CTR</span> · <span th:text="#{contract.mini_header.page2}">Page
+                        2/3</span>
                 </td>
             </tr>
         </table>
@@ -680,121 +701,148 @@
 
     <div class="body-content">
 
-        <h2>📋 CONDITIONS GÉNÉRALES D'INVESTISSEMENT</h2>
+        <h2 th:text="#{contract.section.general_conditions}">📋 CONDITIONS GÉNÉRALES D'INVESTISSEMENT</h2>
 
         <!-- Article 1 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 1 —</span> OBJET ET NATURE DU CONTRAT</div>
+            <div class="article-title"><span class="art-num">Art. 1 —</span> <span
+                    th:text="#{contract.art1.title}">OBJET ET NATURE DU CONTRAT</span></div>
             <div class="article-content">
-                <p>Le présent contrat a pour objet la prise de participation de l'Investisseur au capital du Projet
+                <p th:utext="#{contract.art1.p1}">Le présent contrat a pour objet la prise de participation de
+                    l'Investisseur au capital du Projet
                     désigné
                     ci-dessus, via la plateforme GrowzApp, opérateur de financement participatif en capital (<em>equity
                         crowdfunding</em>).</p>
-                <p>Cette participation confère à l'Investisseur le statut d'associé minoritaire, avec les droits et
+                <p th:utext="#{contract.art1.p2}">Cette participation confère à l'Investisseur le statut d'associé
+                    minoritaire, avec les droits et
                     obligations
                     afférents tels que définis par l'<strong>Acte Uniforme OHADA sur les Sociétés Commerciales et le
                         Groupement
                         d'Intérêt Économique (AUSCGIE)</strong>, notamment en ses articles 7, 45, 50 et 853 et suivants.
                 </p>
-                <div class="ohada-ref">📖 Référence légale : AUSCGIE, Art. 50 — Acte Uniforme révisé le 30 janvier 2014,
+                <div class="ohada-ref" th:utext="#{contract.art1.ref}">📖 Référence légale : AUSCGIE, Art. 50 — Acte
+                    Uniforme révisé le 30 janvier 2014,
                     OHADA</div>
             </div>
         </div>
 
         <!-- Article 2 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 2 —</span> PROPRIÉTÉ DES PARTS ET TRANSFERT DE
-                PROPRIÉTÉ</div>
+            <div class="article-title"><span class="art-num">Art. 2 —</span> <span
+                    th:text="#{contract.art2.title}">PROPRIÉTÉ DES PARTS ET TRANSFERT DE
+                    PROPRIÉTÉ</span></div>
             <div class="article-content">
-                <p>L'Investisseur devient propriétaire des parts sociales susmentionnées dès la confirmation du paiement
+                <p th:utext="#{contract.art2.p1}">L'Investisseur devient propriétaire des parts sociales
+                    susmentionnées dès la confirmation du paiement
                     et la
                     validation de l'investissement par GrowzApp. Cette propriété est opposable aux tiers dès son
                     inscription dans
                     le registre des associés tenu par GrowzApp conformément à l'AUSCGIE Art. 317.</p>
-                <p><strong>2.1 Droits attachés aux parts :</strong> Les parts confèrent à leur titulaire un droit
+                <p th:utext="#{contract.art2.p2}"><strong>2.1 Droits attachés aux parts :</strong> Les parts confèrent
+                    à leur titulaire un droit
                     proportionnel
                     aux bénéfices distribués, un droit de vote consultatif lors des assemblées annuelles du projet, et
                     un droit
                     à l'information périodique sur l'avancement du projet.</p>
-                <p><strong>2.2 Indivisibilité :</strong> Les parts sont indivisibles à l'égard de GrowzApp et du porteur
+                <p th:utext="#{contract.art2.p3}"><strong>2.2 Indivisibilité :</strong> Les parts sont indivisibles à
+                    l'égard de GrowzApp et du porteur
                     de
                     projet. En cas de pluralité de propriétaires d'une même part, ceux-ci doivent se faire représenter
                     par un
                     mandataire unique (AUSCGIE Art. 321).</p>
-                <div class="ohada-ref">📖 Référence légale : AUSCGIE, Art. 317, 321, 853 — OHADA 2014</div>
+                <div class="ohada-ref" th:utext="#{contract.art2.ref}">📖 Référence légale : AUSCGIE, Art. 317, 321,
+                    853 — OHADA 2014</div>
             </div>
         </div>
 
         <!-- Article 3 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 3 —</span> SÉQUESTRE ET BLOCAGE DES FONDS</div>
+            <div class="article-title"><span class="art-num">Art. 3 —</span> <span
+                    th:text="#{contract.art3.title}">SÉQUESTRE ET BLOCAGE DES FONDS</span></div>
             <div class="article-content">
-                <p>Les fonds investis sont immédiatement sécurisés dans un compte séquestre dédié, distinct des fonds
+                <p th:utext="#{contract.art3.p1}">Les fonds investis sont immédiatement sécurisés dans un compte
+                    séquestre dédié, distinct des fonds
                     propres
                     de GrowzApp, conformément aux exigences de la <strong>BCEAO</strong> en matière de protection des
                     fonds
                     des utilisateurs de monnaie électronique (Instruction BCEAO N°008-05-2015 et suivantes).</p>
-                <p>Les fonds sont débloqués vers le porteur de projet selon un calendrier de jalons (milestones) validés
+                <p th:utext="#{contract.art3.p2}">Les fonds sont débloqués vers le porteur de projet selon un
+                    calendrier de jalons (milestones) validés
                     par
                     l'équipe d'expertise GrowzApp. En cas de non-atteinte des objectifs de levée de fonds dans le délai
                     imparti,
                     les fonds sont intégralement restitués à l'Investisseur sans frais.</p>
-                <p><strong>3.1 Garantie de restitution :</strong> GrowzApp s'engage à restituer les fonds de
+                <p th:utext="#{contract.art3.p3}"><strong>3.1 Garantie de restitution :</strong> GrowzApp s'engage à
+                    restituer les fonds de
                     l'Investisseur
                     dans un délai de 5 jours ouvrés si l'objectif de financement n'est pas atteint à l'échéance fixée.
                 </p>
-                <div class="ohada-ref">📖 Référence légale : Instruction BCEAO N°008-05-2015 sur la monnaie électronique
+                <div class="ohada-ref" th:utext="#{contract.art3.ref}">📖 Référence légale : Instruction BCEAO
+                    N°008-05-2015 sur la monnaie électronique
                     — Règlement UEMOA N°15/2002/CM/UEMOA</div>
             </div>
         </div>
 
         <!-- Article 4 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 4 —</span> DISTRIBUTION DES DIVIDENDES ET BÉNÉFICES
+            <div class="article-title"><span class="art-num">Art. 4 —</span> <span
+                    th:text="#{contract.art4.title}">DISTRIBUTION DES DIVIDENDES ET BÉNÉFICES</span>
             </div>
             <div class="article-content">
-                <p>Les dividendes sont calculés au prorata des parts détenues par l'Investisseur et distribués
+                <p th:utext="#{contract.art4.p1}">Les dividendes sont calculés au prorata des parts détenues par
+                    l'Investisseur et distribués
                     annuellement,
                     après clôture et validation de l'exercice comptable du projet par un auditeur indépendant agréé.</p>
-                <p><strong>4.1 Modalités de distribution :</strong> Les dividendes sont versés sur le Wallet GrowzApp de
+                <p th:utext="#{contract.art4.p2}"><strong>4.1 Modalités de distribution :</strong> Les dividendes sont
+                    versés sur le Wallet GrowzApp de
                     l'Investisseur, puis retirables via les moyens de paiement disponibles sur la plateforme (Orange
                     Money,
                     MTN Mobile Money, Wave, virement bancaire).</p>
-                <p><strong>4.2 Fiscalité :</strong> Les dividendes perçus sont soumis aux impositions en vigueur en
+                <p th:utext="#{contract.art4.p3}"><strong>4.2 Fiscalité :</strong> Les dividendes perçus sont soumis
+                    aux impositions en vigueur en
                     Côte d'Ivoire et dans l'espace UEMOA. L'Investisseur est responsable de la déclaration de ses
                     revenus
                     conformément à la législation fiscale de son pays de résidence. GrowzApp peut émettre une
                     attestation
                     fiscale sur demande.</p>
-                <p><strong>4.3 Prélèvement à la source :</strong> Conformément au Code Général des Impôts ivoirien,
+                <p th:utext="#{contract.art4.p4}"><strong>4.3 Prélèvement à la source :</strong> Conformément au Code
+                    Général des Impôts ivoirien,
                     un précompte sur dividendes de 15% peut s'appliquer pour les investisseurs résidents, et de 18% pour
                     les non-résidents, sauf convention fiscale bilatérale applicable.</p>
-                <div class="ohada-ref">📖 Référence légale : AUSCGIE Art. 144 (distribution bénéfices) — Code Général
+                <div class="ohada-ref" th:utext="#{contract.art4.ref}">📖 Référence légale : AUSCGIE Art. 144
+                    (distribution bénéfices) — Code Général
                     des Impôts CI, Art. 95 — Directive UEMOA N°001/2008</div>
             </div>
         </div>
 
         <!-- Article 5 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 5 —</span> LIQUIDITÉ, CESSION ET TRANSFERT DE PARTS
+            <div class="article-title"><span class="art-num">Art. 5 —</span> <span
+                    th:text="#{contract.art5.title}">LIQUIDITÉ, CESSION ET TRANSFERT DE PARTS</span>
             </div>
             <div class="article-content">
-                <p>La revente ou le transfert des parts est soumis aux conditions suivantes, conformément aux statuts du
+                <p th:utext="#{contract.art5.p1}">La revente ou le transfert des parts est soumis aux conditions
+                    suivantes, conformément aux statuts du
                     projet et à la réglementation OHADA en vigueur :</p>
-                <p><strong>5.1 Droit de préemption :</strong> En cas de cession, les autres associés (co-investisseurs)
+                <p th:utext="#{contract.art5.p2}"><strong>5.1 Droit de préemption :</strong> En cas de cession, les
+                    autres associés (co-investisseurs)
                     disposent d'un droit de préemption prioritaire d'acquisition des parts au prix proposé, pendant 30
                     jours
                     calendaires à compter de la notification de la cession (AUSCGIE Art. 323).</p>
-                <p><strong>5.2 Tag-Along (Droit de suite) :</strong> Tout associé majoritaire cédant ses parts doit
+                <p th:utext="#{contract.art5.p3}"><strong>5.2 Tag-Along (Droit de suite) :</strong> Tout associé
+                    majoritaire cédant ses parts doit
                     offrir aux associés minoritaires (dont l'Investisseur) la possibilité de céder leurs parts aux mêmes
                     conditions (prix, acheteur, délais).</p>
-                <p><strong>5.3 Drag-Along (Droit d'entraînement) :</strong> Si les associés représentant plus de 75%
+                <p th:utext="#{contract.art5.p4}"><strong>5.3 Drag-Along (Droit d'entraînement) :</strong> Si les
+                    associés représentant plus de 75%
                     du capital décident de céder l'intégralité du projet, les associés minoritaires peuvent être
                     contraints
                     de céder leurs parts aux mêmes conditions.</p>
-                <p><strong>5.4 Durée minimale de blocage :</strong> Les parts ne peuvent être cédées avant l'expiration
+                <p th:utext="#{contract.art5.p5}"><strong>5.4 Durée minimale de blocage :</strong> Les parts ne
+                    peuvent être cédées avant l'expiration
                     d'une période minimale de 12 mois à compter de la date de validation de l'investissement.</p>
-                <div class="ohada-ref">📖 Référence légale : AUSCGIE Art. 323, 329 — AUSCGIE Art. 56 (agrément cession)
+                <div class="ohada-ref" th:utext="#{contract.art5.ref}">📖 Référence légale : AUSCGIE Art. 323, 329 —
+                    AUSCGIE Art. 56 (agrément cession)
                 </div>
             </div>
         </div>
@@ -803,7 +851,8 @@
 
     <div class="footer">
         GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire — RC: CI-ABJ-2025-B-12345 — contact@growzapp.ci<br />
-        Document généré électroniquement — Réf. <span th:text="${numeroContrat}">CTR</span> — Page 2/3
+        <span th:text="#{contract.footer.notice}">Document généré électroniquement — Réf.</span> <span
+            th:text="${numeroContrat}">CTR</span> — <span th:text="#{contract.footer.page}">Page</span> 2/3
     </div>
 
     <div class="page-break"></div>
@@ -815,9 +864,12 @@
     <div class="page-header-mini">
         <table style="width:100%; border-collapse:collapse">
             <tr>
-                <td style="color:white; font-weight:bold; font-size:9pt">GrowzApp — Contrat d'Investissement</td>
+                <td style="color:white; font-weight:bold; font-size:9pt" th:text="#{contract.mini_header.title}">
+                    GrowzApp — Contrat d'Investissement</td>
                 <td style="text-align:right; color:#FFC107; font-size:8pt">
-                    Réf. <span th:text="${numeroContrat}">CTR</span> · Page 3/3
+                    <span th:text="#{contract.mini_header.ref}">Réf.</span> <span
+                        th:text="${numeroContrat}">CTR</span> · <span th:text="#{contract.mini_header.page3}">Page
+                        3/3</span>
                 </td>
             </tr>
         </table>
@@ -827,22 +879,27 @@
 
         <!-- Article 6 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 6 —</span> OBLIGATIONS ET RESPONSABILITÉS DE GROWZAPP
+            <div class="article-title"><span class="art-num">Art. 6 —</span> <span
+                    th:text="#{contract.art6.title}">OBLIGATIONS ET RESPONSABILITÉS DE GROWZAPP</span>
             </div>
             <div class="article-content">
-                <p><strong>6.1</strong> GrowzApp s'engage à effectuer une due diligence rigoureuse sur chaque projet
+                <p th:utext="#{contract.art6.p1}"><strong>6.1</strong> GrowzApp s'engage à effectuer une due
+                    diligence rigoureuse sur chaque projet
                     présenté
                     sur la plateforme, incluant la vérification de l'identité du porteur, la viabilité économique du
                     projet et
                     la conformité réglementaire.</p>
-                <p><strong>6.2</strong> GrowzApp met à disposition de l'Investisseur des rapports d'avancement
+                <p th:utext="#{contract.art6.p2}"><strong>6.2</strong> GrowzApp met à disposition de l'Investisseur
+                    des rapports d'avancement
                     trimestriels
                     du projet, ainsi qu'un accès à un espace personnel sécurisé permettant de suivre l'évolution de son
                     portefeuille.</p>
-                <p><strong>6.3</strong> GrowzApp ne saurait être tenue responsable des aléas économiques, climatiques,
+                <p th:utext="#{contract.art6.p3}"><strong>6.3</strong> GrowzApp ne saurait être tenue responsable des
+                    aléas économiques, climatiques,
                     réglementaires ou de force majeure affectant la performance du projet, conformément à l'article 1148
                     du Code Civil ivoirien applicable par analogie.</p>
-                <p><strong>6.4 Protection des données :</strong> GrowzApp traite les données personnelles de
+                <p th:utext="#{contract.art6.p4}"><strong>6.4 Protection des données :</strong> GrowzApp traite les
+                    données personnelles de
                     l'Investisseur
                     conformément à la Loi N°2013-450 du 19 juin 2013 relative à la protection des données à caractère
                     personnel
@@ -852,87 +909,106 @@
 
         <!-- Article 7 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 7 —</span> CONFORMITÉ RÉGLEMENTAIRE UEMOA / BCEAO
+            <div class="article-title"><span class="art-num">Art. 7 —</span> <span
+                    th:text="#{contract.art7.title}">CONFORMITÉ RÉGLEMENTAIRE UEMOA / BCEAO</span>
             </div>
             <div class="article-content">
-                <p>Le présent contrat est établi en conformité avec le cadre réglementaire de l'Union Économique et
+                <p th:utext="#{contract.art7.p1}">Le présent contrat est établi en conformité avec le cadre
+                    réglementaire de l'Union Économique et
                     Monétaire Ouest-Africaine (UEMOA), notamment :</p>
-                <p><strong>7.1 Règlement des paiements :</strong> Toutes les transactions financières liées au présent
+                <p th:utext="#{contract.art7.p2}"><strong>7.1 Règlement des paiements :</strong> Toutes les
+                    transactions financières liées au présent
                     contrat sont effectuées via des canaux de paiement agréés par la BCEAO, conformément au Règlement
                     UEMOA N°15/2002/CM/UEMOA sur les systèmes de paiement.</p>
-                <p><strong>7.2 LCB-FT :</strong> GrowzApp applique une procédure stricte de Lutte Contre le Blanchiment
+                <p th:utext="#{contract.art7.p3}"><strong>7.2 LCB-FT :</strong> GrowzApp applique une procédure
+                    stricte de Lutte Contre le Blanchiment
                     de capitaux et le Financement du Terrorisme (LCB-FT) conformément à la Directive UEMOA
                     N°02/2015/CM/UEMOA
                     et à la Loi N°2016-992 du 22 novembre 2016 en Côte d'Ivoire. L'Investisseur certifie que les fonds
                     investis proviennent d'une source licite.</p>
-                <p><strong>7.3 KYC (Know Your Customer) :</strong> La vérification d'identité de l'Investisseur a été
+                <p th:utext="#{contract.art7.p4}"><strong>7.3 KYC (Know Your Customer) :</strong> La vérification
+                    d'identité de l'Investisseur a été
                     effectuée conformément aux standards KYC de la BCEAO. Toute information erronée fournie par
                     l'Investisseur
                     entraîne la résiliation immédiate du contrat et le gel des fonds en attente d'instruction
                     judiciaire.</p>
-                <div class="ohada-ref">📖 Référence légale : Directive UEMOA N°02/2015/CM/UEMOA — Instruction BCEAO
+                <div class="ohada-ref" th:utext="#{contract.art7.ref}">📖 Référence légale : Directive UEMOA
+                    N°02/2015/CM/UEMOA — Instruction BCEAO
                     N°01-2006 — Loi CI N°2016-992</div>
             </div>
         </div>
 
         <!-- Article 8 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 8 —</span> RÉSOLUTION DES LITIGES ET LOI APPLICABLE
+            <div class="article-title"><span class="art-num">Art. 8 —</span> <span
+                    th:text="#{contract.art8.title}">RÉSOLUTION DES LITIGES ET LOI APPLICABLE</span>
             </div>
             <div class="article-content">
-                <p><strong>8.1 Loi applicable :</strong> Le présent contrat est régi par les lois de la République de
+                <p th:utext="#{contract.art8.p1}"><strong>8.1 Loi applicable :</strong> Le présent contrat est régi
+                    par les lois de la République de
                     Côte d'Ivoire et par l'Acte Uniforme OHADA relatif au Droit des Sociétés Commerciales, ainsi que par
                     tout texte communautaire UEMOA applicable.</p>
-                <p><strong>8.2 Médiation :</strong> En cas de litige, les parties s'engagent à rechercher une solution
+                <p th:utext="#{contract.art8.p2}"><strong>8.2 Médiation :</strong> En cas de litige, les parties
+                    s'engagent à rechercher une solution
                     amiable dans un délai de 30 jours à compter de la notification du différend par l'une des parties.
                 </p>
-                <p><strong>8.3 Arbitrage CCJA :</strong> À défaut de résolution amiable, tout litige sera soumis à
+                <p th:utext="#{contract.art8.p3}"><strong>8.3 Arbitrage CCJA :</strong> À défaut de résolution
+                    amiable, tout litige sera soumis à
                     l'arbitrage de la <strong>Cour Commune de Justice et d'Arbitrage (CCJA)</strong> de l'OHADA, dont le
                     siège est à Abidjan, conformément à son règlement d'arbitrage. La langue de la procédure sera le
                     français.</p>
-                <p><strong>8.4 Juridiction subsidiaire :</strong> Si l'arbitrage n'est pas applicable, les juridictions
+                <p th:utext="#{contract.art8.p4}"><strong>8.4 Juridiction subsidiaire :</strong> Si l'arbitrage n'est
+                    pas applicable, les juridictions
                     compétentes d'Abidjan, Côte d'Ivoire, auront compétence exclusive.</p>
-                <div class="ohada-ref">📖 Référence légale : Traité OHADA Art. 21 — Règlement d'arbitrage CCJA révisé
+                <div class="ohada-ref" th:utext="#{contract.art8.ref}">📖 Référence légale : Traité OHADA Art. 21 —
+                    Règlement d'arbitrage CCJA révisé
                     2017 — Code de Procédure Civile CI</div>
             </div>
         </div>
 
         <!-- Article 9 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 9 —</span> FACTEURS DE RISQUE</div>
+            <div class="article-title"><span class="art-num">Art. 9 —</span> <span
+                    th:text="#{contract.art9.title}">FACTEURS DE RISQUE</span></div>
             <div class="article-content">
-                <p>L'Investisseur déclare avoir pris connaissance des risques suivants inhérents à tout investissement
+                <p th:utext="#{contract.art9.p1}">L'Investisseur déclare avoir pris connaissance des risques suivants
+                    inhérents à tout investissement
                     en capital dans une PME/startup africaine :</p>
                 <table class="fin-table">
                     <tr>
-                        <th>Type de risque</th>
-                        <th>Description</th>
-                        <th>Niveau</th>
+                        <th th:text="#{contract.risk.header_type}">Type de risque</th>
+                        <th th:text="#{contract.risk.header_desc}">Description</th>
+                        <th th:text="#{contract.risk.header_level}">Niveau</th>
                     </tr>
                     <tr>
-                        <td>Risque de perte en capital</td>
-                        <td>Le capital investi peut ne pas être intégralement restitué</td>
-                        <td style="color:#c62828; font-weight:bold">ÉLEVÉ</td>
+                        <td th:text="#{contract.risk.row1_type}">Risque de perte en capital</td>
+                        <td th:text="#{contract.risk.row1_desc}">Le capital investi peut ne pas être intégralement
+                            restitué</td>
+                        <td style="color:#c62828; font-weight:bold" th:text="#{contract.risk.row1_level}">ÉLEVÉ</td>
                     </tr>
                     <tr>
-                        <td>Risque de liquidité</td>
-                        <td>Les parts ne sont pas librement cessibles avant 12 mois</td>
-                        <td style="color:#f57f17; font-weight:bold">MOYEN</td>
+                        <td th:text="#{contract.risk.row2_type}">Risque de liquidité</td>
+                        <td th:text="#{contract.risk.row2_desc}">Les parts ne sont pas librement cessibles avant 12
+                            mois</td>
+                        <td style="color:#f57f17; font-weight:bold" th:text="#{contract.risk.row2_level}">MOYEN</td>
                     </tr>
                     <tr>
-                        <td>Risque opérationnel</td>
-                        <td>Aléas liés à l'exécution du projet (ressources, marché)</td>
-                        <td style="color:#f57f17; font-weight:bold">MOYEN</td>
+                        <td th:text="#{contract.risk.row3_type}">Risque opérationnel</td>
+                        <td th:text="#{contract.risk.row3_desc}">Aléas liés à l'exécution du projet (ressources,
+                            marché)</td>
+                        <td style="color:#f57f17; font-weight:bold" th:text="#{contract.risk.row3_level}">MOYEN</td>
                     </tr>
                     <tr>
-                        <td>Risque réglementaire</td>
-                        <td>Évolution de la réglementation UEMOA ou nationale</td>
-                        <td style="color:#1B5E20; font-weight:bold">FAIBLE</td>
+                        <td th:text="#{contract.risk.row4_type}">Risque réglementaire</td>
+                        <td th:text="#{contract.risk.row4_desc}">Évolution de la réglementation UEMOA ou nationale
+                        </td>
+                        <td style="color:#1B5E20; font-weight:bold" th:text="#{contract.risk.row4_level}">FAIBLE</td>
                     </tr>
                     <tr>
-                        <td>Risque de change</td>
-                        <td>FCFA arrimé à l'Euro — risque limité pour investisseurs UEMOA</td>
-                        <td style="color:#1B5E20; font-weight:bold">FAIBLE</td>
+                        <td th:text="#{contract.risk.row5_type}">Risque de change</td>
+                        <td th:text="#{contract.risk.row5_desc}">FCFA arrimé à l'Euro — risque limité pour
+                            investisseurs UEMOA</td>
+                        <td style="color:#1B5E20; font-weight:bold" th:text="#{contract.risk.row5_level}">FAIBLE</td>
                     </tr>
                 </table>
             </div>
@@ -940,24 +1016,33 @@
 
         <!-- Article 10 -->
         <div class="article-block">
-            <div class="article-title"><span class="art-num">Art. 10 —</span> DÉCLARATIONS ET ENGAGEMENTS DE
-                L'INVESTISSEUR</div>
+            <div class="article-title"><span class="art-num">Art. 10 —</span> <span
+                    th:text="#{contract.art10.title}">DÉCLARATIONS ET ENGAGEMENTS DE
+                    L'INVESTISSEUR</span></div>
             <div class="article-content">
-                <p>Par la signature du présent contrat, l'Investisseur déclare et garantit :</p>
-                <p>✔ Avoir lu et compris intégralement les conditions du présent contrat ;</p>
-                <p>✔ Être majeur (18 ans révolus) et avoir pleine capacité juridique ;</p>
-                <p>✔ Que les fonds investis proviennent d'une source licite et transparente ;</p>
-                <p>✔ Accepter le risque de perte partielle ou totale du capital investi ;</p>
-                <p>✔ Ne pas agir pour le compte d'une entité soumise à des sanctions internationales ;</p>
-                <p>✔ S'engager à informer GrowzApp de tout changement de situation (coordonnées, statut fiscal).</p>
+                <p th:text="#{contract.art10.intro}">Par la signature du présent contrat, l'Investisseur déclare et
+                    garantit :</p>
+                <p th:text="#{contract.art10.item1}">✔ Avoir lu et compris intégralement les conditions du présent
+                    contrat ;</p>
+                <p th:text="#{contract.art10.item2}">✔ Être majeur (18 ans révolus) et avoir pleine capacité
+                    juridique ;</p>
+                <p th:text="#{contract.art10.item3}">✔ Que les fonds investis proviennent d'une source licite et
+                    transparente ;</p>
+                <p th:text="#{contract.art10.item4}">✔ Accepter le risque de perte partielle ou totale du capital
+                    investi ;</p>
+                <p th:text="#{contract.art10.item5}">✔ Ne pas agir pour le compte d'une entité soumise à des
+                    sanctions internationales ;</p>
+                <p th:text="#{contract.art10.item6}">✔ S'engager à informer GrowzApp de tout changement de situation
+                    (coordonnées, statut fiscal).</p>
             </div>
         </div>
 
         <!-- Signatures finales -->
         <div class="signature-section" style="margin-top:8px; page-break-inside:avoid;">
-            <div class="signature-title">SIGNATURES ÉLECTRONIQUES — ENGAGEMENT CONTRACTUEL DÉFINITIF</div>
+            <div class="signature-title" th:text="#{contract.sig2.title}">SIGNATURES ÉLECTRONIQUES — ENGAGEMENT
+                CONTRACTUEL DÉFINITIF</div>
 
-            <div class="info-box" style="margin-bottom:10px; font-size:7.5pt">
+            <div class="info-box" style="margin-bottom:10px; font-size:7.5pt" th:utext="#{contract.sig2.legal_notice}">
                 Le présent contrat est conclu par voie électronique conformément à la
                 <strong>Loi N°2017-968 du 20 décembre 2017</strong> relative aux transactions électroniques en Côte
                 d'Ivoire
@@ -968,9 +1053,9 @@
             <table style="width:100%; border-collapse:collapse">
                 <tr>
                     <td class="sig-col" style="width:33%">
-                        <div class="sig-role">L'Investisseur</div>
+                        <div class="sig-role" th:text="#{contract.sig2.investor_role}">L'Investisseur</div>
                         <div style="height:25px"></div>
-                        <div class="stamp">SIGNÉ NUMÉRIQUEMENT</div>
+                        <div class="stamp" th:text="#{contract.sig.signed_digitally}">SIGNÉ NUMÉRIQUEMENT</div>
                         <div class="sig-line"></div>
                         <div class="sig-name"
                             th:text="${investissement.investisseur.prenom + ' ' + investissement.investisseur.nom}">Nom
@@ -985,19 +1070,21 @@
                     <td style="width:33%; text-align:center; vertical-align:middle; padding:5px">
                         <img th:if="${qrCodeBase64 != null}" th:src="@{'data:image/png;base64,' + ${qrCodeBase64}}"
                             width="85" height="85" alt="QR Vérification" />
-                        <div style="font-size:6pt; color:#999; margin-top:2px">Scannez pour vérifier l'authenticité
+                        <div style="font-size:6pt; color:#999; margin-top:2px" th:text="#{contract.sig.qr_hint}">
+                            Scannez pour vérifier l'authenticité
                         </div>
                         <div style="font-size:7pt; color:#1B5E20; font-weight:bold; margin-top:2px"
                             th:text="${numeroContrat}">CTR-REF</div>
                     </td>
 
                     <td class="sig-col" style="width:33%">
-                        <div class="sig-role">GrowzApp S.A.R.L</div>
+                        <div class="sig-role" th:text="#{contract.sig2.growzapp_role}">GrowzApp S.A.R.L</div>
                         <div style="height:25px"></div>
-                        <div class="stamp stamp-growz">CERTIFIÉ CONFORME</div>
+                        <div class="stamp stamp-growz" th:text="#{contract.sig.certified}">CERTIFIÉ CONFORME</div>
                         <div class="sig-line"></div>
-                        <div class="sig-name">La Direction Générale</div>
-                        <div style="font-size:6.5pt; color:#888; margin-top:2px">RC: CI-ABJ-2025-B-12345 · Abidjan, CI
+                        <div class="sig-name" th:text="#{contract.sig.direction}">La Direction Générale</div>
+                        <div style="font-size:6.5pt; color:#888; margin-top:2px" th:text="#{contract.sig2.rc_location}">
+                            RC: CI-ABJ-2025-B-12345 · Abidjan, CI
                         </div>
                     </td>
                 </tr>
@@ -1005,9 +1092,11 @@
 
             <div
                 style="text-align:center; margin-top:10px; font-size:7pt; color:#666; border-top:1px solid #e0e0e0; padding-top:6px">
-                Ce contrat est un document officiel généré électroniquement par GrowzApp ·
-                Toute falsification est passible de poursuites pénales conformément à l'Art. 426 du Code Pénal ivoirien
-                ·
+                <span th:text="#{contract.sig2.final_notice}">Ce contrat est un document officiel généré
+                    électroniquement par GrowzApp ·
+                    Toute falsification est passible de poursuites pénales conformément à l'Art. 426 du Code Pénal
+                    ivoirien
+                    ·</span>
                 <strong th:text="${numeroContrat}">CTR-REF</strong>
             </div>
         </div>
@@ -1016,7 +1105,8 @@
 
     <div class="footer">
         GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire — RC: CI-ABJ-2025-B-12345 — contact@growzapp.ci<br />
-        Document généré électroniquement — Réf. <span th:text="${numeroContrat}">CTR</span> — Page 3/3
+        <span th:text="#{contract.footer.notice}">Document généré électroniquement — Réf.</span> <span
+            th:text="${numeroContrat}">CTR</span> — <span th:text="#{contract.footer.page}">Page</span> 3/3
     </div>
 
 </body>

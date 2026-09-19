@@ -107,13 +107,32 @@ public class ContratService {
             String dateDebut,
             String dateFin,
             String statut,
+            boolean archive,
             Pageable pageable) {
 
         LocalDateTime debut = parseDateDebut(dateDebut);
         LocalDateTime fin = parseDateFin(dateFin);
         StatutPartInvestissement statutEnum = parseStatut(statut);
 
-        return contratRepository.rechercherAdminDTO(search, debut, fin, statutEnum, pageable);
+        return contratRepository.rechercherAdminDTO(search, debut, fin, statutEnum, archive, pageable);
+    }
+
+    @Transactional
+    public void archiver(Long id, String adminLogin) {
+        Contrat contrat = contratRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Contrat introuvable"));
+        contrat.setArchiveLe(LocalDateTime.now());
+        contrat.setArchivePar(adminLogin);
+        contratRepository.save(contrat);
+    }
+
+    @Transactional
+    public void desarchiver(Long id) {
+        Contrat contrat = contratRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Contrat introuvable"));
+        contrat.setArchiveLe(null);
+        contrat.setArchivePar(null);
+        contratRepository.save(contrat);
     }
 
     private LocalDateTime parseDateDebut(String dateDebut) {
@@ -143,13 +162,19 @@ public class ContratService {
     // ========================================================================
 
     public byte[] genererPdf(Contrat contrat, String lang) throws Exception {
+        return genererPdf(contrat, lang, "XOF");
+    }
+
+    public byte[] genererPdf(Contrat contrat, String lang, String devise) throws Exception {
         Locale locale = Locale.FRENCH;
         if ("en".equalsIgnoreCase(lang))
             locale = Locale.ENGLISH;
         else if ("es".equalsIgnoreCase(lang))
             locale = new Locale("es");
 
-        if (locale.equals(Locale.FRENCH)) {
+        boolean deviseParDefaut = devise == null || devise.isBlank() || "XOF".equalsIgnoreCase(devise);
+
+        if (locale.equals(Locale.FRENCH) && deviseParDefaut) {
             try {
                 return fileStorageService.loadAsBytes(contrat.getFichierUrl());
             } catch (Exception e) {
@@ -163,7 +188,8 @@ public class ContratService {
                 contrat.getInvestissement(),
                 contrat.getNumeroContrat(),
                 qrCode,
-                locale);
+                locale,
+                devise);
     }
 
     // ========================================================================
