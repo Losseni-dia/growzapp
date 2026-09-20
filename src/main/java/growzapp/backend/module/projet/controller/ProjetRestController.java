@@ -155,7 +155,7 @@ public class ProjetRestController {
 
             Projet projetInitial = projetMapper.toEntity(createDto);
             Projet saved = projetService.create(projetInitial, createDto.secteurNom(),
-                    createDto.localiteNom(), currentUser);
+                    createDto.localiteNom(), createDto.paysNom(), currentUser);
 
             if (poster != null && !poster.isEmpty()) {
                 if (poster.getSize() > 10 * 1024 * 1024)
@@ -199,7 +199,7 @@ public class ProjetRestController {
 
             Projet projetPartiel = projetMapper.toEntity(dto);
             Projet saved = projetService.createBrouillon(projetPartiel, dto.secteurNom(), dto.localiteNom(),
-                    currentUser);
+                    dto.paysNom(), currentUser);
 
             if (poster != null && !poster.isEmpty()) {
                 if (poster.getSize() > 10 * 1024 * 1024)
@@ -243,7 +243,7 @@ public class ProjetRestController {
 
             Projet projetPartiel = projetMapper.toEntity(dto);
             Projet saved = projetService.updateBrouillon(id, projetPartiel, dto.secteurNom(), dto.localiteNom(),
-                    currentUser);
+                    dto.paysNom(), currentUser);
 
             if (poster != null && !poster.isEmpty()) {
                 if (poster.getSize() > 10 * 1024 * 1024)

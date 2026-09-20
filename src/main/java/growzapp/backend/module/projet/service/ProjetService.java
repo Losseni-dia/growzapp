@@ -23,9 +23,11 @@ import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.referentiel.model.Localisation;
 import growzapp.backend.module.referentiel.model.Localite;
+import growzapp.backend.module.referentiel.model.Pays;
 import growzapp.backend.module.referentiel.model.Secteur;
 import growzapp.backend.module.referentiel.repository.LocalisationRepository;
 import growzapp.backend.module.referentiel.repository.LocaliteRepository;
+import growzapp.backend.module.referentiel.repository.PaysRepository;
 import growzapp.backend.module.referentiel.repository.SecteurRepository;
 import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import growzapp.backend.module.user.model.User;
@@ -51,6 +53,7 @@ public class ProjetService {
     private final ProjetRepository projetRepository;
     private final LocalisationRepository localisationRepository;
     private final LocaliteRepository localiteRepository;
+    private final PaysRepository paysRepository;
     private final SecteurRepository secteurRepository;
     private final WalletRepository walletRepository;
     private final NotificationService notificationService;
@@ -307,14 +310,33 @@ public class ProjetService {
                 });
     }
 
-    private Localite resolveLocalite(String localiteNom) {
-        return localiteRepository.findByNomIgnoreCase(localiteNom.trim())
+    private Pays resolvePays(String paysNom) {
+        return paysRepository.findByNomIgnoreCase(paysNom.trim())
+                .orElseGet(() -> {
+                    Pays p = new Pays();
+                    p.setNom(paysNom.trim());
+                    return paysRepository.save(p);
+                });
+    }
+
+    private Localite resolveLocalite(String localiteNom, String paysNom) {
+        Localite localite = localiteRepository.findByNomIgnoreCase(localiteNom.trim())
                 .orElseGet(() -> {
                     Localite l = new Localite();
                     l.setNom(localiteNom.trim());
                     l.setCodePostal("00000");
-                    return localiteRepository.save(l);
+                    return l;
                 });
+
+        // Rattache/corrige le pays si fourni — ce champ était jusqu'ici
+        // accepté par le formulaire et le DTO mais jamais exploité ici,
+        // laissant Localite.pays toujours NULL (donc paysNom toujours vide
+        // côté frontend, et le filtre pays du catalogue toujours désert).
+        if (paysNom != null && !paysNom.isBlank()) {
+            localite.setPays(resolvePays(paysNom));
+        }
+
+        return localiteRepository.save(localite);
     }
 
     private Localisation resolveSite(Localite localite, String libelle, User currentUser) {
@@ -327,14 +349,14 @@ public class ProjetService {
     }
 
     @Transactional
-    public Projet create(Projet projet, String secteurNom, String localiteNom, User currentUser) {
+    public Projet create(Projet projet, String secteurNom, String localiteNom, String paysNom, User currentUser) {
         log.info("Traitement métier pour le nouveau projet : {}", projet.getLibelle());
 
         requireKycValide(currentUser);
         requireFichePorteurValidee(currentUser);
 
         Secteur secteur = resolveSecteur(secteurNom);
-        Localite localite = resolveLocalite(localiteNom);
+        Localite localite = resolveLocalite(localiteNom, paysNom);
         Localisation site = resolveSite(localite, projet.getLibelle(), currentUser);
 
         // 4. Finalisation du Projet
@@ -376,12 +398,13 @@ public class ProjetService {
     // BROUILLON — c'est justement l'intérêt de ce statut.
 
     @Transactional
-    public Projet createBrouillon(Projet projetPartiel, String secteurNom, String localiteNom, User currentUser) {
+    public Projet createBrouillon(Projet projetPartiel, String secteurNom, String localiteNom, String paysNom,
+            User currentUser) {
         if (secteurNom != null && !secteurNom.isBlank()) {
             projetPartiel.setSecteur(resolveSecteur(secteurNom));
         }
         if (localiteNom != null && !localiteNom.isBlank()) {
-            Localite localite = resolveLocalite(localiteNom);
+            Localite localite = resolveLocalite(localiteNom, paysNom);
             projetPartiel.setSiteProjet(resolveSite(localite, projetPartiel.getLibelle(), currentUser));
         }
 
@@ -396,7 +419,7 @@ public class ProjetService {
 
     @Transactional
     public Projet updateBrouillon(Long id, Projet projetPartiel, String secteurNom, String localiteNom,
-            User currentUser) {
+            String paysNom, User currentUser) {
         Projet existant = getById(id);
         if (existant.getPorteur() == null || !existant.getPorteur().getId().equals(currentUser.getId())) {
             throw new SecurityException("Ce brouillon ne vous appartient pas.");
@@ -420,7 +443,7 @@ public class ProjetService {
             existant.setSecteur(resolveSecteur(secteurNom));
         }
         if (localiteNom != null && !localiteNom.isBlank()) {
-            Localite localite = resolveLocalite(localiteNom);
+            Localite localite = resolveLocalite(localiteNom, paysNom);
             if (existant.getSiteProjet() == null) {
                 existant.setSiteProjet(resolveSite(localite, existant.getLibelle(), currentUser));
             } else {
@@ -713,6 +736,20 @@ public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster) {
         projet.setSecteur(secteur);
     }
 
+    // Ville/pays : même bug historique que le secteur ci-dessus — jamais
+    // appliqués par updateFull(), donc impossible de corriger le pays des
+    // projets déjà créés avant que ce champ ne soit exploité (voir
+    // resolveLocalite/resolvePays).
+    if (dto.localiteNom() != null && !dto.localiteNom().isBlank()) {
+        Localite localite = resolveLocalite(dto.localiteNom(), dto.paysNom());
+        if (projet.getSiteProjet() == null) {
+            projet.setSiteProjet(resolveSite(localite, projet.getLibelle(), projet.getPorteur()));
+        } else {
+            projet.getSiteProjet().setLocalite(localite);
+            localisationRepository.save(projet.getSiteProjet());
+        }
+    }
+
     // Le statut ne se change plus ici volontairement : changerStatut() est le
     // seul chemin qui déclenche les effets de bord attendus (snapshot de
     // valorisation, diffusion "nouveau projet" à tous les utilisateurs). Un
@@ -739,6 +776,17 @@ public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster) {
         // Utilise ton service d'upload existant
         String posterUrl = fileUploadService.uploadPoster(poster, id);
         projet.setPoster(posterUrl);
+    }
+
+    // Coordonnées exactes du site — saisies manuellement par l'admin (la
+    // carte de localisation des projets, catalogue public, en dépend).
+    // Le site (Localisation) existe toujours à ce stade : il est créé
+    // automatiquement à la création du projet (voir resolveSite).
+    if (dto.latitude() != null && dto.longitude() != null && projet.getSiteProjet() != null) {
+        Localisation site = projet.getSiteProjet();
+        site.setLatitude(dto.latitude());
+        site.setLongitude(dto.longitude());
+        localisationRepository.save(site);
     }
 
     // 4. Sauvegarder les modifications

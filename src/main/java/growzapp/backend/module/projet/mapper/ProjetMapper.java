@@ -3,8 +3,10 @@ package growzapp.backend.module.projet.mapper;
 
 import java.util.List;
 
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 import growzapp.backend.module.projet.dto.ProjetBrouillonDTO;
@@ -30,9 +32,19 @@ public interface ProjetMapper {
     @Mapping(target = "longitude", source = "siteProjet.longitude")
     @Mapping(target = "what3words", source = "siteProjet.what3words")
     @Mapping(target = "dureeMois", source = "dureeMois")
-    // On laisse googleMapsUrl pour le traitement manuel si besoin ou via une
-    // expression
     ProjetDTO toDto(Projet projet);
+
+    // googleMapsUrl n'a jamais été mappé (ni @Mapping ni méthode homonyme sur
+    // Projet) : le champ restait toujours null malgré le lien "Voir sur
+    // Google Maps" affiché çà et là côté frontend. Calculé ici une fois les
+    // autres champs posés, à partir des coordonnées déjà mappées ci-dessus.
+    @AfterMapping
+    default void mapGoogleMapsUrl(@MappingTarget ProjetDTO dto) {
+        if (dto.getLatitude() != null && dto.getLongitude() != null) {
+            dto.setGoogleMapsUrl(
+                    "https://www.google.com/maps/search/?api=1&query=" + dto.getLatitude() + "," + dto.getLongitude());
+        }
+    }
 
     // --- CREATE DTO -> ENTITY (Pour la création) ---
     @Mapping(target = "id", ignore = true)

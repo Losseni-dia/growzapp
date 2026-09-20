@@ -36,5 +36,9 @@ public record ProjetCreateDTO(
 
                @NotNull(message = "La date de début est obligatoire") @Schema(example = "2026-06-01") LocalDate dateDebut,
 
-                @NotNull(message = "La date de fin est obligatoire") @Schema(example = "2026-12-31") LocalDate dateFin) {
+                @NotNull(message = "La date de fin est obligatoire") @Schema(example = "2026-12-31") LocalDate dateFin,
+
+                @DecimalMin(value = "-90.0", message = "Latitude invalide") @DecimalMax(value = "90.0", message = "Latitude invalide") @Schema(example = "5.359951", description = "Latitude exacte du site du projet") BigDecimal latitude,
+
+                @DecimalMin(value = "-180.0", message = "Longitude invalide") @DecimalMax(value = "180.0", message = "Longitude invalide") @Schema(example = "-4.008256", description = "Longitude exacte du site du projet") BigDecimal longitude) {
 }

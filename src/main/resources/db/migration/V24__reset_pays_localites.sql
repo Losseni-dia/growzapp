@@ -1,0 +1,11 @@
+-- Réinitialise le pays de toutes les localités existantes.
+--
+-- Jusqu'à présent, le champ "pays" saisi côté formulaire n'était jamais
+-- réellement exploité par le backend (bug corrigé dans ce même
+-- déploiement) : toutes les localités ont donc un pays soit manquant,
+-- soit potentiellement incohérent avec les coordonnées GPS désormais
+-- disponibles. On repart d'une base propre — chaque projet sera réassocié
+-- à son pays correct automatiquement (géocodage inverse à partir de ses
+-- coordonnées) au fil de son édition, plutôt que de garder des données
+-- historiques non fiables.
+UPDATE localites SET pays_id = NULL;
