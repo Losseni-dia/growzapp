@@ -50,9 +50,13 @@ public class Localisation {
     @OneToMany(mappedBy = "siteProjet")
     private List<Projet> projets = new ArrayList<>();
 
+    // Format "dir" (itinéraire) plutôt que "search" (simple recherche) — le
+    // visiteur veut s'y rendre, pas seulement voir le point sur la carte.
+    // L'origine (position de l'utilisateur) est déduite automatiquement par
+    // Google Maps si la géolocalisation est autorisée dans le navigateur.
     public String getGoogleMapsUrl() {
         if (latitude != null && longitude != null) {
-            return "https://www.google.com/maps/search/?api=1&query=" + latitude + "," + longitude;
+            return "https://www.google.com/maps/dir/?api=1&destination=" + latitude + "," + longitude;
         }
         return null;
     }

@@ -125,6 +125,9 @@ public class ProjetDTO {
         @Schema(description = "Adresse What3Words du site")
         private String what3words;
 
+        @Schema(description = "Adresse lisible du site (résolue par géocodage inverse, ou saisie manuellement)")
+        private String adresse;
+
         @Schema(description = "URL Google Maps du site")
         private String googleMapsUrl;
 

@@ -616,8 +616,17 @@ public class ProjetService {
         });
     }
 
+    // "Près de moi" montre tout projet réellement publié (financement en
+    // cours ou déjà financé) — contrairement au catalogue public qui ne
+    // liste que les projets VALIDE (en cours de financement). On exclut
+    // seulement les statuts non publics : brouillon, en attente de
+    // validation admin, ou rejeté.
+    private static final java.util.Set<StatutProjet> STATUTS_PROCHES_VISIBLES = java.util.Set.of(
+            StatutProjet.VALIDE, StatutProjet.EN_COURS, StatutProjet.TERMINE, StatutProjet.FINANCE);
+
     public List<Projet> findProjetsProches(double lat, double lon, double rayonKm) {
-        return projetRepository.findByStatutProjet(StatutProjet.VALIDE).stream()
+        return projetRepository.findAll().stream()
+                .filter(p -> STATUTS_PROCHES_VISIBLES.contains(p.getStatutProjet()))
                 .filter(p -> p.getSiteProjet() != null && p.getSiteProjet().getLatitude() != null)
                 .filter(p -> calculerDistance(lat, lon,
                         p.getSiteProjet().getLatitude().doubleValue(),
@@ -786,6 +795,9 @@ public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster) {
         Localisation site = projet.getSiteProjet();
         site.setLatitude(dto.latitude());
         site.setLongitude(dto.longitude());
+        if (dto.adresse() != null && !dto.adresse().isBlank()) {
+            site.setAdresse(dto.adresse());
+        }
         localisationRepository.save(site);
     }
 

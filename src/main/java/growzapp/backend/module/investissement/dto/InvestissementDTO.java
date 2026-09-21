@@ -44,6 +44,8 @@ public record InvestissementDTO(
 
                 @Schema(description = "Lien Google Maps vers la localisation du projet", example = "https://maps.google.com/?q=11.1771,-4.2979") String googleMapsUrl,
 
+                @Schema(description = "Adresse lisible du site du projet", example = "Rue du Commerce, Yamoussoukro") String adresse,
+
                 @Schema(description = "Montant total investi (parts × prix unitaire)", type = "number", format = "double", example = "2500.00") BigDecimal montantInvesti,
 
                 @Schema(description = "URL de l'affiche du projet", example = "/uploads/projets/ferme-solaire.jpg") String projetPoster,

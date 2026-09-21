@@ -35,6 +35,7 @@ public abstract class InvestissementMapper {
         @Mapping(target = "latitude", source = "projet.siteProjet.latitude")
         @Mapping(target = "longitude", source = "projet.siteProjet.longitude")
         @Mapping(target = "googleMapsUrl", source = "projet.siteProjet.googleMapsUrl")
+        @Mapping(target = "adresse", source = "projet.siteProjet.adresse")
         @Mapping(target = "contratUrl", expression = "java(i.getContrat() != null ? \"http://localhost:8080/api/contrats/\" + i.getContrat().getNumeroContrat() : null)")
         public abstract InvestissementDTO toDto(Investissement i);
 
@@ -63,7 +64,7 @@ public abstract class InvestissementMapper {
                         Localisation site = i.getProjet().getSiteProjet();
                         if (site.getGoogleMapsUrl() == null && site.getLatitude() != null
                                         && site.getLongitude() != null) {
-                                builder.googleMapsUrl("https://www.google.com/maps/search/?api=1&query="
+                                builder.googleMapsUrl("https://www.google.com/maps/dir/?api=1&destination="
                                                 + site.getLatitude() + "," + site.getLongitude());
                         }
                 }

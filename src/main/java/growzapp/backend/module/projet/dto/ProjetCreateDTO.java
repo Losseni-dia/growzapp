@@ -40,5 +40,7 @@ public record ProjetCreateDTO(
 
                 @DecimalMin(value = "-90.0", message = "Latitude invalide") @DecimalMax(value = "90.0", message = "Latitude invalide") @Schema(example = "5.359951", description = "Latitude exacte du site du projet") BigDecimal latitude,
 
-                @DecimalMin(value = "-180.0", message = "Longitude invalide") @DecimalMax(value = "180.0", message = "Longitude invalide") @Schema(example = "-4.008256", description = "Longitude exacte du site du projet") BigDecimal longitude) {
+                @DecimalMin(value = "-180.0", message = "Longitude invalide") @DecimalMax(value = "180.0", message = "Longitude invalide") @Schema(example = "-4.008256", description = "Longitude exacte du site du projet") BigDecimal longitude,
+
+                @Schema(example = "Rue du Commerce, Yamoussoukro", description = "Adresse lisible du site (géocodage inverse ou saisie manuelle)") String adresse) {
 }

@@ -31,6 +31,7 @@ public interface ProjetMapper {
     @Mapping(target = "latitude", source = "siteProjet.latitude")
     @Mapping(target = "longitude", source = "siteProjet.longitude")
     @Mapping(target = "what3words", source = "siteProjet.what3words")
+    @Mapping(target = "adresse", source = "siteProjet.adresse")
     @Mapping(target = "dureeMois", source = "dureeMois")
     ProjetDTO toDto(Projet projet);
 
@@ -42,7 +43,7 @@ public interface ProjetMapper {
     default void mapGoogleMapsUrl(@MappingTarget ProjetDTO dto) {
         if (dto.getLatitude() != null && dto.getLongitude() != null) {
             dto.setGoogleMapsUrl(
-                    "https://www.google.com/maps/search/?api=1&query=" + dto.getLatitude() + "," + dto.getLongitude());
+                    "https://www.google.com/maps/dir/?api=1&destination=" + dto.getLatitude() + "," + dto.getLongitude());
         }
     }
 
