@@ -114,13 +114,24 @@ public class ProjetRestController {
         return ApiResponseDTO.success(applyTraduction(dto, langue));
     }
 
+    // ── GALERIE DE PHOTOS ────────────────────────────────────────────────────
+    @Operation(summary = "Photos additionnelles d'un projet (galerie, distincte du poster épinglé)")
+    @GetMapping("/{id}/photos")
+    public ApiResponseDTO<List<growzapp.backend.module.projet.dto.ProjetPhotoDTO>> getPhotos(@PathVariable Long id) {
+        List<growzapp.backend.module.projet.dto.ProjetPhotoDTO> dtos = projetService.getPhotos(id).stream()
+                .map(p -> new growzapp.backend.module.projet.dto.ProjetPhotoDTO(p.getId(), p.getUrl()))
+                .toList();
+        return ApiResponseDTO.success(dtos);
+    }
+
     // ── CRÉATION ──────────────────────────────────────────────────────────────
     @PostMapping(consumes = "multipart/form-data")
     @PreAuthorize("isAuthenticated()")
     public ApiResponseDTO<ProjetDTO> create(
             Authentication authentication,
             @RequestPart("projet") String projetJson,
-            @RequestPart(value = "poster", required = false) MultipartFile poster) {
+            @RequestPart(value = "poster", required = false) MultipartFile poster,
+            @RequestPart(value = "photos", required = false) List<MultipartFile> photos) {
 
         User currentUser = getCurrentUser(authentication);
         try {
@@ -165,6 +176,10 @@ public class ProjetRestController {
                 saved = projetService.update(saved);
             }
 
+            if (photos != null && !photos.isEmpty()) {
+                projetService.ajouterPhotos(saved.getId(), photos);
+            }
+
             return ApiResponseDTO.success(projetMapper.toDto(saved))
                     .message("Projet soumis avec succès !");
 
@@ -181,7 +196,8 @@ public class ProjetRestController {
     public ApiResponseDTO<ProjetDTO> creerBrouillon(
             Authentication authentication,
             @RequestPart("projet") String projetJson,
-            @RequestPart(value = "poster", required = false) MultipartFile poster) {
+            @RequestPart(value = "poster", required = false) MultipartFile poster,
+            @RequestPart(value = "photos", required = false) List<MultipartFile> photos) {
 
         User currentUser = getCurrentUser(authentication);
         try {
@@ -209,6 +225,10 @@ public class ProjetRestController {
                 saved = projetService.update(saved);
             }
 
+            if (photos != null && !photos.isEmpty()) {
+                projetService.ajouterPhotos(saved.getId(), photos);
+            }
+
             return ApiResponseDTO.success(projetMapper.toDto(saved))
                     .message("Brouillon enregistré");
         } catch (Exception e) {
@@ -225,7 +245,8 @@ public class ProjetRestController {
             Authentication authentication,
             @PathVariable Long id,
             @RequestPart("projet") String projetJson,
-            @RequestPart(value = "poster", required = false) MultipartFile poster) {
+            @RequestPart(value = "poster", required = false) MultipartFile poster,
+            @RequestPart(value = "photos", required = false) List<MultipartFile> photos) {
 
         User currentUser = getCurrentUser(authentication);
         try {
@@ -253,12 +274,34 @@ public class ProjetRestController {
                 saved = projetService.update(saved);
             }
 
+            if (photos != null && !photos.isEmpty()) {
+                projetService.ajouterPhotos(saved.getId(), photos);
+            }
+
             return ApiResponseDTO.success(projetMapper.toDto(saved))
                     .message("Brouillon mis à jour");
         } catch (Exception e) {
             log.error("Erreur mise à jour brouillon", e);
             return ApiResponseDTO.error("Erreur : " + e.getMessage());
         }
+    }
+
+    // ── GALERIE DE PHOTOS — SUPPRIMER (porteur, sur son propre projet) ────────
+    @Operation(summary = "Supprimer une photo de la galerie de son propre projet", security = @SecurityRequirement(name = "BearerAuth"))
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}/photos/{photoId}")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponseDTO<String> supprimerMaPhoto(
+            Authentication authentication, @PathVariable Long id, @PathVariable Long photoId) {
+        User currentUser = getCurrentUser(authentication);
+        Projet projet = projetService.getById(id);
+        boolean estProprietaire = projet.getPorteur() != null
+                && projet.getPorteur().getId().equals(currentUser.getId());
+        boolean estAdmin = currentUser.getRoles().stream().anyMatch(r -> "ADMIN".equals(r.getRole()));
+        if (!estProprietaire && !estAdmin) {
+            return ApiResponseDTO.error("Ce projet ne vous appartient pas.");
+        }
+        projetService.supprimerPhoto(id, photoId);
+        return ApiResponseDTO.<String>success(null).message("Photo supprimée");
     }
 
     // ── BROUILLON — SOUMETTRE ─────────────────────────────────────────────────

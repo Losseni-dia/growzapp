@@ -161,9 +161,21 @@ public class AdminProjetController {
 
             @Parameter(description = "Nouvelle affiche du projet (optionnel)",
                 schema = @Schema(type = "string", format = "binary"))
-            @RequestPart(value = "poster", required = false) MultipartFile poster) {
-        Projet saved = projetService.updateFull(id, dto, poster);
+            @RequestPart(value = "poster", required = false) MultipartFile poster,
+
+            @Parameter(description = "Photos additionnelles à ajouter à la galerie (optionnel, s'ajoutent aux existantes)")
+            @RequestPart(value = "photos", required = false) List<MultipartFile> photos) {
+        Projet saved = projetService.updateFull(id, dto, poster, photos);
         return ApiResponseDTO.success(projetMapper.toDto(saved));
+    }
+
+    @DeleteMapping("/{id}/photos/{photoId}")
+    @Operation(summary = "Supprimer une photo de la galerie d'un projet", tags = {"Admin - Projets"})
+    public ApiResponseDTO<String> supprimerPhoto(
+            @PathVariable Long id,
+            @PathVariable Long photoId) {
+        projetService.supprimerPhoto(id, photoId);
+        return ApiResponseDTO.<String>success(null).message("Photo supprimée");
     }
 
     @PatchMapping("/{id}/statut")

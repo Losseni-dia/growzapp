@@ -20,6 +20,8 @@ import growzapp.backend.module.projet.dto.ProjetCreateDTO;
 import growzapp.backend.module.projet.enums.StatutProjet;
 import growzapp.backend.module.projet.enums.TypeEvenementValorisation;
 import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.projet.model.ProjetPhoto;
+import growzapp.backend.module.projet.repository.ProjetPhotoRepository;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.referentiel.model.Localisation;
 import growzapp.backend.module.referentiel.model.Localite;
@@ -51,6 +53,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ProjetService {
 
     private final ProjetRepository projetRepository;
+    private final ProjetPhotoRepository projetPhotoRepository;
     private final LocalisationRepository localisationRepository;
     private final LocaliteRepository localiteRepository;
     private final PaysRepository paysRepository;
@@ -730,8 +733,12 @@ public class ProjetService {
 
     // Dans ProjetService.java
 
-@Transactional
 public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster) {
+    return updateFull(id, dto, poster, null);
+}
+
+@Transactional
+public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster, List<MultipartFile> photos) {
     // 1. Récupérer le projet existant
     Projet projet = projetRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Projet introuvable avec l'ID : " + id));
@@ -812,6 +819,40 @@ public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster) {
     }
 
     // 4. Sauvegarder les modifications
-    return projetRepository.save(projet);
+    Projet saved = projetRepository.save(projet);
+
+    // 5. Photos additionnelles de galerie, en plus (jamais à la place) du
+    // poster épinglé — chaque appel ajoute, il ne remplace jamais la
+    // galerie existante (la suppression passe par supprimerPhoto()).
+    if (photos != null && !photos.isEmpty()) {
+        ajouterPhotos(saved.getId(), photos);
+    }
+
+    return saved;
+}
+
+// ── GALERIE DE PHOTOS ADDITIONNELLES ────────────────────────────────────
+@Transactional
+public List<ProjetPhoto> ajouterPhotos(Long projetId, List<MultipartFile> photos) {
+    Projet projet = getById(projetId);
+    List<ProjetPhoto> ajoutees = new java.util.ArrayList<>();
+    for (MultipartFile photo : photos) {
+        if (photo == null || photo.isEmpty()) continue;
+        String url = fileUploadService.uploadProjetPhoto(photo, projetId);
+        ProjetPhoto entity = new ProjetPhoto();
+        entity.setProjet(projet);
+        entity.setUrl(url);
+        ajoutees.add(projetPhotoRepository.save(entity));
+    }
+    return ajoutees;
+}
+
+public List<ProjetPhoto> getPhotos(Long projetId) {
+    return projetPhotoRepository.findByProjetIdOrderByCreatedAtAsc(projetId);
+}
+
+@Transactional
+public void supprimerPhoto(Long projetId, Long photoId) {
+    projetPhotoRepository.deleteByIdAndProjetId(photoId, projetId);
 }
 }

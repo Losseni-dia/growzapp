@@ -130,6 +130,10 @@ public class Projet {
     private List<Document> documents = new ArrayList<>();
 
     @JsonIgnore
+    @OneToMany(mappedBy = "projet", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProjetPhoto> photos = new ArrayList<>();
+
+    @JsonIgnore
     @OneToMany(mappedBy = "projet", cascade = CascadeType.ALL)
     private List<Investissement> investissements = new ArrayList<>();
 
