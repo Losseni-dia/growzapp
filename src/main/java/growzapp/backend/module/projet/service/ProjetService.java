@@ -361,6 +361,34 @@ public class ProjetService {
         return localisationRepository.save(site);
     }
 
+    // La relation Projet.siteProjet est un @ManyToOne : rien n'empêche en base
+    // que plusieurs projets partagent la même ligne Localisation (données
+    // historiques, ex. plusieurs projets "Douala" créés avant que chaque
+    // projet n'ait systématiquement son propre site). Muter cette ligne
+    // partagée en place (changement de ville/coordonnées) répercutait alors
+    // le changement sur tous les projets qui la partagent. On vérifie donc
+    // avant toute mutation si le site est exclusif à ce projet ; sinon on le
+    // clone pour que ce projet ait désormais sa propre ligne indépendante.
+    private Localisation ensureSiteExclusif(Projet projet) {
+        Localisation site = projet.getSiteProjet();
+        boolean partage = projetRepository.findBySiteProjetId(site.getId()).stream()
+                .anyMatch(p -> !p.getId().equals(projet.getId()));
+        if (!partage) {
+            return site;
+        }
+        Localisation copie = new Localisation();
+        copie.setNom(site.getNom());
+        copie.setLocalite(site.getLocalite());
+        copie.setResponsable(site.getResponsable());
+        copie.setContact(site.getContact());
+        copie.setLatitude(site.getLatitude());
+        copie.setLongitude(site.getLongitude());
+        copie.setAdresse(site.getAdresse());
+        Localisation saved = localisationRepository.save(copie);
+        projet.setSiteProjet(saved);
+        return saved;
+    }
+
     @Transactional
     public Projet create(Projet projet, String secteurNom, String localiteNom, String paysNom, User currentUser) {
         log.info("Traitement métier pour le nouveau projet : {}", projet.getLibelle());
@@ -460,8 +488,10 @@ public class ProjetService {
             if (existant.getSiteProjet() == null) {
                 existant.setSiteProjet(resolveSite(localite, existant.getLibelle(), currentUser));
             } else {
-                existant.getSiteProjet().setLocalite(localite);
-                existant.getSiteProjet().setNom("Site du projet : " + existant.getLibelle());
+                Localisation site = ensureSiteExclusif(existant);
+                site.setLocalite(localite);
+                site.setNom("Site du projet : " + existant.getLibelle());
+                localisationRepository.save(site);
             }
         }
 
@@ -771,8 +801,9 @@ public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster, Lis
         if (projet.getSiteProjet() == null) {
             projet.setSiteProjet(resolveSite(localite, projet.getLibelle(), projet.getPorteur()));
         } else {
-            projet.getSiteProjet().setLocalite(localite);
-            localisationRepository.save(projet.getSiteProjet());
+            Localisation site = ensureSiteExclusif(projet);
+            site.setLocalite(localite);
+            localisationRepository.save(site);
         }
     }
 
@@ -809,7 +840,7 @@ public Projet updateFull(Long id, ProjetCreateDTO dto, MultipartFile poster, Lis
     // Le site (Localisation) existe toujours à ce stade : il est créé
     // automatiquement à la création du projet (voir resolveSite).
     if (dto.latitude() != null && dto.longitude() != null && projet.getSiteProjet() != null) {
-        Localisation site = projet.getSiteProjet();
+        Localisation site = ensureSiteExclusif(projet);
         site.setLatitude(dto.latitude());
         site.setLongitude(dto.longitude());
         if (dto.adresse() != null && !dto.adresse().isBlank()) {
