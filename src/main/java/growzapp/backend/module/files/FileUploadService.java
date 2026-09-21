@@ -60,7 +60,10 @@ public class FileUploadService {
 
     public String uploadFichePorteurPhoto(MultipartFile file, Long userId) {
         try {
-            fileValidationService.validateImage(file);
+            // Résolution minimale exigée — au-delà de sa taille d'affichage
+            // actuelle (petit avatar), cette photo doit rester nette si on
+            // l'agrandit un jour (page profil complète, etc.).
+            fileValidationService.validateImageMinDimensions(file, 300, 300);
 
             String original = file.getOriginalFilename();
             String safeName = userId + "_" + System.currentTimeMillis() + "_" +

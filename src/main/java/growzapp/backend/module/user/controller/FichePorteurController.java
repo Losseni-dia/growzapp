@@ -252,7 +252,14 @@ public class FichePorteurController {
         data.put("contactEmail",
                 (user.getFicheContactEmail() != null && !user.getFicheContactEmail().isBlank())
                         ? user.getFicheContactEmail()
-                        : user.getEmail());
+                        : (user.getEmail() != null && !user.getEmail().isBlank())
+                                ? user.getEmail()
+                                // Dernier repli : certains comptes (notamment les plus anciens)
+                                // n'ont jamais eu de colonne "email" renseignée séparément,
+                                // seulement un login au format adresse mail.
+                                : (user.getLogin() != null && user.getLogin().contains("@"))
+                                        ? user.getLogin()
+                                        : null);
         data.put("siteWeb", user.getFicheSiteWeb());
         data.put("linkedin", user.getFicheLinkedin());
         data.put("reseauxAutres", user.getFicheReseauxAutres());

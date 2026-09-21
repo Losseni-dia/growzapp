@@ -99,6 +99,16 @@ public class ProjetService {
         return projetRepository.findByPorteurId(porteurId);
     }
 
+    // Projets "présentables" d'un porteur — exclut brouillon, soumis (pas
+    // encore validé par l'admin), rejeté et en attente : seuls les projets
+    // réellement publiés (en financement ou déjà financés) doivent pouvoir
+    // être mis en avant dans sa fiche de présentation.
+    public List<Projet> getProjetsPubliesByPorteurId(Long porteurId) {
+        return projetRepository.findByPorteurId(porteurId).stream()
+                .filter(p -> STATUTS_PROCHES_VISIBLES.contains(p.getStatutProjet()))
+                .toList();
+    }
+
     // ========================
     // STATUT PREMIUM
     // ========================

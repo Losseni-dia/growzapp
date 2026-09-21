@@ -4,6 +4,9 @@ import org.apache.tika.Tika;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Set;
 
@@ -28,6 +31,28 @@ public class FileValidationService {
 
     public void validateImage(MultipartFile file) throws IOException {
         validate(file, IMAGE_TYPES);
+    }
+
+    /**
+     * Comme {@link #validateImage}, avec en plus un contrôle de résolution
+     * minimale — sans ce garde-fou, une photo déjà minuscule (capture
+     * d'écran recadrée, image compressée par WhatsApp...) passait sans
+     * problème puis apparaissait floue/pixelisée une fois affichée, même
+     * dans un cadre de petite taille (l'agrandissement d'une image trop
+     * petite est visible dès qu'on dépasse sa résolution native).
+     */
+    public void validateImageMinDimensions(MultipartFile file, int minWidth, int minHeight) throws IOException {
+        validate(file, IMAGE_TYPES);
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(file.getBytes()));
+        if (image == null) {
+            throw new IllegalArgumentException("Impossible de lire cette image — fichier corrompu ?");
+        }
+        if (image.getWidth() < minWidth || image.getHeight() < minHeight) {
+            throw new IllegalArgumentException(
+                    "Image trop petite (" + image.getWidth() + "x" + image.getHeight()
+                            + " px) — minimum requis : " + minWidth + "x" + minHeight + " px pour un rendu net.");
+        }
     }
 
     public void validateDocument(MultipartFile file) throws IOException {

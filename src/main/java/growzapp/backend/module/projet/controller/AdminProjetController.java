@@ -106,6 +106,18 @@ public class AdminProjetController {
                 .message(traduits.isEmpty() ? "Aucun projet trouvé" : "Projets récupérés avec succès");
     }
 
+    @GetMapping("/porteur/{porteurId}")
+    @Operation(
+        summary = "Lister les projets d'un porteur donné",
+        description = "Retourne tous les projets (tous statuts confondus) d'un porteur — utilisé notamment pour choisir quels projets mettre en avant dans sa fiche de présentation.",
+        tags = {"Admin - Projets"}
+    )
+    public ApiResponseDTO<List<ProjetDTO>> getByPorteur(
+            @Parameter(description = "Identifiant du porteur", example = "42") @PathVariable Long porteurId) {
+        List<ProjetDTO> dtos = projetMapper.toDtoList(projetService.getProjetsPubliesByPorteurId(porteurId));
+        return ApiResponseDTO.success(dtos);
+    }
+
     @GetMapping("/{id}")
     @Operation(
         summary = "Détail d'un projet",
