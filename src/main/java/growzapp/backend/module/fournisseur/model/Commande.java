@@ -60,21 +60,31 @@ public class Commande {
     @Column(name = "date_validation_admin")
     private LocalDateTime dateValidationAdmin;
 
-    @Column(name = "date_livraison")
-    private LocalDateTime dateLivraison;
+    @Column(name = "date_acceptation")
+    private LocalDateTime dateAcceptation;
+
+    @Column(name = "date_expedition")
+    private LocalDateTime dateExpedition;
 
     @Column(name = "date_confirmation_reception")
     private LocalDateTime dateConfirmationReception;
 
+    @Column(name = "date_paiement")
+    private LocalDateTime datePaiement;
+
     @Column(name = "motif_rejet", length = 500)
     private String motifRejet;
+
+    @Column(name = "motif_refus", length = 500)
+    private String motifRefus;
 
     @Column(name = "motif_litige", length = 1000)
     private String motifLitige;
 
-    // Justificatif transmis par le fournisseur à la livraison — condition de
+    // Justificatif transmis par le fournisseur à l'expédition — condition de
     // transparence pour les investisseurs du projet, qui financent cet achat
-    // sans jamais voir transiter l'argent par le porteur.
+    // sans jamais voir transiter l'argent par le porteur. Redistribuée
+    // (email + Documents du projet) une fois le paiement exécuté.
     @Column(name = "facture_url")
     private String factureUrl;
 

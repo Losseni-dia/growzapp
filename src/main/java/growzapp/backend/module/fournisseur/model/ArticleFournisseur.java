@@ -49,6 +49,12 @@ public class ArticleFournisseur {
     @Column(nullable = false)
     private boolean disponible = true;
 
+    // Stock d'unités restantes — null = illimité (pas de suivi de stock pour
+    // cet article). Décrémenté à chaque commande, restauré si la commande
+    // est refusée/rejetée/annulée.
+    @Column(name = "stock")
+    private Integer stock;
+
     @Column(name = "photo_url")
     private String photoUrl;
 

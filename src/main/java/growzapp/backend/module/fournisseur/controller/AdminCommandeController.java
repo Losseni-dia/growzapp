@@ -46,10 +46,26 @@ public class AdminCommandeController {
         return ApiResponseDTO.success(dtos);
     }
 
+    @GetMapping("/a-payer")
+    @Operation(summary = "Lister les commandes livrées en attente de paiement")
+    public ApiResponseDTO<List<CommandeDTO>> getAPayer() {
+        List<CommandeDTO> dtos = commandeService.getALivrerAdmin().stream()
+                .map(commandeService::toDto)
+                .toList();
+        return ApiResponseDTO.success(dtos);
+    }
+
     @PostMapping("/{id}/valider")
-    @Operation(summary = "Valider une commande", description = "Débite le wallet du projet et séquestre les fonds au bénéfice du fournisseur.")
+    @Operation(summary = "Valider une commande", description = "Transmet la commande au fournisseur pour acceptation — aucun fonds ne bouge à cette étape.")
     public ApiResponseDTO<CommandeDTO> valider(@PathVariable Long id) {
         Commande saved = commandeService.validerAdmin(id);
+        return ApiResponseDTO.success(commandeService.toDto(saved));
+    }
+
+    @PostMapping("/{id}/payer")
+    @Operation(summary = "Exécuter le paiement d'une commande livrée", description = "Unique mouvement de fonds : débite le wallet du projet et crédite le wallet du fournisseur.")
+    public ApiResponseDTO<CommandeDTO> payer(@PathVariable Long id) {
+        Commande saved = commandeService.executerPaiement(id);
         return ApiResponseDTO.success(commandeService.toDto(saved));
     }
 

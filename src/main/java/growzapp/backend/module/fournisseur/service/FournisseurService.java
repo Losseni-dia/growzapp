@@ -216,6 +216,7 @@ public class FournisseurService {
         article.setPrix(dto.prix());
         article.setUnite(dto.unite());
         article.setDisponible(dto.disponible());
+        article.setStock(dto.stock());
         ArticleFournisseur saved = articleFournisseurRepository.save(article);
 
         if (photo != null && !photo.isEmpty()) {
@@ -239,6 +240,7 @@ public class FournisseurService {
         article.setPrix(dto.prix());
         article.setUnite(dto.unite());
         article.setDisponible(dto.disponible());
+        article.setStock(dto.stock());
 
         if (photo != null && !photo.isEmpty()) {
             article.setPhotoUrl(fileUploadService.uploadArticlePhoto(photo, article.getId()));
@@ -294,6 +296,7 @@ public class FournisseurService {
                 a.getPrix(),
                 a.getUnite(),
                 a.isDisponible(),
+                a.getStock(),
                 a.getPhotoUrl());
     }
 }

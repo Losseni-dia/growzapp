@@ -5,12 +5,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import java.util.stream.Collectors;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import growzapp.backend.module.document.model.Document;
+import growzapp.backend.module.document.service.DocumentService;
 import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.files.FileUploadService;
 import growzapp.backend.module.fournisseur.dto.CommandeCreateDTO;
@@ -49,6 +49,7 @@ public class CommandeService {
     private final NotificationService notificationService;
     private final EmailService emailService;
     private final FileUploadService fileUploadService;
+    private final DocumentService documentService;
 
     private Commande getOrThrow(Long id) {
         return commandeRepository.findById(id)
@@ -65,6 +66,27 @@ public class CommandeService {
     private void ensureFournisseurProprietaire(Commande commande, User user) {
         if (!commande.getFournisseur().getUser().getId().equals(user.getId())) {
             throw new SecurityException("Cette commande ne vous concerne pas.");
+        }
+    }
+
+    // Restitue le stock réservé à la commande — appelé chaque fois qu'une
+    // commande n'aboutit finalement pas (refus, rejet, litige perdu par le
+    // fournisseur) après avoir décrémenté le stock à la création.
+    private void restaurerStock(Commande commande) {
+        for (CommandeLigne ligne : commande.getLignes()) {
+            ArticleFournisseur article = ligne.getArticle();
+            if (article != null && article.getStock() != null) {
+                article.setStock(article.getStock() + ligne.getQuantite());
+                articleFournisseurRepository.save(article);
+            }
+        }
+    }
+
+    private void ensureStatut(Commande commande, StatutCommande attendu, String action) {
+        if (commande.getStatut() != attendu) {
+            throw new IllegalStateException(
+                    "Impossible de " + action + " : la commande n'est pas au statut attendu ("
+                            + commande.getStatut() + ").");
         }
     }
 
@@ -96,6 +118,19 @@ public class CommandeService {
             if (!article.isDisponible()) {
                 throw new IllegalArgumentException("L'article " + article.getNom() + " n'est plus disponible.");
             }
+            if (article.getStock() != null && article.getStock() < ligneDto.quantite()) {
+                throw new IllegalArgumentException(
+                        "Stock insuffisant pour " + article.getNom() + " (" + article.getStock() + " restant(s)).");
+            }
+
+            // Réservé dès la commande (pas seulement à l'acceptation) pour
+            // éviter que deux porteurs commandent en même temps plus que le
+            // stock réel — restauré si le fournisseur refuse, si l'admin
+            // rejette, ou si un litige est arbitré en faveur du porteur.
+            if (article.getStock() != null) {
+                article.setStock(article.getStock() - ligneDto.quantite());
+                articleFournisseurRepository.save(article);
+            }
 
             CommandeLigne ligne = new CommandeLigne();
             ligne.setCommande(commande);
@@ -115,9 +150,7 @@ public class CommandeService {
 
         notificationService.notifyAdmins(
                 "Nouvelle commande fournisseur à valider",
-                projet.getLibelle() + " → " + (fournisseur.getRaisonSociale() != null
-                        ? fournisseur.getRaisonSociale()
-                        : fournisseur.getUser().getPrenom() + " " + fournisseur.getUser().getNom())
+                projet.getLibelle() + " → " + fournisseurNomAffiche(fournisseur)
                         + " (" + total.toPlainString() + " FCFA)",
                 "/admin/commandes");
 
@@ -125,58 +158,30 @@ public class CommandeService {
     }
 
     // ── Validation / rejet, côté admin ──────────────────────────────────────
+    // Aucun mouvement de fonds à cette étape — seule l'acceptation du
+    // fournisseur, l'expédition et la confirmation de réception ouvrent
+    // droit au paiement, exécuté explicitement par l'admin ensuite.
     @Transactional
     public Commande validerAdmin(Long id) {
         Commande commande = getOrThrow(id);
-        if (commande.getStatut() != StatutCommande.EN_ATTENTE_VALIDATION) {
-            throw new IllegalStateException("Seule une commande en attente de validation peut être validée.");
-        }
+        ensureStatut(commande, StatutCommande.EN_ATTENTE_VALIDATION, "valider cette commande");
 
-        txHelper.debiterProjetVersFournisseurBloque(
-                commande.getProjet().getId(),
-                commande.getFournisseur().getUser().getId(),
-                commande.getId(),
-                commande.getMontantTotal());
-
-        commande.setStatut(StatutCommande.VALIDEE);
+        commande.setStatut(StatutCommande.EN_ATTENTE_ACCEPTATION);
         commande.setDateValidationAdmin(LocalDateTime.now());
         Commande saved = commandeRepository.save(commande);
 
         notificationService.notifyUser(
                 commande.getFournisseur().getUser(),
-                "Commande validée",
-                "Votre commande #" + commande.getId() + " a été validée, les fonds sont séquestrés en votre faveur.",
+                "Nouvelle commande à accepter",
+                "Commande #" + commande.getId() + " pour le projet " + commande.getProjet().getLibelle()
+                        + " (" + commande.getMontantTotal().toPlainString() + " FCFA) — merci de l'accepter ou de la refuser.",
                 null, "/mon-espace/fournisseur");
         notificationService.notifyUser(
                 commande.getProjet().getPorteur(),
                 "Commande validée",
-                "Votre commande auprès de " + fournisseurNomAffiche(commande.getFournisseur()) + " a été validée.",
+                "Votre commande auprès de " + fournisseurNomAffiche(commande.getFournisseur())
+                        + " a été validée par l'équipe GrowzApp, en attente d'acceptation du fournisseur.",
                 commande.getProjet().getId(), commande.getProjet().getSlug());
-
-        // Traçabilité vis-à-vis des investisseurs : ils ont financé ce
-        // projet, ils doivent savoir précisément où va l'argent, même s'il
-        // ne transite jamais par le porteur.
-        String montantFormate = commande.getMontantTotal().toPlainString() + " FCFA";
-        for (User investisseur : getInvestisseursValides(commande.getProjet())) {
-            notificationService.notifyUser(
-                    investisseur,
-                    "Paiement fournisseur effectué",
-                    "Commande #" + commande.getId() + " — " + montantFormate + " versés à "
-                            + fournisseurNomAffiche(commande.getFournisseur()) + " pour le projet "
-                            + commande.getProjet().getLibelle() + ".",
-                    commande.getProjet().getId(), commande.getProjet().getSlug());
-
-            String destinataire = resolveEmail(investisseur);
-            if (destinataire != null) {
-                emailService.envoyerPaiementFournisseurInvestisseur(
-                        destinataire,
-                        (investisseur.getPrenom() + " " + investisseur.getNom()).trim(),
-                        commande.getProjet().getLibelle(),
-                        fournisseurNomAffiche(commande.getFournisseur()),
-                        montantFormate,
-                        commande.getId());
-            }
-        }
 
         return saved;
     }
@@ -184,11 +189,11 @@ public class CommandeService {
     @Transactional
     public Commande rejeterAdmin(Long id, String motif) {
         Commande commande = getOrThrow(id);
-        if (commande.getStatut() != StatutCommande.EN_ATTENTE_VALIDATION) {
-            throw new IllegalStateException("Seule une commande en attente de validation peut être rejetée.");
-        }
+        ensureStatut(commande, StatutCommande.EN_ATTENTE_VALIDATION, "rejeter cette commande");
+
         commande.setStatut(StatutCommande.REJETEE);
         commande.setMotifRejet(motif);
+        restaurerStock(commande);
         Commande saved = commandeRepository.save(commande);
 
         notificationService.notifyUser(
@@ -200,53 +205,78 @@ public class CommandeService {
         return saved;
     }
 
-    // ── Livraison, côté fournisseur ──────────────────────────────────────────
+    // ── Acceptation / refus, côté fournisseur ───────────────────────────────
     @Transactional
-    public Commande marquerLivree(Long id, User fournisseurUser, MultipartFile facture) {
+    public Commande accepterFournisseur(Long id, User fournisseurUser) {
         Commande commande = getOrThrow(id);
         ensureFournisseurProprietaire(commande, fournisseurUser);
-        if (commande.getStatut() != StatutCommande.VALIDEE) {
-            throw new IllegalStateException("Seule une commande validée peut être marquée comme livrée.");
-        }
+        ensureStatut(commande, StatutCommande.EN_ATTENTE_ACCEPTATION, "accepter cette commande");
+
+        commande.setStatut(StatutCommande.ACCEPTEE);
+        commande.setDateAcceptation(LocalDateTime.now());
+        Commande saved = commandeRepository.save(commande);
+
+        notificationService.notifyUser(
+                commande.getProjet().getPorteur(),
+                "Commande acceptée",
+                fournisseurNomAffiche(commande.getFournisseur()) + " a accepté votre commande #" + commande.getId()
+                        + ".",
+                commande.getProjet().getId(), commande.getProjet().getSlug());
+
+        return saved;
+    }
+
+    @Transactional
+    public Commande refuserFournisseur(Long id, User fournisseurUser, String motif) {
+        Commande commande = getOrThrow(id);
+        ensureFournisseurProprietaire(commande, fournisseurUser);
+        ensureStatut(commande, StatutCommande.EN_ATTENTE_ACCEPTATION, "refuser cette commande");
+
+        commande.setStatut(StatutCommande.REFUSEE);
+        commande.setMotifRefus(motif);
+        restaurerStock(commande);
+        Commande saved = commandeRepository.save(commande);
+
+        notificationService.notifyUser(
+                commande.getProjet().getPorteur(),
+                "Commande refusée",
+                fournisseurNomAffiche(commande.getFournisseur()) + " a refusé votre commande #" + commande.getId()
+                        + " : " + motif,
+                commande.getProjet().getId(), commande.getProjet().getSlug());
+        notificationService.notifyAdmins(
+                "Commande fournisseur refusée",
+                "Commande #" + commande.getId() + " refusée par " + fournisseurNomAffiche(commande.getFournisseur())
+                        + " : " + motif,
+                "/admin/commandes");
+
+        return saved;
+    }
+
+    // ── Expédition, côté fournisseur (facture obligatoire) ──────────────────
+    @Transactional
+    public Commande marquerExpediee(Long id, User fournisseurUser, MultipartFile facture) {
+        Commande commande = getOrThrow(id);
+        ensureFournisseurProprietaire(commande, fournisseurUser);
+        ensureStatut(commande, StatutCommande.ACCEPTEE, "marquer cette commande comme expédiée");
         if (facture == null || facture.isEmpty()) {
             throw new IllegalArgumentException(
-                    "La facture est obligatoire pour marquer une commande comme livrée — elle sera transmise aux investisseurs du projet.");
+                    "La facture est obligatoire pour expédier une commande — elle sera transmise au porteur et aux investisseurs du projet.");
         }
 
         String factureUrl = fileUploadService.uploadFactureCommande(facture, commande.getId());
 
-        commande.setStatut(StatutCommande.LIVREE);
-        commande.setDateLivraison(LocalDateTime.now());
+        commande.setStatut(StatutCommande.EXPEDIEE);
+        commande.setDateExpedition(LocalDateTime.now());
         commande.setFactureUrl(factureUrl);
         Commande saved = commandeRepository.save(commande);
 
         notificationService.notifyUser(
                 commande.getProjet().getPorteur(),
-                "Commande livrée",
+                "Commande expédiée",
                 fournisseurNomAffiche(commande.getFournisseur())
-                        + " a signalé la livraison de votre commande #" + commande.getId()
-                        + ". Merci de confirmer la réception.",
+                        + " a expédié votre commande #" + commande.getId()
+                        + ". Merci de confirmer la réception dès son arrivée.",
                 commande.getProjet().getId(), commande.getProjet().getSlug());
-
-        // Traçabilité : la facture justificative part directement aux
-        // investisseurs, pas seulement au porteur — ils financent cet achat.
-        for (User investisseur : getInvestisseursValides(commande.getProjet())) {
-            notificationService.notifyUser(
-                    investisseur,
-                    "Facture fournisseur disponible",
-                    "La facture de la commande #" + commande.getId() + " (" + commande.getProjet().getLibelle()
-                            + ") est disponible.",
-                    null, "/commandes/" + commande.getId() + "/facture");
-
-            String destinataire = resolveEmail(investisseur);
-            if (destinataire != null) {
-                emailService.envoyerFactureDisponibleInvestisseur(
-                        destinataire,
-                        (investisseur.getPrenom() + " " + investisseur.getNom()).trim(),
-                        commande.getProjet().getLibelle(),
-                        commande.getId());
-            }
-        }
 
         return saved;
     }
@@ -256,16 +286,9 @@ public class CommandeService {
     public Commande confirmerReception(Long id, User porteur) {
         Commande commande = getOrThrow(id);
         ensurePorteurDuProjet(commande, porteur);
-        if (commande.getStatut() != StatutCommande.LIVREE) {
-            throw new IllegalStateException("Seule une commande livrée peut être confirmée.");
-        }
+        ensureStatut(commande, StatutCommande.EXPEDIEE, "confirmer la réception de cette commande");
 
-        txHelper.libererVersFournisseur(
-                commande.getFournisseur().getUser().getId(),
-                commande.getMontantTotal(),
-                commande.getId());
-
-        commande.setStatut(StatutCommande.CONFIRMEE);
+        commande.setStatut(StatutCommande.LIVREE);
         commande.setDateConfirmationReception(LocalDateTime.now());
         Commande saved = commandeRepository.save(commande);
 
@@ -273,8 +296,12 @@ public class CommandeService {
                 commande.getFournisseur().getUser(),
                 "Réception confirmée",
                 "Le porteur a confirmé la réception de la commande #" + commande.getId()
-                        + " — les fonds sont maintenant disponibles.",
+                        + " — le paiement va être exécuté par l'équipe GrowzApp.",
                 null, "/mon-espace/fournisseur");
+        notificationService.notifyAdmins(
+                "Commande à payer",
+                "Commande #" + commande.getId() + " (" + commande.getProjet().getLibelle() + ") livrée et confirmée — paiement à exécuter.",
+                "/admin/commandes");
 
         return saved;
     }
@@ -283,9 +310,8 @@ public class CommandeService {
     public Commande ouvrirLitige(Long id, User porteur, String motif) {
         Commande commande = getOrThrow(id);
         ensurePorteurDuProjet(commande, porteur);
-        if (commande.getStatut() != StatutCommande.LIVREE) {
-            throw new IllegalStateException("Un litige ne peut être ouvert que sur une commande livrée non confirmée.");
-        }
+        ensureStatut(commande, StatutCommande.EXPEDIEE, "ouvrir un litige sur cette commande");
+
         commande.setStatut(StatutCommande.LITIGE);
         commande.setMotifLitige(motif);
         Commande saved = commandeRepository.save(commande);
@@ -299,30 +325,119 @@ public class CommandeService {
     }
 
     // ── Arbitrage admin d'un litige ──────────────────────────────────────────
+    // Aucun mouvement de fonds n'est jamais nécessaire ici : l'argent n'a pas
+    // encore bougé à ce stade du cycle.
     @Transactional
     public Commande arbitrerLitige(Long id, boolean enFaveurDuFournisseur, String motif) {
         Commande commande = getOrThrow(id);
-        if (commande.getStatut() != StatutCommande.LITIGE) {
-            throw new IllegalStateException("Cette commande n'est pas en litige.");
-        }
+        ensureStatut(commande, StatutCommande.LITIGE, "arbitrer cette commande");
 
         if (enFaveurDuFournisseur) {
-            txHelper.libererVersFournisseur(
-                    commande.getFournisseur().getUser().getId(),
-                    commande.getMontantTotal(),
-                    commande.getId());
-            commande.setStatut(StatutCommande.CONFIRMEE);
+            commande.setStatut(StatutCommande.LIVREE);
+            commande.setDateConfirmationReception(LocalDateTime.now());
         } else {
-            // Les fonds séquestrés côté fournisseur retournent au wallet du
-            // projet — l'inverse exact du débit fait à la validation.
-            txHelper.libererVersFournisseur(commande.getFournisseur().getUser().getId(), commande.getMontantTotal(),
-                    commande.getId());
-            txHelper.rembourserProjet(commande.getProjet().getId(), commande.getMontantTotal(), commande.getId());
-            commande.setStatut(StatutCommande.REJETEE);
+            commande.setStatut(StatutCommande.ANNULEE);
+            restaurerStock(commande);
         }
         commande.setMotifLitige((commande.getMotifLitige() != null ? commande.getMotifLitige() + " | " : "")
                 + "Arbitrage admin : " + motif);
         return commandeRepository.save(commande);
+    }
+
+    // ── Paiement, côté admin (unique mouvement de fonds) ────────────────────
+    @Transactional
+    public Commande executerPaiement(Long id) {
+        Commande commande = getOrThrow(id);
+        ensureStatut(commande, StatutCommande.LIVREE, "payer cette commande");
+
+        txHelper.executerPaiement(
+                commande.getProjet().getId(),
+                commande.getFournisseur().getUser().getId(),
+                commande.getId(),
+                commande.getMontantTotal());
+
+        commande.setStatut(StatutCommande.PAYEE);
+        commande.setDatePaiement(LocalDateTime.now());
+        Commande saved = commandeRepository.save(commande);
+
+        attacherFactureAuxDocuments(saved);
+        notifierPaiement(saved);
+
+        return saved;
+    }
+
+    private void attacherFactureAuxDocuments(Commande commande) {
+        if (commande.getFactureUrl() == null) {
+            return;
+        }
+        try {
+            String filenameDocuments = fileUploadService.copierFactureVersDocuments(commande.getFactureUrl());
+            Document document = new Document();
+            document.setNom("Facture fournisseur — Commande #" + commande.getId());
+            document.setFilename(filenameDocuments);
+            document.setType("FACTURE");
+            document.setDescription("Facture de " + fournisseurNomAffiche(commande.getFournisseur())
+                    + " pour la commande #" + commande.getId());
+            document.setProjet(commande.getProjet());
+            documentService.save(document);
+        } catch (Exception e) {
+            // Ne bloque jamais le paiement déjà exécuté — juste tracé pour
+            // intervention manuelle si la copie du fichier échoue.
+            org.slf4j.LoggerFactory.getLogger(CommandeService.class)
+                    .error("Échec de l'ajout de la facture aux documents du projet {} (commande {}) : {}",
+                            commande.getProjet().getId(), commande.getId(), e.getMessage(), e);
+        }
+    }
+
+    private void notifierPaiement(Commande commande) {
+        String montantFormate = commande.getMontantTotal().toPlainString() + " FCFA";
+        String fournisseurNom = fournisseurNomAffiche(commande.getFournisseur());
+
+        notificationService.notifyUser(
+                commande.getFournisseur().getUser(),
+                "Paiement reçu",
+                "Le paiement de " + montantFormate + " pour la commande #" + commande.getId()
+                        + " est maintenant disponible sur votre wallet.",
+                null, "/mon-espace/fournisseur");
+
+        User porteur = commande.getProjet().getPorteur();
+        notificationService.notifyUser(
+                porteur,
+                "Paiement fournisseur effectué",
+                montantFormate + " versés à " + fournisseurNom + " pour la commande #" + commande.getId() + ".",
+                commande.getProjet().getId(), commande.getProjet().getSlug());
+        String emailPorteur = resolveEmail(porteur);
+        if (emailPorteur != null) {
+            emailService.envoyerPaiementFournisseurInvestisseur(
+                    emailPorteur, (porteur.getPrenom() + " " + porteur.getNom()).trim(),
+                    commande.getProjet().getLibelle(), fournisseurNom, montantFormate, commande.getId());
+            if (commande.getFactureUrl() != null) {
+                emailService.envoyerFactureDisponibleInvestisseur(
+                        emailPorteur, (porteur.getPrenom() + " " + porteur.getNom()).trim(),
+                        commande.getProjet().getLibelle(), commande.getId());
+            }
+        }
+
+        for (User investisseur : getInvestisseursValides(commande.getProjet())) {
+            notificationService.notifyUser(
+                    investisseur,
+                    "Paiement fournisseur effectué",
+                    "Commande #" + commande.getId() + " — " + montantFormate + " versés à " + fournisseurNom
+                            + " pour le projet " + commande.getProjet().getLibelle() + ".",
+                    commande.getProjet().getId(), commande.getProjet().getSlug());
+
+            String destinataire = resolveEmail(investisseur);
+            if (destinataire != null) {
+                emailService.envoyerPaiementFournisseurInvestisseur(
+                        destinataire, (investisseur.getPrenom() + " " + investisseur.getNom()).trim(),
+                        commande.getProjet().getLibelle(), fournisseurNom, montantFormate, commande.getId());
+                if (commande.getFactureUrl() != null) {
+                    emailService.envoyerFactureDisponibleInvestisseur(
+                            destinataire, (investisseur.getPrenom() + " " + investisseur.getNom()).trim(),
+                            commande.getProjet().getLibelle(), commande.getId());
+                }
+            }
+        }
     }
 
     public List<Commande> getMesCommandesPorteur(Long porteurId) {
@@ -335,6 +450,10 @@ public class CommandeService {
 
     public List<Commande> getEnAttenteAdmin() {
         return commandeRepository.findByStatutOrderByDateCommandeDesc(StatutCommande.EN_ATTENTE_VALIDATION);
+    }
+
+    public List<Commande> getALivrerAdmin() {
+        return commandeRepository.findByStatutOrderByDateCommandeDesc(StatutCommande.LIVREE);
     }
 
     public List<Commande> getEnLitigeAdmin() {
@@ -364,7 +483,7 @@ public class CommandeService {
                 .stream()
                 .map(Investissement::getInvestisseur)
                 .distinct()
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // ── Consultation de la facture (porteur, fournisseur, investisseurs, admin) ─
@@ -419,9 +538,12 @@ public class CommandeService {
                 c.getStatut().name(),
                 c.getDateCommande(),
                 c.getDateValidationAdmin(),
-                c.getDateLivraison(),
+                c.getDateAcceptation(),
+                c.getDateExpedition(),
                 c.getDateConfirmationReception(),
+                c.getDatePaiement(),
                 c.getMotifRejet(),
+                c.getMotifRefus(),
                 c.getMotifLitige(),
                 c.getFactureUrl(),
                 lignes);

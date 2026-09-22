@@ -18,11 +18,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Mouvements de trésorerie d'une commande fournisseur, isolés dans un bean
+ * Mouvement de trésorerie d'une commande fournisseur, isolé dans un bean
  * dédié pour la même raison que ProjetWithdrawalTransactionHelper :
  * @Transactional(REQUIRES_NEW) est ignoré en cas d'auto-invocation depuis
  * CommandeService, il faut passer par un bean Spring distinct pour que le
  * verrou pessimiste sur les wallets soit posé dans sa propre transaction.
+ *
+ * Un seul mouvement de fonds pour toute la commande : il n'a lieu qu'après
+ * validation admin, acceptation fournisseur, expédition et confirmation de
+ * réception par le porteur — l'admin déclenche alors explicitement le
+ * paiement. Aucun séquestre intermédiaire n'est nécessaire puisque
+ * l'engagement des deux parties est déjà acquis à ce stade.
  */
 @Slf4j
 @Service
@@ -32,25 +38,20 @@ public class CommandeTransactionHelper {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
 
-    /**
-     * Validation admin d'une commande : débite le wallet du projet
-     * (soldeDisponible) et crédite le wallet du fournisseur en séquestre
-     * (soldeBloque) — l'argent ne transite jamais par le porteur.
-     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void debiterProjetVersFournisseurBloque(Long projetId, Long fournisseurUserId, Long commandeId,
-            BigDecimal montant) {
+    public void executerPaiement(Long projetId, Long fournisseurUserId, Long commandeId, BigDecimal montant) {
         Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
                 .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
         if (walletProjet.getSoldeDisponible().compareTo(montant) < 0) {
-            throw new IllegalStateException("Solde disponible insuffisant dans le wallet du projet pour cette commande.");
+            throw new IllegalStateException(
+                    "Solde disponible insuffisant dans le wallet du projet pour payer cette commande.");
         }
         walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().subtract(montant));
         walletRepository.saveAndFlush(walletProjet);
 
         Wallet walletFournisseur = walletRepository.findByUserIdWithPessimisticLock(fournisseurUserId)
                 .orElseThrow(() -> new IllegalStateException("Wallet fournisseur introuvable"));
-        walletFournisseur.crediterDirectementBloque(montant);
+        walletFournisseur.crediterDisponible(montant);
         walletRepository.saveAndFlush(walletFournisseur);
 
         transactionRepository.save(Transaction.builder()
@@ -59,7 +60,7 @@ public class CommandeTransactionHelper {
                 .montant(montant)
                 .type(TypeTransaction.PAIEMENT_FOURNISSEUR)
                 .statut(StatutTransaction.SUCCESS)
-                .description("Commande fournisseur #" + commandeId + " — fonds séquestrés")
+                .description("Commande fournisseur #" + commandeId + " — paiement exécuté")
                 .referenceType("COMMANDE")
                 .referenceId(commandeId)
                 .completedAt(LocalDateTime.now())
@@ -71,66 +72,13 @@ public class CommandeTransactionHelper {
                 .montant(montant)
                 .type(TypeTransaction.PAIEMENT_FOURNISSEUR)
                 .statut(StatutTransaction.SUCCESS)
-                .description("Commande #" + commandeId + " — fonds séquestrés en attente de confirmation de réception")
+                .description("Commande #" + commandeId + " — paiement reçu, fonds disponibles")
                 .referenceType("COMMANDE")
                 .referenceId(commandeId)
                 .completedAt(LocalDateTime.now())
                 .build());
 
-        log.info("Commande {} validée : {} FCFA séquestrés au wallet fournisseur (user={})",
-                commandeId, montant, fournisseurUserId);
-    }
-
-    /**
-     * Rejet admin après un débit déjà effectué (ne devrait normalement pas
-     * arriver — la validation et le débit sont atomiques — mais gardé en
-     * filet de sécurité si un rejet intervient après coup).
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void rembourserProjet(Long projetId, BigDecimal montant, Long commandeId) {
-        Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
-                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
-        walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().add(montant));
-        walletRepository.saveAndFlush(walletProjet);
-
-        transactionRepository.save(Transaction.builder()
-                .walletId(walletProjet.getId())
-                .walletType(WalletType.PROJET)
-                .montant(montant)
-                .type(TypeTransaction.REMBOURSEMENT)
-                .statut(StatutTransaction.SUCCESS)
-                .description("Commande #" + commandeId + " rejetée/en litige — fonds remboursés au wallet projet")
-                .referenceType("COMMANDE")
-                .referenceId(commandeId)
-                .completedAt(LocalDateTime.now())
-                .build());
-    }
-
-    /**
-     * Confirmation de réception par le porteur : libère les fonds séquestrés
-     * du wallet fournisseur (soldeBloque -> soldeDisponible), désormais
-     * retirables.
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void libererVersFournisseur(Long fournisseurUserId, BigDecimal montant, Long commandeId) {
-        Wallet walletFournisseur = walletRepository.findByUserIdWithPessimisticLock(fournisseurUserId)
-                .orElseThrow(() -> new IllegalStateException("Wallet fournisseur introuvable"));
-        walletFournisseur.debloquerFonds(montant);
-        walletRepository.saveAndFlush(walletFournisseur);
-
-        transactionRepository.save(Transaction.builder()
-                .walletId(walletFournisseur.getId())
-                .walletType(WalletType.USER)
-                .montant(montant)
-                .type(TypeTransaction.PAIEMENT_FOURNISSEUR)
-                .statut(StatutTransaction.SUCCESS)
-                .description("Commande #" + commandeId + " — réception confirmée, fonds disponibles")
-                .referenceType("COMMANDE")
-                .referenceId(commandeId)
-                .completedAt(LocalDateTime.now())
-                .build());
-
-        log.info("Commande {} confirmée : {} FCFA libérés au wallet fournisseur (user={})",
+        log.info("Commande {} payée : {} FCFA transférés au wallet fournisseur (user={})",
                 commandeId, montant, fournisseurUserId);
     }
 }

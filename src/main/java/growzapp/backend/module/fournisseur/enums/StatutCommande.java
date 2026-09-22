@@ -1,19 +1,28 @@
 package growzapp.backend.module.fournisseur.enums;
 
 public enum StatutCommande {
-    // Créée par le porteur, en attente de validation admin — les fonds ne
-    // bougent pas encore du wallet projet à ce stade.
+    // Créée par le porteur, en attente de validation admin.
     EN_ATTENTE_VALIDATION,
-    // Validée par l'admin : fonds débités du wallet projet et placés en
-    // séquestre (soldeBloque) sur le wallet du fournisseur.
-    VALIDEE,
+    // Rejetée par l'admin avant même d'être proposée au fournisseur.
     REJETEE,
-    // Le fournisseur déclare avoir livré — les fonds restent séquestrés
-    // jusqu'à confirmation du porteur.
+    // Validée par l'admin, en attente d'acceptation par le fournisseur —
+    // aucun fonds ne bouge encore à ce stade.
+    EN_ATTENTE_ACCEPTATION,
+    // Le fournisseur refuse (avec motif) — aucun fonds n'a jamais bougé.
+    REFUSEE,
+    // Le fournisseur accepte de traiter la commande.
+    ACCEPTEE,
+    // Le fournisseur a expédié — facture obligatoire à cette étape.
+    EXPEDIEE,
+    // Le porteur conteste la livraison avant confirmation.
+    LITIGE,
+    // Litige arbitré en faveur du porteur — aucun paiement, aucun fonds
+    // n'ayant jamais été débité.
+    ANNULEE,
+    // Le porteur confirme avoir reçu la commande — déclenche l'alerte de
+    // paiement côté admin.
     LIVREE,
-    // Le porteur confirme la réception : les fonds séquestrés deviennent
-    // disponibles (retirables) pour le fournisseur.
-    CONFIRMEE,
-    // Litige ouvert par le porteur avant confirmation — l'admin arbitre.
-    LITIGE
+    // L'admin a exécuté le paiement : unique mouvement de fonds, wallet
+    // projet -> wallet fournisseur.
+    PAYEE
 }

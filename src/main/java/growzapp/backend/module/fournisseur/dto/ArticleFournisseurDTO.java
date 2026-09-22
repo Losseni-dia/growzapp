@@ -10,5 +10,6 @@ public record ArticleFournisseurDTO(
         BigDecimal prix,
         String unite,
         boolean disponible,
+        Integer stock,
         String photoUrl) {
 }

@@ -19,5 +19,7 @@ public record ArticleFournisseurCreateDTO(
 
         @NotBlank(message = "L'unité est obligatoire") @Schema(example = "sac") String unite,
 
-        boolean disponible) {
+        boolean disponible,
+
+        @Schema(example = "50", description = "Stock disponible — laisser vide pour un stock illimité") Integer stock) {
 }

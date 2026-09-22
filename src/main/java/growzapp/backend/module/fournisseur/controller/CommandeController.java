@@ -88,19 +88,40 @@ public class CommandeController {
         return ApiResponseDTO.success(dtos);
     }
 
-    @PostMapping(value = "/{id}/livrer", consumes = "multipart/form-data")
-    @Operation(summary = "Signaler la livraison d'une commande (fournisseur)", description = "La facture est obligatoire — elle est transmise automatiquement aux investisseurs du projet.")
-    public ApiResponseDTO<CommandeDTO> livrer(
+    @PostMapping("/{id}/accepter")
+    @Operation(summary = "Accepter une commande (fournisseur)")
+    public ApiResponseDTO<CommandeDTO> accepter(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id) {
+        User user = getCurrentUser(userDetails);
+        Commande saved = commandeService.accepterFournisseur(id, user);
+        return ApiResponseDTO.success(commandeService.toDto(saved));
+    }
+
+    @PostMapping("/{id}/refuser")
+    @Operation(summary = "Refuser une commande, avec motif (fournisseur)")
+    public ApiResponseDTO<CommandeDTO> refuser(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @Valid @RequestBody MotifDTO dto) {
+        User user = getCurrentUser(userDetails);
+        Commande saved = commandeService.refuserFournisseur(id, user, dto.motif());
+        return ApiResponseDTO.success(commandeService.toDto(saved));
+    }
+
+    @PostMapping(value = "/{id}/expedier", consumes = "multipart/form-data")
+    @Operation(summary = "Marquer une commande comme expédiée (fournisseur)", description = "La facture est obligatoire — elle sera transmise au porteur et aux investisseurs une fois le paiement exécuté.")
+    public ApiResponseDTO<CommandeDTO> expedier(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id,
             @RequestPart("facture") MultipartFile facture) {
         User user = getCurrentUser(userDetails);
-        Commande saved = commandeService.marquerLivree(id, user, facture);
+        Commande saved = commandeService.marquerExpediee(id, user, facture);
         return ApiResponseDTO.success(commandeService.toDto(saved));
     }
 
     @PostMapping("/{id}/confirmer-reception")
-    @Operation(summary = "Confirmer la réception d'une commande (porteur)", description = "Libère les fonds séquestrés au bénéfice du fournisseur.")
+    @Operation(summary = "Confirmer la réception d'une commande (porteur)", description = "Alerte l'admin qui doit exécuter le paiement — les fonds ne bougent pas automatiquement à cette étape.")
     public ApiResponseDTO<CommandeDTO> confirmerReception(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
@@ -110,7 +131,7 @@ public class CommandeController {
     }
 
     @PostMapping("/{id}/litige")
-    @Operation(summary = "Ouvrir un litige sur une commande livrée (porteur)")
+    @Operation(summary = "Ouvrir un litige sur une commande expédiée (porteur)")
     public ApiResponseDTO<CommandeDTO> ouvrirLitige(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id,

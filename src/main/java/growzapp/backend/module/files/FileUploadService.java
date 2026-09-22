@@ -35,6 +35,12 @@ public class FileUploadService {
     private static final Path ARTICLE_PHOTOS_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
             .resolve("uploads").resolve("article-photos");
 
+    // Stockage des documents projet — servi exclusivement par
+    // ProjetDocumentFileController (accès réservé porteur/investisseurs/admin,
+    // jamais exposé en statique public comme les autres dossiers ci-dessus).
+    private static final Path DOCUMENTS_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
+            .resolve("uploads").resolve("documents");
+
     static {
         try {
             Files.createDirectories(UPLOAD_ROOT);
@@ -42,6 +48,7 @@ public class FileUploadService {
             Files.createDirectories(PROJET_PHOTOS_UPLOAD_ROOT);
             Files.createDirectories(COMMANDE_FACTURES_UPLOAD_ROOT);
             Files.createDirectories(ARTICLE_PHOTOS_UPLOAD_ROOT);
+            Files.createDirectories(DOCUMENTS_UPLOAD_ROOT);
         } catch (IOException e) {
             throw new RuntimeException("Impossible de créer les dossiers d'upload", e);
         }
@@ -150,6 +157,25 @@ public class FileUploadService {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Échec upload photo de l'article", e);
+        }
+    }
+
+    /**
+     * Copie une facture déjà stockée sous uploads/commande-factures vers
+     * uploads/documents, pour qu'elle rejoigne l'onglet Documents du projet
+     * (servi par ProjetDocumentFileController, avec son propre contrôle
+     * d'accès investisseurs/porteur/admin). Retourne le nom de fichier dans
+     * son nouvel emplacement, à stocker tel quel sur Document.filename.
+     */
+    public String copierFactureVersDocuments(String factureUrl) {
+        try {
+            String filename = factureUrl.substring(factureUrl.lastIndexOf('/') + 1);
+            Path source = COMMANDE_FACTURES_UPLOAD_ROOT.resolve(filename);
+            Path destination = DOCUMENTS_UPLOAD_ROOT.resolve(filename);
+            Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
+            return filename;
+        } catch (Exception e) {
+            throw new RuntimeException("Échec de la copie de la facture vers les documents du projet", e);
         }
     }
 }

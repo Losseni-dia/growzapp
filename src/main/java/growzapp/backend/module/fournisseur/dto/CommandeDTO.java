@@ -20,9 +20,12 @@ public record CommandeDTO(
         String statut,
         LocalDateTime dateCommande,
         LocalDateTime dateValidationAdmin,
-        LocalDateTime dateLivraison,
+        LocalDateTime dateAcceptation,
+        LocalDateTime dateExpedition,
         LocalDateTime dateConfirmationReception,
+        LocalDateTime datePaiement,
         String motifRejet,
+        String motifRefus,
         String motifLitige,
         String factureUrl,
         List<CommandeLigneDTO> lignes) {
