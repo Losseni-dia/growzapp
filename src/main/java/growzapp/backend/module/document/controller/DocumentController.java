@@ -248,9 +248,17 @@ public class DocumentController {
             default -> "application/octet-stream";
         };
 
+        // ContentDisposition.builder encode le nom en RFC 5987 (filename*=UTF-8''...)
+        // — nécessaire dès que le nom du document contient un caractère hors
+        // ISO-8859-1 (ex. le tiret cadratin « — » des factures générées
+        // automatiquement), sinon Tomcat rejette l'en-tête et corrompt la
+        // réponse en cours d'écriture.
+        ContentDisposition contentDisposition = ContentDisposition.attachment()
+                .filename(doc.getNom() + getExtension(doc.getType()), java.nio.charset.StandardCharsets.UTF_8)
+                .build();
+
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + doc.getNom() + getExtension(doc.getType()) + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
                 .contentLength(data.length)
                 .contentType(MediaType.parseMediaType(contentType))
                 .body(resource);
