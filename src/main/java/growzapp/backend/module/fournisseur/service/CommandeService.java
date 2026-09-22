@@ -7,7 +7,6 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import growzapp.backend.module.document.model.Document;
 import growzapp.backend.module.document.service.DocumentService;
@@ -50,6 +49,7 @@ public class CommandeService {
     private final EmailService emailService;
     private final FileUploadService fileUploadService;
     private final DocumentService documentService;
+    private final CommandeFacturePdfService commandeFacturePdfService;
 
     private Commande getOrThrow(Long id) {
         return commandeRepository.findById(id)
@@ -252,18 +252,17 @@ public class CommandeService {
         return saved;
     }
 
-    // ── Expédition, côté fournisseur (facture obligatoire) ──────────────────
+    // ── Expédition, côté fournisseur ─────────────────────────────────────────
+    // La facture est générée automatiquement par le serveur à partir des
+    // données de la commande — le fournisseur n'a rien à uploader.
     @Transactional
-    public Commande marquerExpediee(Long id, User fournisseurUser, MultipartFile facture) {
+    public Commande marquerExpediee(Long id, User fournisseurUser) {
         Commande commande = getOrThrow(id);
         ensureFournisseurProprietaire(commande, fournisseurUser);
         ensureStatut(commande, StatutCommande.ACCEPTEE, "marquer cette commande comme expédiée");
-        if (facture == null || facture.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "La facture est obligatoire pour expédier une commande — elle sera transmise au porteur et aux investisseurs du projet.");
-        }
 
-        String factureUrl = fileUploadService.uploadFactureCommande(facture, commande.getId());
+        byte[] pdfBytes = commandeFacturePdfService.generateFacture(commande);
+        String factureUrl = fileUploadService.enregistrerFactureGeneree(pdfBytes, commande.getId());
 
         commande.setStatut(StatutCommande.EXPEDIEE);
         commande.setDateExpedition(LocalDateTime.now());

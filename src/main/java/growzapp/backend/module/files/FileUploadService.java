@@ -145,6 +145,21 @@ public class FileUploadService {
         }
     }
 
+    // Facture générée automatiquement par le serveur (PDF) à l'expédition
+    // d'une commande — même dossier que l'upload manuel, pour rester
+    // compatible avec copierFactureVersDocuments() et le contrôleur de
+    // téléchargement de facture.
+    public String enregistrerFactureGeneree(byte[] pdfBytes, Long commandeId) {
+        try {
+            String safeName = commandeId + "_" + System.currentTimeMillis() + "_facture.pdf";
+            Path destination = COMMANDE_FACTURES_UPLOAD_ROOT.resolve(safeName);
+            Files.write(destination, pdfBytes);
+            return "/uploads/commande-factures/" + safeName;
+        } catch (Exception e) {
+            throw new RuntimeException("Échec de l'enregistrement de la facture générée", e);
+        }
+    }
+
     public String uploadArticlePhoto(MultipartFile file, Long articleId) {
         try {
             fileValidationService.validateImage(file);

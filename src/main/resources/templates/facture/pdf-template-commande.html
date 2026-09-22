@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Facture GrowzApp — Commande fournisseur</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 9.5pt;
+            color: #2d2d2d;
+            line-height: 1.45;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header-band {
+            background-color: #1B5E20;
+            width: 100%;
+            padding: 10mm 12mm 8mm 12mm;
+        }
+
+        .header-band table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .header-title {
+            color: #ffffff;
+            font-size: 22pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .header-subtitle {
+            color: #FFC107;
+            font-size: 10.5pt;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+
+        .ref-box {
+            background-color: rgba(255, 255, 255, 0.12);
+            color: white;
+            padding: 8px 10px;
+            border-radius: 5px;
+            text-align: right;
+            font-size: 8pt;
+            line-height: 1.7;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .body-content {
+            padding: 6mm 12mm 6mm 12mm;
+        }
+
+        h3 {
+            color: #2E7D32;
+            font-size: 9.5pt;
+            margin: 0 0 6px 0;
+            font-weight: bold;
+        }
+
+        .summary-box {
+            background: #f1f8e9;
+            border: 1px solid #c5e1a5;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .summary-table td {
+            padding: 3px 4px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 8.5pt;
+        }
+
+        .summary-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #558b2f;
+            width: 45%;
+        }
+
+        .value {
+            font-weight: bold;
+            color: #1a1a1a;
+            text-align: right;
+        }
+
+        .lignes-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 8.5pt;
+        }
+
+        .lignes-table th {
+            background: #1B5E20;
+            color: white;
+            padding: 6px 10px;
+            text-align: left;
+            font-size: 8pt;
+        }
+
+        .lignes-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .lignes-table .amount-col {
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .lignes-table tr:last-child td {
+            border-bottom: 2px solid #1B5E20;
+        }
+
+        .totals-box {
+            width: 55%;
+            margin-left: 45%;
+            margin-top: 4px;
+        }
+
+        .totals-box table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .totals-box td {
+            padding: 5px 8px;
+            font-size: 9pt;
+        }
+
+        .totals-box .total-row td {
+            background: #1B5E20;
+            color: white;
+            font-weight: 900;
+            font-size: 12pt;
+            border-radius: 4px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 6.5pt;
+            color: #888;
+            border-top: 1px solid #e0e0e0;
+            padding: 4px 0 6px 0;
+            margin-top: 24px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header-band">
+        <table>
+            <tr>
+                <td style="width:65%">
+                    <div class="header-title">FACTURE<br />COMMANDE FOURNISSEUR</div>
+                    <div class="header-subtitle" th:text="${projet.libelle}">Projet X</div>
+                </td>
+                <td style="width:35%; vertical-align:top; padding-top:4mm">
+                    <div class="ref-box">
+                        <strong>N° COMMANDE</strong> :
+                        <span th:text="${'CMD-' + commande.id}">CMD-1</span><br />
+                        <strong>DATE D'EXPÉDITION</strong> :
+                        <span
+                            th:text="${commande.dateExpedition != null ? #temporals.format(commande.dateExpedition,'dd/MM/yyyy') : #temporals.format(commande.dateCommande,'dd/MM/yyyy')}">22/09/2026</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="body-content">
+
+        <table style="width:100%; border-collapse:collapse">
+            <tr>
+                <td style="width:49%; padding-right:1%; vertical-align:top">
+                    <div class="summary-box">
+                        <h3>FOURNISSEUR</h3>
+                        <table class="summary-table">
+                            <tr>
+                                <td class="label">Nom</td>
+                                <td class="value"
+                                    th:text="${fournisseur.raisonSociale != null ? fournisseur.raisonSociale : (fournisseur.user.prenom + ' ' + fournisseur.user.nom)}">
+                                    Fournisseur</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Ville</td>
+                                <td class="value" th:text="${fournisseur.ville}">Abidjan</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Pays</td>
+                                <td class="value" th:text="${fournisseur.pays}">Côte d'Ivoire</td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+                <td style="width:49%; padding-left:1%; vertical-align:top">
+                    <div class="summary-box">
+                        <h3>PROJET</h3>
+                        <table class="summary-table">
+                            <tr>
+                                <td class="label">Libellé</td>
+                                <td class="value" th:text="${projet.libelle}">Projet X</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Porteur</td>
+                                <td class="value"
+                                    th:text="${projet.porteur != null ? (projet.porteur.prenom + ' ' + projet.porteur.nom) : ''}">
+                                    Porteur</td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <table class="lignes-table">
+            <thead>
+                <tr>
+                    <th>ARTICLE</th>
+                    <th style="text-align:right">QTÉ</th>
+                    <th style="text-align:right">PRIX UNITAIRE</th>
+                    <th style="text-align:right">SOUS-TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="ligne : ${lignes}">
+                    <td th:text="${ligne.libelle}">Article</td>
+                    <td style="text-align:right" th:text="${ligne.quantite}">1</td>
+                    <td style="text-align:right" th:text="${ligne.prixUnitaire} + ' FCFA'">0 FCFA</td>
+                    <td class="amount-col" th:text="${ligne.sousTotal} + ' FCFA'">0 FCFA</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="totals-box">
+            <table>
+                <tr class="total-row">
+                    <td>TOTAL</td>
+                    <td style="text-align:right" th:text="${commande.montantTotal} + ' FCFA'">0 FCFA</td>
+                </tr>
+            </table>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire — RC: CI-ABJ-2025-B-12345 — contact@growzapp.ci<br />
+        Facture générée automatiquement par la plateforme GrowzApp à l'expédition de la commande.
+    </div>
+
+</body>
+
+</html>

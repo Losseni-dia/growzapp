@@ -16,9 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 import growzapp.backend.module.fournisseur.dto.CommandeCreateDTO;
 import growzapp.backend.module.fournisseur.dto.CommandeDTO;
@@ -109,14 +107,13 @@ public class CommandeController {
         return ApiResponseDTO.success(commandeService.toDto(saved));
     }
 
-    @PostMapping(value = "/{id}/expedier", consumes = "multipart/form-data")
-    @Operation(summary = "Marquer une commande comme expédiée (fournisseur)", description = "La facture est obligatoire — elle sera transmise au porteur et aux investisseurs une fois le paiement exécuté.")
+    @PostMapping("/{id}/expedier")
+    @Operation(summary = "Marquer une commande comme expédiée (fournisseur)", description = "La facture est générée automatiquement par le serveur à partir des données de la commande — elle sera transmise au porteur et aux investisseurs une fois le paiement exécuté.")
     public ApiResponseDTO<CommandeDTO> expedier(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long id,
-            @RequestPart("facture") MultipartFile facture) {
+            @PathVariable Long id) {
         User user = getCurrentUser(userDetails);
-        Commande saved = commandeService.marquerExpediee(id, user, facture);
+        Commande saved = commandeService.marquerExpediee(id, user);
         return ApiResponseDTO.success(commandeService.toDto(saved));
     }
 
