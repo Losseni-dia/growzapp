@@ -12,6 +12,7 @@ import growzapp.backend.module.contact.enums.StatutContact;
 import growzapp.backend.module.contact.model.ContactMessage;
 import growzapp.backend.module.contact.repository.ContactMessageRepository;
 import growzapp.backend.module.email.EmailService;
+import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.user.model.User;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class ContactService {
 
     private final ContactMessageRepository contactMessageRepository;
     private final EmailService emailService;
+    private final NotificationService notificationService;
 
     @Transactional
     public ContactMessage creerMessage(User user, ContactMessageCreateDTO dto) {
@@ -30,7 +32,17 @@ public class ContactService {
         msg.setUser(user);
         msg.setSujet(dto.sujet());
         msg.setMessage(dto.message());
-        return contactMessageRepository.save(msg);
+        ContactMessage saved = contactMessageRepository.save(msg);
+
+        // projetSlug accepte un chemin absolu ("/admin/...") en plus d'un
+        // slug de projet — convention déjà utilisée par notifyAdmins() pour
+        // pointer précisément vers l'écran d'action concerné.
+        notificationService.notifyAdmins(
+                "Nouveau message de contact",
+                (user.getPrenom() + " " + user.getNom()).trim() + " — " + dto.sujet(),
+                "/admin/contact");
+
+        return saved;
     }
 
     public List<ContactMessage> getMesMessages(Long userId) {
@@ -63,6 +75,13 @@ public class ContactService {
                     msg.getMessage(),
                     reponse);
         }
+
+        notificationService.notifyUser(
+                msg.getUser(),
+                "Réponse à votre message",
+                msg.getSujet(),
+                null,
+                "/mon-espace/contact");
 
         return saved;
     }
