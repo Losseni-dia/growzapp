@@ -146,7 +146,7 @@ public class CommandeService {
                 commande.getFournisseur().getUser(),
                 "Commande validée",
                 "Votre commande #" + commande.getId() + " a été validée, les fonds sont séquestrés en votre faveur.",
-                null, "/mon-espace/fournisseur/commandes");
+                null, "/mon-espace/fournisseur");
         notificationService.notifyUser(
                 commande.getProjet().getPorteur(),
                 "Commande validée",
@@ -274,7 +274,7 @@ public class CommandeService {
                 "Réception confirmée",
                 "Le porteur a confirmé la réception de la commande #" + commande.getId()
                         + " — les fonds sont maintenant disponibles.",
-                null, "/mon-espace/fournisseur/commandes");
+                null, "/mon-espace/fournisseur");
 
         return saved;
     }
