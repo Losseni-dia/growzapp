@@ -12,9 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.PutMapping;
+
 import growzapp.backend.module.fournisseur.dto.ArticleFournisseurDTO;
+import growzapp.backend.module.fournisseur.dto.FournisseurBrouillonDTO;
 import growzapp.backend.module.fournisseur.dto.FournisseurDTO;
-import growzapp.backend.module.fournisseur.dto.FournisseurInscriptionDTO;
 import growzapp.backend.module.fournisseur.model.Fournisseur;
 import growzapp.backend.module.fournisseur.service.FournisseurService;
 import growzapp.backend.module.shared.ApiResponseDTO;
@@ -22,7 +24,6 @@ import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -39,13 +40,21 @@ public class FournisseurController {
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
     }
 
-    @PostMapping
-    @Operation(summary = "S'inscrire comme fournisseur")
-    public ApiResponseDTO<FournisseurDTO> inscrire(
+    @PutMapping("/moi")
+    @Operation(summary = "Enregistrer/mettre à jour mon brouillon de fiche fournisseur", description = "Aucun champ obligatoire — sauvegardable à tout moment avant soumission finale.")
+    public ApiResponseDTO<FournisseurDTO> enregistrerBrouillon(
             @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody FournisseurInscriptionDTO dto) {
+            @RequestBody FournisseurBrouillonDTO dto) {
         User user = getCurrentUser(userDetails);
-        Fournisseur saved = fournisseurService.inscrire(user, dto);
+        Fournisseur saved = fournisseurService.enregistrerBrouillon(user, dto);
+        return ApiResponseDTO.success(fournisseurService.toDto(saved));
+    }
+
+    @PostMapping("/moi/soumettre")
+    @Operation(summary = "Soumettre définitivement ma fiche fournisseur à l'admin", description = "Valide que tous les champs obligatoires sont renseignés puis notifie l'équipe GrowzApp.")
+    public ApiResponseDTO<FournisseurDTO> soumettre(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        Fournisseur saved = fournisseurService.soumettre(user);
         return ApiResponseDTO.success(fournisseurService.toDto(saved));
     }
 

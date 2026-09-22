@@ -9,9 +9,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import growzapp.backend.module.fournisseur.dto.ArticleFournisseurCreateDTO;
 import growzapp.backend.module.fournisseur.dto.ArticleFournisseurDTO;
@@ -51,24 +52,26 @@ public class FournisseurEspaceController {
         return ApiResponseDTO.success(dtos);
     }
 
-    @PostMapping
-    @Operation(summary = "Ajouter un article/service à mon catalogue")
+    @PostMapping(consumes = "multipart/form-data")
+    @Operation(summary = "Ajouter un article/service à mon catalogue", description = "'article' contient les données JSON (ArticleFournisseurCreateDTO), 'photo' est l'image optionnelle.")
     public ApiResponseDTO<ArticleFournisseurDTO> ajouter(
             @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody ArticleFournisseurCreateDTO dto) {
+            @Valid @RequestPart("article") ArticleFournisseurCreateDTO dto,
+            @RequestPart(value = "photo", required = false) MultipartFile photo) {
         Fournisseur f = getMonFournisseur(userDetails);
-        ArticleFournisseur saved = fournisseurService.ajouterArticle(f.getId(), dto);
+        ArticleFournisseur saved = fournisseurService.ajouterArticle(f.getId(), dto, photo);
         return ApiResponseDTO.success(fournisseurService.toDto(saved));
     }
 
-    @PutMapping("/{id}")
-    @Operation(summary = "Modifier un article de mon catalogue")
+    @PutMapping(value = "/{id}", consumes = "multipart/form-data")
+    @Operation(summary = "Modifier un article de mon catalogue", description = "'article' contient les données JSON (ArticleFournisseurCreateDTO), 'photo' est l'image optionnelle (remplace la précédente si fournie).")
     public ApiResponseDTO<ArticleFournisseurDTO> modifier(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id,
-            @Valid @RequestBody ArticleFournisseurCreateDTO dto) {
+            @Valid @RequestPart("article") ArticleFournisseurCreateDTO dto,
+            @RequestPart(value = "photo", required = false) MultipartFile photo) {
         Fournisseur f = getMonFournisseur(userDetails);
-        ArticleFournisseur saved = fournisseurService.modifierArticle(id, f.getId(), dto);
+        ArticleFournisseur saved = fournisseurService.modifierArticle(id, f.getId(), dto, photo);
         return ApiResponseDTO.success(fournisseurService.toDto(saved));
     }
 

@@ -26,7 +26,8 @@ public class StaticResourceConfig implements WebMvcConfigurer {
                 "posters",
                 "avatars",
                 "fiches-porteur",
-                "projet-photos"
+                "projet-photos",
+                "article-photos"
         };
 
         for (String folder : subfolders) {

@@ -9,5 +9,6 @@ public record ArticleFournisseurDTO(
         String description,
         BigDecimal prix,
         String unite,
-        boolean disponible) {
+        boolean disponible,
+        String photoUrl) {
 }

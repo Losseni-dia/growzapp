@@ -5,12 +5,15 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import growzapp.backend.module.files.FileUploadService;
 import growzapp.backend.module.fournisseur.dto.ArticleFournisseurCreateDTO;
 import growzapp.backend.module.fournisseur.dto.ArticleFournisseurDTO;
+import growzapp.backend.module.fournisseur.dto.FournisseurBrouillonDTO;
 import growzapp.backend.module.fournisseur.dto.FournisseurDTO;
-import growzapp.backend.module.fournisseur.dto.FournisseurInscriptionDTO;
 import growzapp.backend.module.fournisseur.enums.StatutFournisseur;
+import growzapp.backend.module.fournisseur.enums.StatutJuridiqueFournisseur;
 import growzapp.backend.module.fournisseur.model.ArticleFournisseur;
 import growzapp.backend.module.fournisseur.model.Fournisseur;
 import growzapp.backend.module.fournisseur.repository.ArticleFournisseurRepository;
@@ -33,33 +36,97 @@ public class FournisseurService {
     private final SecteurRepository secteurRepository;
     private final UserService userService;
     private final NotificationService notificationService;
+    private final FileUploadService fileUploadService;
 
     private Secteur resolveSecteur(String nom) {
+        if (nom == null || nom.isBlank()) {
+            return null;
+        }
         return secteurRepository.findByNomIgnoreCase(nom.trim())
                 .orElseGet(() -> secteurRepository.save(new Secteur(nom.trim())));
     }
 
+    // ── Brouillon : sauvegardable à tout moment, aucun champ obligatoire ──────
     @Transactional
-    public Fournisseur inscrire(User user, FournisseurInscriptionDTO dto) {
-        if (fournisseurRepository.findByUserId(user.getId()).isPresent()) {
-            throw new IllegalStateException("Ce compte a déjà une fiche fournisseur.");
+    public Fournisseur enregistrerBrouillon(User user, FournisseurBrouillonDTO dto) {
+        Fournisseur f = fournisseurRepository.findByUserId(user.getId()).orElse(null);
+
+        if (f != null && f.getStatut() != StatutFournisseur.BROUILLON
+                && f.getStatut() != StatutFournisseur.REJETE) {
+            throw new IllegalStateException(
+                    "Votre fiche est déjà " + f.getStatut().name().toLowerCase()
+                            + " — elle ne peut plus être modifiée depuis cet écran.");
         }
 
-        Fournisseur f = new Fournisseur();
-        f.setUser(user);
-        f.setStatutJuridique(dto.statutJuridique());
-        f.setRaisonSociale(dto.raisonSociale());
-        f.setSecteur(resolveSecteur(dto.secteurNom()));
-        f.setVille(dto.ville().trim());
-        f.setPays(dto.pays().trim());
-        f.setTelephone(dto.telephone());
-        f.setEmail(dto.email());
-        f.setDescription(dto.description());
+        if (f == null) {
+            f = new Fournisseur();
+            f.setUser(user);
+        }
+        // Une fiche rejetée redevient un brouillon dès qu'on la retouche —
+        // elle doit être explicitement resoumise, pas rester REJETEE alors
+        // que son contenu a changé.
+        f.setStatut(StatutFournisseur.BROUILLON);
+        f.setMotifRejet(null);
+
+        if (dto.statutJuridique() != null) {
+            f.setStatutJuridique(dto.statutJuridique());
+        }
+        if (dto.raisonSociale() != null) {
+            f.setRaisonSociale(dto.raisonSociale());
+        }
+        if (dto.secteurNom() != null) {
+            f.setSecteur(resolveSecteur(dto.secteurNom()));
+        }
+        if (dto.ville() != null) {
+            f.setVille(dto.ville().isBlank() ? null : dto.ville().trim());
+        }
+        if (dto.pays() != null) {
+            f.setPays(dto.pays().isBlank() ? null : dto.pays().trim());
+        }
+        if (dto.telephone() != null) {
+            f.setTelephone(dto.telephone());
+        }
+        if (dto.email() != null) {
+            f.setEmail(dto.email());
+        }
+        if (dto.description() != null) {
+            f.setDescription(dto.description());
+        }
+
+        return fournisseurRepository.save(f);
+    }
+
+    // ── Soumission finale : valide les champs obligatoires puis notifie l'admin ─
+    @Transactional
+    public Fournisseur soumettre(User user) {
+        Fournisseur f = fournisseurRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Aucun brouillon à soumettre — enregistrez d'abord votre fiche."));
+
+        if (f.getStatut() != StatutFournisseur.BROUILLON) {
+            throw new IllegalStateException("Cette fiche a déjà été soumise.");
+        }
+        if (f.getStatutJuridique() == null) {
+            throw new IllegalArgumentException("Le type de fournisseur (Individuel/Entreprise) est obligatoire.");
+        }
+        if (f.getStatutJuridique() == StatutJuridiqueFournisseur.ENTREPRISE
+                && (f.getRaisonSociale() == null || f.getRaisonSociale().isBlank())) {
+            throw new IllegalArgumentException("La raison sociale est obligatoire pour une entreprise.");
+        }
+        if (f.getSecteur() == null) {
+            throw new IllegalArgumentException("Le secteur d'activité est obligatoire.");
+        }
+        if (f.getVille() == null || f.getVille().isBlank() || f.getPays() == null || f.getPays().isBlank()) {
+            throw new IllegalArgumentException("La ville et le pays sont obligatoires.");
+        }
+
+        f.setStatut(StatutFournisseur.EN_ATTENTE);
+        f.setDateSoumission(LocalDateTime.now());
         Fournisseur saved = fournisseurRepository.save(f);
 
         notificationService.notifyAdmins(
                 "Nouvelle inscription fournisseur",
-                (user.getPrenom() + " " + user.getNom()).trim() + " — " + dto.ville(),
+                (user.getPrenom() + " " + user.getNom()).trim() + " — " + f.getVille(),
                 "/admin/fournisseurs");
 
         return saved;
@@ -77,6 +144,10 @@ public class FournisseurService {
     public Fournisseur getByUserId(Long userId) {
         return fournisseurRepository.findByUserId(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Aucune fiche fournisseur pour cet utilisateur."));
+    }
+
+    public boolean possedeFiche(Long userId) {
+        return fournisseurRepository.findByUserId(userId).isPresent();
     }
 
     @Transactional
@@ -126,7 +197,7 @@ public class FournisseurService {
     // ── Catalogue d'articles ──────────────────────────────────────────────────
 
     @Transactional
-    public ArticleFournisseur ajouterArticle(Long fournisseurId, ArticleFournisseurCreateDTO dto) {
+    public ArticleFournisseur ajouterArticle(Long fournisseurId, ArticleFournisseurCreateDTO dto, MultipartFile photo) {
         Fournisseur f = getOrThrow(fournisseurId);
         ArticleFournisseur article = new ArticleFournisseur();
         article.setFournisseur(f);
@@ -135,11 +206,19 @@ public class FournisseurService {
         article.setPrix(dto.prix());
         article.setUnite(dto.unite());
         article.setDisponible(dto.disponible());
-        return articleFournisseurRepository.save(article);
+        ArticleFournisseur saved = articleFournisseurRepository.save(article);
+
+        if (photo != null && !photo.isEmpty()) {
+            saved.setPhotoUrl(fileUploadService.uploadArticlePhoto(photo, saved.getId()));
+            saved = articleFournisseurRepository.save(saved);
+        }
+
+        return saved;
     }
 
     @Transactional
-    public ArticleFournisseur modifierArticle(Long articleId, Long fournisseurId, ArticleFournisseurCreateDTO dto) {
+    public ArticleFournisseur modifierArticle(Long articleId, Long fournisseurId, ArticleFournisseurCreateDTO dto,
+            MultipartFile photo) {
         ArticleFournisseur article = articleFournisseurRepository.findById(articleId)
                 .orElseThrow(() -> new EntityNotFoundException("Article introuvable avec l'ID : " + articleId));
         if (!article.getFournisseur().getId().equals(fournisseurId)) {
@@ -150,6 +229,11 @@ public class FournisseurService {
         article.setPrix(dto.prix());
         article.setUnite(dto.unite());
         article.setDisponible(dto.disponible());
+
+        if (photo != null && !photo.isEmpty()) {
+            article.setPhotoUrl(fileUploadService.uploadArticlePhoto(photo, article.getId()));
+        }
+
         return articleFournisseurRepository.save(article);
     }
 
@@ -176,7 +260,7 @@ public class FournisseurService {
                 f.getId(),
                 f.getUser().getId(),
                 (f.getUser().getPrenom() + " " + f.getUser().getNom()).trim(),
-                f.getStatutJuridique().name(),
+                f.getStatutJuridique() != null ? f.getStatutJuridique().name() : null,
                 f.getRaisonSociale(),
                 f.getSecteur() != null ? f.getSecteur().getId() : null,
                 f.getSecteur() != null ? f.getSecteur().getNom() : null,
@@ -199,6 +283,7 @@ public class FournisseurService {
                 a.getDescription(),
                 a.getPrix(),
                 a.getUnite(),
-                a.isDisponible());
+                a.isDisponible(),
+                a.getPhotoUrl());
     }
 }

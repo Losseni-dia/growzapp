@@ -94,6 +94,7 @@ public class SecurityConfig {
                                                 .requestMatchers("/uploads/avatars/**").permitAll()
                                                 .requestMatchers("/uploads/fiches-porteur/**").permitAll()
                                                 .requestMatchers("/uploads/projet-photos/**").permitAll()
+                                                .requestMatchers("/uploads/article-photos/**").permitAll()
 
                                                 // BLOQUE TOUT ACCÈS DIRECT AUX DOCUMENTS PRIVÉS
 

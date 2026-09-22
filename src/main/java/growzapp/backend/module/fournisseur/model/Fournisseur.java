@@ -45,7 +45,7 @@ public class Fournisseur {
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "statut_juridique", nullable = false, length = 20)
+    @Column(name = "statut_juridique", length = 20)
     private StatutJuridiqueFournisseur statutJuridique;
 
     @Column(name = "raison_sociale", length = 150)
@@ -55,10 +55,10 @@ public class Fournisseur {
     @JoinColumn(name = "secteur_id")
     private Secteur secteur;
 
-    @Column(nullable = false, length = 100)
+    @Column(length = 100)
     private String ville;
 
-    @Column(nullable = false, length = 100)
+    @Column(length = 100)
     private String pays;
 
     @Column(length = 30)

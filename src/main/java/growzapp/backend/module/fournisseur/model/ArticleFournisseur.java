@@ -49,6 +49,9 @@ public class ArticleFournisseur {
     @Column(nullable = false)
     private boolean disponible = true;
 
+    @Column(name = "photo_url")
+    private String photoUrl;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
