@@ -5,9 +5,14 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import growzapp.backend.module.email.EmailService;
+import growzapp.backend.module.files.FileUploadService;
 import growzapp.backend.module.fournisseur.dto.CommandeCreateDTO;
 import growzapp.backend.module.fournisseur.dto.CommandeDTO;
 import growzapp.backend.module.fournisseur.dto.CommandeLigneCreateDTO;
@@ -20,6 +25,9 @@ import growzapp.backend.module.fournisseur.model.Fournisseur;
 import growzapp.backend.module.fournisseur.repository.ArticleFournisseurRepository;
 import growzapp.backend.module.fournisseur.repository.CommandeRepository;
 import growzapp.backend.module.fournisseur.repository.FournisseurRepository;
+import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
+import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
@@ -36,8 +44,11 @@ public class CommandeService {
     private final FournisseurRepository fournisseurRepository;
     private final ArticleFournisseurRepository articleFournisseurRepository;
     private final ProjetRepository projetRepository;
+    private final InvestissementRepository investissementRepository;
     private final CommandeTransactionHelper txHelper;
     private final NotificationService notificationService;
+    private final EmailService emailService;
+    private final FileUploadService fileUploadService;
 
     private Commande getOrThrow(Long id) {
         return commandeRepository.findById(id)
@@ -142,6 +153,31 @@ public class CommandeService {
                 "Votre commande auprès de " + fournisseurNomAffiche(commande.getFournisseur()) + " a été validée.",
                 commande.getProjet().getId(), commande.getProjet().getSlug());
 
+        // Traçabilité vis-à-vis des investisseurs : ils ont financé ce
+        // projet, ils doivent savoir précisément où va l'argent, même s'il
+        // ne transite jamais par le porteur.
+        String montantFormate = commande.getMontantTotal().toPlainString() + " FCFA";
+        for (User investisseur : getInvestisseursValides(commande.getProjet())) {
+            notificationService.notifyUser(
+                    investisseur,
+                    "Paiement fournisseur effectué",
+                    "Commande #" + commande.getId() + " — " + montantFormate + " versés à "
+                            + fournisseurNomAffiche(commande.getFournisseur()) + " pour le projet "
+                            + commande.getProjet().getLibelle() + ".",
+                    commande.getProjet().getId(), commande.getProjet().getSlug());
+
+            String destinataire = resolveEmail(investisseur);
+            if (destinataire != null) {
+                emailService.envoyerPaiementFournisseurInvestisseur(
+                        destinataire,
+                        (investisseur.getPrenom() + " " + investisseur.getNom()).trim(),
+                        commande.getProjet().getLibelle(),
+                        fournisseurNomAffiche(commande.getFournisseur()),
+                        montantFormate,
+                        commande.getId());
+            }
+        }
+
         return saved;
     }
 
@@ -166,14 +202,22 @@ public class CommandeService {
 
     // ── Livraison, côté fournisseur ──────────────────────────────────────────
     @Transactional
-    public Commande marquerLivree(Long id, User fournisseurUser) {
+    public Commande marquerLivree(Long id, User fournisseurUser, MultipartFile facture) {
         Commande commande = getOrThrow(id);
         ensureFournisseurProprietaire(commande, fournisseurUser);
         if (commande.getStatut() != StatutCommande.VALIDEE) {
             throw new IllegalStateException("Seule une commande validée peut être marquée comme livrée.");
         }
+        if (facture == null || facture.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "La facture est obligatoire pour marquer une commande comme livrée — elle sera transmise aux investisseurs du projet.");
+        }
+
+        String factureUrl = fileUploadService.uploadFactureCommande(facture, commande.getId());
+
         commande.setStatut(StatutCommande.LIVREE);
         commande.setDateLivraison(LocalDateTime.now());
+        commande.setFactureUrl(factureUrl);
         Commande saved = commandeRepository.save(commande);
 
         notificationService.notifyUser(
@@ -183,6 +227,26 @@ public class CommandeService {
                         + " a signalé la livraison de votre commande #" + commande.getId()
                         + ". Merci de confirmer la réception.",
                 commande.getProjet().getId(), commande.getProjet().getSlug());
+
+        // Traçabilité : la facture justificative part directement aux
+        // investisseurs, pas seulement au porteur — ils financent cet achat.
+        for (User investisseur : getInvestisseursValides(commande.getProjet())) {
+            notificationService.notifyUser(
+                    investisseur,
+                    "Facture fournisseur disponible",
+                    "La facture de la commande #" + commande.getId() + " (" + commande.getProjet().getLibelle()
+                            + ") est disponible.",
+                    null, "/commandes/" + commande.getId() + "/facture");
+
+            String destinataire = resolveEmail(investisseur);
+            if (destinataire != null) {
+                emailService.envoyerFactureDisponibleInvestisseur(
+                        destinataire,
+                        (investisseur.getPrenom() + " " + investisseur.getNom()).trim(),
+                        commande.getProjet().getLibelle(),
+                        commande.getId());
+            }
+        }
 
         return saved;
     }
@@ -282,6 +346,48 @@ public class CommandeService {
                 : (f.getUser().getPrenom() + " " + f.getUser().getNom()).trim();
     }
 
+    // Même repli que ContactService/FichePorteurController : certains comptes
+    // n'ont qu'un login au format email, sans email renseigné explicitement.
+    private String resolveEmail(User user) {
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            return user.getEmail();
+        }
+        if (user.getLogin() != null && user.getLogin().contains("@")) {
+            return user.getLogin();
+        }
+        return null;
+    }
+
+    private List<User> getInvestisseursValides(Projet projet) {
+        return investissementRepository
+                .findByProjetIdAndStatutPartInvestissement(projet.getId(), StatutPartInvestissement.VALIDE)
+                .stream()
+                .map(Investissement::getInvestisseur)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    // ── Consultation de la facture (porteur, fournisseur, investisseurs, admin) ─
+    public boolean peutConsulterFacture(Commande commande, User user) {
+        if (commande.getProjet().getPorteur() != null
+                && commande.getProjet().getPorteur().getId().equals(user.getId())) {
+            return true;
+        }
+        if (commande.getFournisseur().getUser().getId().equals(user.getId())) {
+            return true;
+        }
+        return getInvestisseursValides(commande.getProjet()).stream()
+                .anyMatch(investisseur -> investisseur.getId().equals(user.getId()));
+    }
+
+    public Commande getCommandeAvecAutorisation(Long id, User user, boolean estAdmin) {
+        Commande commande = getOrThrow(id);
+        if (!estAdmin && !peutConsulterFacture(commande, user)) {
+            throw new SecurityException("Vous n'avez pas accès à cette commande.");
+        }
+        return commande;
+    }
+
     public CommandeDTO toDto(Commande c) {
         List<CommandeLigneDTO> lignes = c.getLignes().stream()
                 .map(l -> new CommandeLigneDTO(
@@ -307,6 +413,7 @@ public class CommandeService {
                 c.getDateConfirmationReception(),
                 c.getMotifRejet(),
                 c.getMotifLitige(),
+                c.getFactureUrl(),
                 lignes);
     }
 }

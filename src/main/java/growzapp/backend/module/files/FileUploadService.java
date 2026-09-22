@@ -29,11 +29,15 @@ public class FileUploadService {
     private static final Path PROJET_PHOTOS_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
             .resolve("uploads").resolve("projet-photos");
 
+    private static final Path COMMANDE_FACTURES_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
+            .resolve("uploads").resolve("commande-factures");
+
     static {
         try {
             Files.createDirectories(UPLOAD_ROOT);
             Files.createDirectories(FICHE_PORTEUR_UPLOAD_ROOT);
             Files.createDirectories(PROJET_PHOTOS_UPLOAD_ROOT);
+            Files.createDirectories(COMMANDE_FACTURES_UPLOAD_ROOT);
         } catch (IOException e) {
             throw new RuntimeException("Impossible de créer les dossiers d'upload", e);
         }
@@ -100,6 +104,29 @@ public class FileUploadService {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Échec upload photo du projet", e);
+        }
+    }
+
+    public String uploadFactureCommande(MultipartFile file, Long commandeId) {
+        try {
+            // Facture = document justificatif transmis aux investisseurs pour
+            // preuve de l'usage réel des fonds — accepte PDF ou image
+            // (validateDocument), pas seulement image comme les autres
+            // uploads de ce service.
+            fileValidationService.validateDocument(file);
+
+            String original = file.getOriginalFilename();
+            String safeName = commandeId + "_" + System.currentTimeMillis() + "_" +
+                    original.replaceAll("[^a-zA-Z0-9.-]", "_");
+
+            Path destination = COMMANDE_FACTURES_UPLOAD_ROOT.resolve(safeName);
+            Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+
+            return "/uploads/commande-factures/" + safeName;
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Échec upload facture de la commande", e);
         }
     }
 }

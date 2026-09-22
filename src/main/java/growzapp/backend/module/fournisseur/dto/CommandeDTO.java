@@ -18,5 +18,6 @@ public record CommandeDTO(
         LocalDateTime dateConfirmationReception,
         String motifRejet,
         String motifLitige,
+        String factureUrl,
         List<CommandeLigneDTO> lignes) {
 }

@@ -72,6 +72,12 @@ public class Commande {
     @Column(name = "motif_litige", length = 1000)
     private String motifLitige;
 
+    // Justificatif transmis par le fournisseur à la livraison — condition de
+    // transparence pour les investisseurs du projet, qui financent cet achat
+    // sans jamais voir transiter l'argent par le porteur.
+    @Column(name = "facture_url")
+    private String factureUrl;
+
     @JsonIgnore
     @OneToMany(mappedBy = "commande", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CommandeLigne> lignes = new ArrayList<>();

@@ -346,4 +346,71 @@ public class EmailService {
             log.error("Échec envoi email réponse contact à {} : {}", email, e.getMessage());
         }
     }
+
+    // ── PAIEMENT FOURNISSEUR — INFO INVESTISSEURS ───────────────────────────────
+    @Async
+    public void envoyerPaiementFournisseurInvestisseur(String email, String nomComplet, String projetLibelle,
+            String fournisseurNom, String montantFormate, Long commandeId) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("💸 Paiement fournisseur effectué — " + projetLibelle);
+            helper.setText(
+                    """
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
+                              <h1 style="color:#1B5E20;">GrowzApp</h1>
+                              <h2 style="color:#1B5E20;">💸 Paiement fournisseur effectué</h2>
+                              <p>Bonjour <strong>%s</strong>,</p>
+                              <p>Dans le cadre du projet <strong>%s</strong> que vous avez financé, un paiement a été effectué directement au fournisseur <strong>%s</strong> :</p>
+                              <div style="background:#f1f8e9;border-left:4px solid #1B5E20;padding:16px;border-radius:0 8px 8px 0;margin:20px 0;">
+                                <p style="margin:0;font-weight:bold;color:#1B5E20;">Montant : %s</p>
+                                <p style="margin:8px 0 0 0;color:#333;">Commande #%d — fonds versés directement depuis la trésorerie du projet, sans transiter par le porteur.</p>
+                              </div>
+                              <p>La facture correspondante vous sera transmise dès que le fournisseur aura livré la commande.</p>
+                              <p>Cordialement,<br><strong>L'équipe GrowzApp</strong></p>
+                              <p style="font-size:0.78em;color:#999;text-align:center;">GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire</p>
+                            </div>
+                            """
+                            .formatted(nomComplet, projetLibelle, fournisseurNom, montantFormate, commandeId),
+                    true);
+            mailSender.send(message);
+            log.info("Email paiement fournisseur envoyé à {} pour commande {}", email, commandeId);
+        } catch (Exception e) {
+            log.error("Échec envoi email paiement fournisseur à {} : {}", email, e.getMessage());
+        }
+    }
+
+    // ── FACTURE FOURNISSEUR DISPONIBLE — INVESTISSEURS ──────────────────────────
+    @Async
+    public void envoyerFactureDisponibleInvestisseur(String email, String nomComplet, String projetLibelle,
+            Long commandeId) {
+        try {
+            String lienFacture = frontendUrl + "/commandes/" + commandeId + "/facture";
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("🧾 Facture fournisseur disponible — " + projetLibelle);
+            helper.setText(
+                    """
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
+                              <h1 style="color:#1B5E20;">GrowzApp</h1>
+                              <h2 style="color:#1B5E20;">🧾 Facture disponible</h2>
+                              <p>Bonjour <strong>%s</strong>,</p>
+                              <p>Le fournisseur a transmis la facture justificative pour la commande #%d liée au projet <strong>%s</strong> que vous avez financé.</p>
+                              <div style="text-align:center;margin:24px 0;">
+                                <a href="%s" style="background:#1B5E20;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Consulter la facture</a>
+                              </div>
+                              <p>Cordialement,<br><strong>L'équipe GrowzApp</strong></p>
+                              <p style="font-size:0.78em;color:#999;text-align:center;">GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire</p>
+                            </div>
+                            """
+                            .formatted(nomComplet, commandeId, projetLibelle, lienFacture),
+                    true);
+            mailSender.send(message);
+            log.info("Email facture disponible envoyé à {} pour commande {}", email, commandeId);
+        } catch (Exception e) {
+            log.error("Échec envoi email facture disponible à {} : {}", email, e.getMessage());
+        }
+    }
 }
