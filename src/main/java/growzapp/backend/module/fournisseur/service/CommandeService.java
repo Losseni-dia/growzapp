@@ -475,6 +475,10 @@ public class CommandeService {
         return commandeRepository.findByStatutOrderByDateCommandeDesc(StatutCommande.LITIGE);
     }
 
+    public List<Commande> getToutesAdmin() {
+        return commandeRepository.findAllByOrderByDateCommandeDesc();
+    }
+
     private String fournisseurNomAffiche(Fournisseur f) {
         return f.getRaisonSociale() != null ? f.getRaisonSociale()
                 : (f.getUser().getPrenom() + " " + f.getUser().getNom()).trim();

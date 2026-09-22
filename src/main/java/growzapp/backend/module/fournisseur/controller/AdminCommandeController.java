@@ -28,6 +28,15 @@ public class AdminCommandeController {
 
     private final CommandeService commandeService;
 
+    @GetMapping("/toutes")
+    @Operation(summary = "Lister toutes les commandes fournisseur, tous statuts confondus", description = "Vue d'ensemble/historique complet pour l'admin — recherche et filtre par statut côté frontend.")
+    public ApiResponseDTO<List<CommandeDTO>> getToutes() {
+        List<CommandeDTO> dtos = commandeService.getToutesAdmin().stream()
+                .map(commandeService::toDto)
+                .toList();
+        return ApiResponseDTO.success(dtos);
+    }
+
     @GetMapping("/en-attente")
     @Operation(summary = "Lister les commandes en attente de validation")
     public ApiResponseDTO<List<CommandeDTO>> getEnAttente() {

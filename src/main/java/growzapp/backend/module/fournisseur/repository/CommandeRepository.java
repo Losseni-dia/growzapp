@@ -16,4 +16,6 @@ public interface CommandeRepository extends JpaRepository<Commande, Long> {
     List<Commande> findByFournisseurIdOrderByDateCommandeDesc(Long fournisseurId);
 
     List<Commande> findByProjetIdOrderByDateCommandeDesc(Long projetId);
+
+    List<Commande> findAllByOrderByDateCommandeDesc();
 }
