@@ -312,4 +312,38 @@ public class EmailService {
             log.error("Échec envoi email KYC refusé à {} : {}", email, e.getMessage());
         }
     }
+
+    // ── RÉPONSE À UN MESSAGE DE CONTACT/SUPPORT ─────────────────────────────────
+    @Async
+    public void envoyerReponseContact(String email, String nomComplet, String sujet, String messageOriginal,
+            String reponse) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("💬 Réponse à votre message — " + sujet);
+            helper.setText(
+                    """
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
+                              <h1 style="color:#1B5E20;">GrowzApp</h1>
+                              <h2 style="color:#1B5E20;">💬 Réponse à votre message</h2>
+                              <p>Bonjour <strong>%s</strong>,</p>
+                              <p>Notre équipe a répondu à votre message concernant : <strong>%s</strong></p>
+                              <div style="background:#f1f8e9;border-left:4px solid #1B5E20;padding:16px;border-radius:0 8px 8px 0;margin:20px 0;">
+                                <p style="margin:0;color:#333;white-space:pre-wrap;">%s</p>
+                              </div>
+                              <p style="font-size:0.85em;color:#888;">Votre message initial :</p>
+                              <p style="font-size:0.85em;color:#888;font-style:italic;white-space:pre-wrap;">%s</p>
+                              <p>Cordialement,<br><strong>L'équipe GrowzApp</strong></p>
+                              <p style="font-size:0.78em;color:#999;text-align:center;">GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire</p>
+                            </div>
+                            """
+                            .formatted(nomComplet, sujet, reponse, messageOriginal),
+                    true);
+            mailSender.send(message);
+            log.info("Email réponse contact envoyé à {}", email);
+        } catch (Exception e) {
+            log.error("Échec envoi email réponse contact à {} : {}", email, e.getMessage());
+        }
+    }
 }
