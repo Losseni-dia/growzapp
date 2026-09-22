@@ -36,5 +36,9 @@ public enum TypeTransaction {
     RETRAIT_PROJET,
 
     // Achat du statut Premium (mise en avant catalogue)
-    PREMIUM_PROJET
+    PREMIUM_PROJET,
+
+    // Commande fournisseur : paiement direct wallet projet -> wallet
+    // fournisseur, sans jamais transiter par le porteur.
+    PAIEMENT_FOURNISSEUR
 }

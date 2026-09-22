@@ -1,0 +1,80 @@
+package growzapp.backend.module.fournisseur.controller;
+
+import java.util.List;
+
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import growzapp.backend.module.fournisseur.dto.ArticleFournisseurDTO;
+import growzapp.backend.module.fournisseur.dto.FournisseurDTO;
+import growzapp.backend.module.fournisseur.dto.FournisseurInscriptionDTO;
+import growzapp.backend.module.fournisseur.model.Fournisseur;
+import growzapp.backend.module.fournisseur.service.FournisseurService;
+import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/fournisseurs")
+@RequiredArgsConstructor
+@Tag(name = "Fournisseurs")
+public class FournisseurController {
+
+    private final FournisseurService fournisseurService;
+    private final UserRepository userRepository;
+
+    private User getCurrentUser(UserDetails userDetails) {
+        return userRepository.findByLoginForAuth(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+    }
+
+    @PostMapping
+    @Operation(summary = "S'inscrire comme fournisseur")
+    public ApiResponseDTO<FournisseurDTO> inscrire(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody FournisseurInscriptionDTO dto) {
+        User user = getCurrentUser(userDetails);
+        Fournisseur saved = fournisseurService.inscrire(user, dto);
+        return ApiResponseDTO.success(fournisseurService.toDto(saved));
+    }
+
+    @GetMapping("/moi")
+    @Operation(summary = "Consulter ma propre fiche fournisseur")
+    public ApiResponseDTO<FournisseurDTO> maFiche(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        Fournisseur f = fournisseurService.getByUserId(user.getId());
+        return ApiResponseDTO.success(fournisseurService.toDto(f));
+    }
+
+    @GetMapping
+    @Operation(summary = "Rechercher des fournisseurs validés", description = "Filtrable par ville, pays et secteur — utilisé par les porteurs pour trouver un fournisseur.")
+    public ApiResponseDTO<List<FournisseurDTO>> rechercher(
+            @RequestParam(required = false) String ville,
+            @RequestParam(required = false) String pays,
+            @RequestParam(required = false) Long secteurId) {
+        List<FournisseurDTO> dtos = fournisseurService.rechercher(ville, pays, secteurId).stream()
+                .map(fournisseurService::toDto)
+                .toList();
+        return ApiResponseDTO.success(dtos);
+    }
+
+    @GetMapping("/{id}/articles")
+    @Operation(summary = "Lister les articles disponibles d'un fournisseur")
+    public ApiResponseDTO<List<ArticleFournisseurDTO>> articles(@PathVariable Long id) {
+        List<ArticleFournisseurDTO> dtos = fournisseurService.getArticles(id, true).stream()
+                .map(fournisseurService::toDto)
+                .toList();
+        return ApiResponseDTO.success(dtos);
+    }
+}
