@@ -31,6 +31,9 @@ import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.wallet.enums.WalletType;
+import growzapp.backend.module.wallet.model.Wallet;
+import growzapp.backend.module.wallet.repository.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
@@ -50,6 +53,7 @@ public class CommandeService {
     private final FileUploadService fileUploadService;
     private final DocumentService documentService;
     private final CommandeFacturePdfService commandeFacturePdfService;
+    private final WalletRepository walletRepository;
 
     private Commande getOrThrow(Long id) {
         return commandeRepository.findById(id)
@@ -142,6 +146,18 @@ public class CommandeService {
             ligne.setSousTotal(sousTotal);
             total = total.add(sousTotal);
             lignes.add(ligne);
+        }
+
+        // Les achats fournisseur sont payés sur la trésorerie encore
+        // séquestrée du projet (soldeBloque) — on vérifie donc ce solde-là,
+        // pas soldeDisponible (réservé aux dépenses personnelles du porteur).
+        Wallet walletProjet = walletRepository.findByProjetIdAndWalletType(projet.getId(), WalletType.PROJET)
+                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+        if (walletProjet.getSoldeBloque().compareTo(total) < 0) {
+            throw new IllegalArgumentException(
+                    "Trésorerie du projet insuffisante pour cette commande (" + total.toPlainString()
+                            + " FCFA requis, " + walletProjet.getSoldeBloque().toPlainString()
+                            + " FCFA disponible en trésorerie bloquée).");
         }
 
         commande.setLignes(lignes);

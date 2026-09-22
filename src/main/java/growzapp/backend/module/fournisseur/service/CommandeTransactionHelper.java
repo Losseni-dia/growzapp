@@ -40,13 +40,13 @@ public class CommandeTransactionHelper {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executerPaiement(Long projetId, Long fournisseurUserId, Long commandeId, BigDecimal montant) {
+        // Les achats fournisseur sont payés sur la trésorerie encore
+        // séquestrée du projet (soldeBloque), pas sur soldeDisponible — cette
+        // dernière est réservée aux fonds explicitement débloqués par
+        // l'admin pour l'usage personnel/les dépenses courantes du porteur.
         Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
                 .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
-        if (walletProjet.getSoldeDisponible().compareTo(montant) < 0) {
-            throw new IllegalStateException(
-                    "Solde disponible insuffisant dans le wallet du projet pour payer cette commande.");
-        }
-        walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().subtract(montant));
+        walletProjet.debiterBloque(montant);
         walletRepository.saveAndFlush(walletProjet);
 
         Wallet walletFournisseur = walletRepository.findByUserIdWithPessimisticLock(fournisseurUserId)

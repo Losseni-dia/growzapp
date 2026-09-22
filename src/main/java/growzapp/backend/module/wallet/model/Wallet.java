@@ -139,4 +139,21 @@ public class Wallet {
         checkPositive(montant);
         soldeDisponible = soldeDisponible.add(montant);
     }
+
+    /**
+     * Débite directement soldeBloque, sans passer par soldeDisponible — pour
+     * une dépense payée sur la trésorerie encore séquestrée du projet (achat
+     * fournisseur), distincte des fonds explicitement débloqués pour l'usage
+     * personnel du porteur (soldeDisponible).
+     */
+    public void debiterBloque(BigDecimal montant) {
+        checkPositive(montant);
+        if (this.walletType != WalletType.PROJET) {
+            throw new IllegalStateException("debiterBloque() uniquement sur wallet PROJET");
+        }
+        if (montant.compareTo(soldeBloque) > 0) {
+            throw new IllegalStateException("Fonds bloqués insuffisants dans le wallet projet");
+        }
+        soldeBloque = soldeBloque.subtract(montant);
+    }
 }
