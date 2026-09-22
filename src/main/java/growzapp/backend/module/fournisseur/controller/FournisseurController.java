@@ -13,10 +13,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 import growzapp.backend.module.fournisseur.dto.ArticleFournisseurDTO;
 import growzapp.backend.module.fournisseur.dto.FournisseurBrouillonDTO;
 import growzapp.backend.module.fournisseur.dto.FournisseurDTO;
+import growzapp.backend.module.fournisseur.dto.PartenaireDTO;
 import growzapp.backend.module.fournisseur.model.Fournisseur;
 import growzapp.backend.module.fournisseur.service.FournisseurService;
 import growzapp.backend.module.shared.ApiResponseDTO;
@@ -64,6 +67,22 @@ public class FournisseurController {
         User user = getCurrentUser(userDetails);
         Fournisseur f = fournisseurService.getByUserId(user.getId());
         return ApiResponseDTO.success(fournisseurService.toDto(f));
+    }
+
+    @PostMapping(value = "/moi/logo", consumes = "multipart/form-data")
+    @Operation(summary = "Mettre à jour mon logo", description = "Affiché publiquement dans la section \"Nos partenaires\" du site une fois la fiche validée.")
+    public ApiResponseDTO<FournisseurDTO> mettreAJourLogo(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestPart("logo") MultipartFile logo) {
+        User user = getCurrentUser(userDetails);
+        Fournisseur saved = fournisseurService.mettreAJourLogo(user.getId(), logo);
+        return ApiResponseDTO.success(fournisseurService.toDto(saved));
+    }
+
+    @GetMapping("/partenaires")
+    @Operation(summary = "Lister les fournisseurs partenaires (logo public)", description = "Endpoint public — fournisseurs validés ayant renseigné un logo, pour la section \"Nos partenaires\" du footer.")
+    public ApiResponseDTO<List<PartenaireDTO>> partenaires() {
+        return ApiResponseDTO.success(fournisseurService.getPartenaires());
     }
 
     @GetMapping

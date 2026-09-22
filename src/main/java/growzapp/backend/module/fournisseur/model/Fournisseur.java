@@ -83,6 +83,11 @@ public class Fournisseur {
     @Column(name = "motif_rejet", length = 500)
     private String motifRejet;
 
+    // Logo affiché publiquement dans la section "Nos partenaires" du footer
+    // une fois la fiche validée — distinct des photos d'articles.
+    @Column(name = "logo_url")
+    private String logoUrl;
+
     @JsonIgnore
     @OneToMany(mappedBy = "fournisseur", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ArticleFournisseur> articles = new ArrayList<>();

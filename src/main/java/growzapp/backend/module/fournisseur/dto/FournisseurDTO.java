@@ -18,5 +18,6 @@ public record FournisseurDTO(
         String statut,
         LocalDateTime dateSoumission,
         LocalDateTime dateValidation,
-        String motifRejet) {
+        String motifRejet,
+        String logoUrl) {
 }

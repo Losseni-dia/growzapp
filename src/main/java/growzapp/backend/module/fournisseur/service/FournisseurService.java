@@ -12,6 +12,7 @@ import growzapp.backend.module.fournisseur.dto.ArticleFournisseurCreateDTO;
 import growzapp.backend.module.fournisseur.dto.ArticleFournisseurDTO;
 import growzapp.backend.module.fournisseur.dto.FournisseurBrouillonDTO;
 import growzapp.backend.module.fournisseur.dto.FournisseurDTO;
+import growzapp.backend.module.fournisseur.dto.PartenaireDTO;
 import growzapp.backend.module.fournisseur.enums.StatutFournisseur;
 import growzapp.backend.module.fournisseur.enums.StatutJuridiqueFournisseur;
 import growzapp.backend.module.fournisseur.model.ArticleFournisseur;
@@ -152,6 +153,22 @@ public class FournisseurService {
     }
 
     @Transactional
+    public Fournisseur mettreAJourLogo(Long userId, MultipartFile logo) {
+        Fournisseur f = getByUserId(userId);
+        f.setLogoUrl(fileUploadService.uploadFournisseurLogo(logo, f.getId()));
+        return fournisseurRepository.save(f);
+    }
+
+    // Fournisseurs validés ayant renseigné un logo — utilisé pour la section
+    // "Nos partenaires" du footer public.
+    public List<PartenaireDTO> getPartenaires() {
+        return fournisseurRepository.findByStatut(StatutFournisseur.VALIDE).stream()
+                .filter(f -> f.getLogoUrl() != null)
+                .map(f -> new PartenaireDTO(f.getId(), fournisseurNomAffiche(f), f.getLogoUrl()))
+                .toList();
+    }
+
+    @Transactional
     public Fournisseur valider(Long id) {
         Fournisseur f = getOrThrow(id);
         f.setStatut(StatutFournisseur.VALIDE);
@@ -284,7 +301,13 @@ public class FournisseurService {
                 f.getStatut().name(),
                 f.getDateSoumission(),
                 f.getDateValidation(),
-                f.getMotifRejet());
+                f.getMotifRejet(),
+                f.getLogoUrl());
+    }
+
+    private String fournisseurNomAffiche(Fournisseur f) {
+        return f.getRaisonSociale() != null ? f.getRaisonSociale()
+                : (f.getUser().getPrenom() + " " + f.getUser().getNom()).trim();
     }
 
     public ArticleFournisseurDTO toDto(ArticleFournisseur a) {

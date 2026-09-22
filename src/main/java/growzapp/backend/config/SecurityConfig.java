@@ -95,6 +95,7 @@ public class SecurityConfig {
                                                 .requestMatchers("/uploads/fiches-porteur/**").permitAll()
                                                 .requestMatchers("/uploads/projet-photos/**").permitAll()
                                                 .requestMatchers("/uploads/article-photos/**").permitAll()
+                                                .requestMatchers("/uploads/fournisseur-logos/**").permitAll()
 
                                                 // BLOQUE TOUT ACCÈS DIRECT AUX DOCUMENTS PRIVÉS
 
@@ -115,6 +116,7 @@ public class SecurityConfig {
                                                 .permitAll()
 
                                                 .requestMatchers("/api/news/**", "/api/v1/news/**").permitAll()
+                                                .requestMatchers("/api/fournisseurs/partenaires").permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/news/**", "/api/v1/news/**")
                                                 .hasAnyRole("ADMIN", "COMMUNICANT")
                                                 .requestMatchers(HttpMethod.PUT, "/api/news/**", "/api/v1/news/**")

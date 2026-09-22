@@ -41,6 +41,9 @@ public class FileUploadService {
     private static final Path DOCUMENTS_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
             .resolve("uploads").resolve("documents");
 
+    private static final Path FOURNISSEUR_LOGOS_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
+            .resolve("uploads").resolve("fournisseur-logos");
+
     static {
         try {
             Files.createDirectories(UPLOAD_ROOT);
@@ -49,6 +52,7 @@ public class FileUploadService {
             Files.createDirectories(COMMANDE_FACTURES_UPLOAD_ROOT);
             Files.createDirectories(ARTICLE_PHOTOS_UPLOAD_ROOT);
             Files.createDirectories(DOCUMENTS_UPLOAD_ROOT);
+            Files.createDirectories(FOURNISSEUR_LOGOS_UPLOAD_ROOT);
         } catch (IOException e) {
             throw new RuntimeException("Impossible de créer les dossiers d'upload", e);
         }
@@ -157,6 +161,25 @@ public class FileUploadService {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Échec upload photo de l'article", e);
+        }
+    }
+
+    public String uploadFournisseurLogo(MultipartFile file, Long fournisseurId) {
+        try {
+            fileValidationService.validateImage(file);
+
+            String original = file.getOriginalFilename();
+            String safeName = fournisseurId + "_" + System.currentTimeMillis() + "_" +
+                    original.replaceAll("[^a-zA-Z0-9.-]", "_");
+
+            Path destination = FOURNISSEUR_LOGOS_UPLOAD_ROOT.resolve(safeName);
+            Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+
+            return "/uploads/fournisseur-logos/" + safeName;
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Échec upload logo fournisseur", e);
         }
     }
 
