@@ -51,22 +51,23 @@ public class FournisseurService {
     public Fournisseur enregistrerBrouillon(User user, FournisseurBrouillonDTO dto) {
         Fournisseur f = fournisseurRepository.findByUserId(user.getId()).orElse(null);
 
-        if (f != null && f.getStatut() != StatutFournisseur.BROUILLON
-                && f.getStatut() != StatutFournisseur.REJETE) {
+        if (f != null && f.getStatut() == StatutFournisseur.EN_ATTENTE) {
             throw new IllegalStateException(
-                    "Votre fiche est déjà " + f.getStatut().name().toLowerCase()
-                            + " — elle ne peut plus être modifiée depuis cet écran.");
+                    "Votre fiche est en attente de validation par l'équipe GrowzApp — elle ne peut pas être modifiée tant qu'elle n'a pas été traitée.");
         }
 
         if (f == null) {
             f = new Fournisseur();
             f.setUser(user);
         }
-        // Une fiche rejetée redevient un brouillon dès qu'on la retouche —
-        // elle doit être explicitement resoumise, pas rester REJETEE alors
-        // que son contenu a changé.
-        f.setStatut(StatutFournisseur.BROUILLON);
-        f.setMotifRejet(null);
+        // Une fiche déjà validée reste VALIDE après modification (simple mise
+        // à jour de la fiche publique, pas une nouvelle demande d'agrément).
+        // Une fiche rejetée redevient en revanche un brouillon dès qu'on la
+        // retouche — elle doit être explicitement resoumise.
+        if (f.getStatut() != StatutFournisseur.VALIDE) {
+            f.setStatut(StatutFournisseur.BROUILLON);
+            f.setMotifRejet(null);
+        }
 
         if (dto.statutJuridique() != null) {
             f.setStatutJuridique(dto.statutJuridique());

@@ -399,12 +399,22 @@ public class CommandeService {
                         l.getSousTotal()))
                 .toList();
 
+        User porteur = c.getProjet().getPorteur();
+        User fournisseurUser = c.getFournisseur().getUser();
+
         return new CommandeDTO(
                 c.getId(),
                 c.getProjet().getId(),
                 c.getProjet().getLibelle(),
+                porteur != null ? (porteur.getPrenom() + " " + porteur.getNom()).trim() : null,
+                porteur != null ? resolveEmail(porteur) : null,
                 c.getFournisseur().getId(),
                 fournisseurNomAffiche(c.getFournisseur()),
+                c.getFournisseur().getVille(),
+                c.getFournisseur().getPays(),
+                c.getFournisseur().getTelephone() != null ? c.getFournisseur().getTelephone()
+                        : fournisseurUser.getContact(),
+                c.getFournisseur().getEmail() != null ? c.getFournisseur().getEmail() : resolveEmail(fournisseurUser),
                 c.getMontantTotal(),
                 c.getStatut().name(),
                 c.getDateCommande(),
