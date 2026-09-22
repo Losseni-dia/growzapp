@@ -70,6 +70,10 @@ public class FournisseurService {
                 .orElseThrow(() -> new EntityNotFoundException("Fournisseur introuvable avec l'ID : " + id));
     }
 
+    public Fournisseur getById(Long id) {
+        return getOrThrow(id);
+    }
+
     public Fournisseur getByUserId(Long userId) {
         return fournisseurRepository.findByUserId(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Aucune fiche fournisseur pour cet utilisateur."));

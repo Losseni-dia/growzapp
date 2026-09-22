@@ -69,6 +69,12 @@ public class FournisseurController {
         return ApiResponseDTO.success(dtos);
     }
 
+    @GetMapping("/{id}")
+    @Operation(summary = "Détail d'un fournisseur validé par ID")
+    public ApiResponseDTO<FournisseurDTO> getById(@PathVariable Long id) {
+        return ApiResponseDTO.success(fournisseurService.toDto(fournisseurService.getById(id)));
+    }
+
     @GetMapping("/{id}/articles")
     @Operation(summary = "Lister les articles disponibles d'un fournisseur")
     public ApiResponseDTO<List<ArticleFournisseurDTO>> articles(@PathVariable Long id) {
