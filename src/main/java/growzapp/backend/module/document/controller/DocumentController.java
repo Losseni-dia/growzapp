@@ -241,12 +241,24 @@ public class DocumentController {
         byte[] data = fileStorageService.loadDocumentAsBytes(doc.getFilename());
         ByteArrayResource resource = new ByteArrayResource(data);
 
-        String contentType = switch (doc.getType().toUpperCase()) {
-            case "PDF" -> "application/pdf";
-            case "EXCEL" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-            case "CSV" -> "text/csv";
-            default -> "application/octet-stream";
+        // L'extension réelle du fichier stocké (doc.getFilename()) fait foi —
+        // doc.getType() est une catégorie métier ("FACTURE", "BILAN"...) qui
+        // ne correspond pas forcément à un format connu (PDF/EXCEL/CSV), ce
+        // qui faisait tomber le téléchargement sur application/octet-stream
+        // sans extension pour les factures de commande auto-générées.
+        String realExtension = getRealExtension(doc.getFilename());
+        String contentType = switch (realExtension) {
+            case "pdf" -> "application/pdf";
+            case "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "csv" -> "text/csv";
+            default -> switch (doc.getType().toUpperCase()) {
+                case "PDF" -> "application/pdf";
+                case "EXCEL" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                case "CSV" -> "text/csv";
+                default -> "application/octet-stream";
+            };
         };
+        String extensionSuffixe = !realExtension.isEmpty() ? "." + realExtension : getExtension(doc.getType());
 
         // ContentDisposition.builder encode le nom en RFC 5987 (filename*=UTF-8''...)
         // — nécessaire dès que le nom du document contient un caractère hors
@@ -254,7 +266,7 @@ public class DocumentController {
         // automatiquement), sinon Tomcat rejette l'en-tête et corrompt la
         // réponse en cours d'écriture.
         ContentDisposition contentDisposition = ContentDisposition.attachment()
-                .filename(doc.getNom() + getExtension(doc.getType()), java.nio.charset.StandardCharsets.UTF_8)
+                .filename(doc.getNom() + extensionSuffixe, java.nio.charset.StandardCharsets.UTF_8)
                 .build();
 
         return ResponseEntity.ok()
@@ -262,6 +274,17 @@ public class DocumentController {
                 .contentLength(data.length)
                 .contentType(MediaType.parseMediaType(contentType))
                 .body(resource);
+    }
+
+    private String getRealExtension(String filename) {
+        if (filename == null) {
+            return "";
+        }
+        int dot = filename.lastIndexOf('.');
+        if (dot < 0 || dot == filename.length() - 1) {
+            return "";
+        }
+        return filename.substring(dot + 1).toLowerCase();
     }
 
     private String getExtension(String type) {
