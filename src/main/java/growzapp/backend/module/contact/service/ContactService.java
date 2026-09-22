@@ -1,6 +1,5 @@
 package growzapp.backend.module.contact.service;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -8,8 +7,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import growzapp.backend.module.contact.dto.ContactMessageCreateDTO;
 import growzapp.backend.module.contact.dto.ContactMessageDTO;
+import growzapp.backend.module.contact.dto.ContactReplyDTO;
 import growzapp.backend.module.contact.enums.StatutContact;
 import growzapp.backend.module.contact.model.ContactMessage;
+import growzapp.backend.module.contact.model.ContactReply;
 import growzapp.backend.module.contact.repository.ContactMessageRepository;
 import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.notification.service.NotificationService;
@@ -45,25 +46,60 @@ public class ContactService {
         return saved;
     }
 
-    public List<ContactMessage> getMesMessages(Long userId) {
-        return contactMessageRepository.findByUserIdOrderByDateEnvoiDesc(userId);
-    }
-
-    public List<ContactMessage> getAll(StatutContact statutFiltre) {
-        return statutFiltre != null
-                ? contactMessageRepository.findByStatutOrderByDateEnvoiDesc(statutFiltre)
-                : contactMessageRepository.findAllByOrderByDateEnvoiDesc();
-    }
-
-    @Transactional
-    public ContactMessage repondre(Long id, String reponse, User admin) {
-        ContactMessage msg = contactMessageRepository.findById(id)
+    private ContactMessage getThreadOrThrow(Long id) {
+        return contactMessageRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Message introuvable avec l'ID : " + id));
+    }
 
-        msg.setReponse(reponse);
+    private void ensureProprietaire(ContactMessage msg, User user) {
+        if (!msg.getUser().getId().equals(user.getId())) {
+            throw new SecurityException("Ce fil de discussion ne vous appartient pas.");
+        }
+    }
+
+    // ── Continuer le fil, côté utilisateur (pas de nouveau sujet) ────────────
+    @Transactional
+    public ContactMessage ajouterMessageUtilisateur(Long id, User user, String contenu) {
+        ContactMessage msg = getThreadOrThrow(id);
+        ensureProprietaire(msg, user);
+
+        ContactReply reply = new ContactReply();
+        reply.setContactMessage(msg);
+        reply.setAuteur(user);
+        reply.setAdmin(false);
+        reply.setContenu(contenu);
+        msg.getReponses().add(reply);
+
+        // Un nouveau message de l'utilisateur relance le fil côté admin :
+        // redevient "à traiter" et réapparaît si l'admin l'avait masqué.
+        msg.setStatut(StatutContact.NOUVEAU);
+        msg.setHiddenForAdmin(false);
+        ContactMessage saved = contactMessageRepository.save(msg);
+
+        notificationService.notifyAdmins(
+                "Nouveau message de contact",
+                (user.getPrenom() + " " + user.getNom()).trim() + " — " + msg.getSujet(),
+                "/admin/contact");
+
+        return saved;
+    }
+
+    // ── Répondre, côté admin ──────────────────────────────────────────────────
+    @Transactional
+    public ContactMessage repondre(Long id, String contenu, User admin) {
+        ContactMessage msg = getThreadOrThrow(id);
+
+        ContactReply reply = new ContactReply();
+        reply.setContactMessage(msg);
+        reply.setAuteur(admin);
+        reply.setAdmin(true);
+        reply.setContenu(contenu);
+        msg.getReponses().add(reply);
+
         msg.setStatut(StatutContact.TRAITE);
-        msg.setResponduPar(admin.getPrenom() + " " + admin.getNom());
-        msg.setDateReponse(LocalDateTime.now());
+        // Une réponse de l'admin doit redevenir visible pour l'utilisateur,
+        // même s'il avait masqué ce fil de son côté auparavant.
+        msg.setHiddenForUser(false);
         ContactMessage saved = contactMessageRepository.save(msg);
 
         String destinataire = resolveEmail(msg.getUser());
@@ -73,7 +109,7 @@ public class ContactService {
                     msg.getUser().getPrenom() + " " + msg.getUser().getNom(),
                     msg.getSujet(),
                     msg.getMessage(),
-                    reponse);
+                    contenu);
         }
 
         notificationService.notifyUser(
@@ -84,6 +120,32 @@ public class ContactService {
                 "/mon-espace/contact");
 
         return saved;
+    }
+
+    // ── Masquage indépendant par côté (jamais une vraie suppression) ─────────
+    @Transactional
+    public void masquerPourUtilisateur(Long id, User user) {
+        ContactMessage msg = getThreadOrThrow(id);
+        ensureProprietaire(msg, user);
+        msg.setHiddenForUser(true);
+        contactMessageRepository.save(msg);
+    }
+
+    @Transactional
+    public void masquerPourAdmin(Long id) {
+        ContactMessage msg = getThreadOrThrow(id);
+        msg.setHiddenForAdmin(true);
+        contactMessageRepository.save(msg);
+    }
+
+    public List<ContactMessage> getMesMessages(Long userId) {
+        return contactMessageRepository.findByUserIdAndHiddenForUserFalseOrderByDateEnvoiDesc(userId);
+    }
+
+    public List<ContactMessage> getAll(StatutContact statutFiltre) {
+        return statutFiltre != null
+                ? contactMessageRepository.findByStatutAndHiddenForAdminFalseOrderByDateEnvoiDesc(statutFiltre)
+                : contactMessageRepository.findByHiddenForAdminFalseOrderByDateEnvoiDesc();
     }
 
     // Même repli que FichePorteurController.toMap() : certains comptes n'ont
@@ -99,17 +161,25 @@ public class ContactService {
     }
 
     public ContactMessageDTO toDto(ContactMessage msg) {
+        List<ContactReplyDTO> reponses = msg.getReponses().stream()
+                .map(r -> new ContactReplyDTO(
+                        r.getId(),
+                        r.getAuteur().getId(),
+                        (r.getAuteur().getPrenom() + " " + r.getAuteur().getNom()).trim(),
+                        r.isAdmin(),
+                        r.getContenu(),
+                        r.getDateEnvoi()))
+                .toList();
+
         return new ContactMessageDTO(
                 msg.getId(),
                 msg.getUser().getId(),
-                msg.getUser().getPrenom() + " " + msg.getUser().getNom(),
+                (msg.getUser().getPrenom() + " " + msg.getUser().getNom()).trim(),
                 resolveEmail(msg.getUser()),
                 msg.getSujet(),
                 msg.getMessage(),
                 msg.getStatut().name(),
-                msg.getReponse(),
-                msg.getResponduPar(),
                 msg.getDateEnvoi(),
-                msg.getDateReponse());
+                reponses);
     }
 }

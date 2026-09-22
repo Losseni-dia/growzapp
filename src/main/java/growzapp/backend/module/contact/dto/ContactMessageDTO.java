@@ -1,6 +1,7 @@
 package growzapp.backend.module.contact.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record ContactMessageDTO(
         Long id,
@@ -10,8 +11,6 @@ public record ContactMessageDTO(
         String sujet,
         String message,
         String statut,
-        String reponse,
-        String responduPar,
         LocalDateTime dateEnvoi,
-        LocalDateTime dateReponse) {
+        List<ContactReplyDTO> reponses) {
 }

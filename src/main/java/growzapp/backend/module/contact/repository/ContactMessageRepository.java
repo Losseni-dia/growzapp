@@ -9,9 +9,9 @@ import growzapp.backend.module.contact.model.ContactMessage;
 
 public interface ContactMessageRepository extends JpaRepository<ContactMessage, Long> {
 
-    List<ContactMessage> findByUserIdOrderByDateEnvoiDesc(Long userId);
+    List<ContactMessage> findByUserIdAndHiddenForUserFalseOrderByDateEnvoiDesc(Long userId);
 
-    List<ContactMessage> findAllByOrderByDateEnvoiDesc();
+    List<ContactMessage> findByHiddenForAdminFalseOrderByDateEnvoiDesc();
 
-    List<ContactMessage> findByStatutOrderByDateEnvoiDesc(StatutContact statut);
+    List<ContactMessage> findByStatutAndHiddenForAdminFalseOrderByDateEnvoiDesc(StatutContact statut);
 }

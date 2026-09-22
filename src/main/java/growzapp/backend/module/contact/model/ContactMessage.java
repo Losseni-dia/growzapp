@@ -1,6 +1,8 @@
 package growzapp.backend.module.contact.model;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -15,6 +17,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -47,17 +51,22 @@ public class ContactMessage {
     @Column(nullable = false, length = 20)
     private StatutContact statut = StatutContact.NOUVEAU;
 
-    @Column(length = 3000)
-    private String reponse;
-
-    @Column(name = "repondu_par", length = 150)
-    private String responduPar;
-
     @Column(name = "date_envoi", nullable = false)
     private LocalDateTime dateEnvoi;
 
-    @Column(name = "date_reponse")
-    private LocalDateTime dateReponse;
+    // Masquage indépendant par côté : "supprimer" un fil ne l'efface jamais
+    // réellement, il disparaît seulement de la liste de celui qui l'a masqué
+    // — l'autre partie continue de le voir normalement.
+    @Column(name = "hidden_for_user", nullable = false)
+    private boolean hiddenForUser = false;
+
+    @Column(name = "hidden_for_admin", nullable = false)
+    private boolean hiddenForAdmin = false;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "contactMessage", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("dateEnvoi ASC")
+    private List<ContactReply> reponses = new ArrayList<>();
 
     @PrePersist
     public void onCreate() {

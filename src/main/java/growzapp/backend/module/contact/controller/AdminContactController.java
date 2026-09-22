@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,5 +55,12 @@ public class AdminContactController {
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
         ContactMessage saved = contactService.repondre(id, dto.reponse(), admin);
         return ApiResponseDTO.success(contactService.toDto(saved));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Masquer un fil de mon côté (admin)", description = "Le fil disparaît uniquement de la liste admin — il reste visible et intact côté utilisateur.")
+    public ApiResponseDTO<String> masquer(@PathVariable Long id) {
+        contactService.masquerPourAdmin(id);
+        return ApiResponseDTO.<String>success(null).message("Message masqué");
     }
 }
