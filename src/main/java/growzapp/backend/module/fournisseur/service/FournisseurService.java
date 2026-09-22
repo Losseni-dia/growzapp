@@ -190,8 +190,17 @@ public class FournisseurService {
         return fournisseurRepository.findByStatutOrderByDateSoumissionDesc(StatutFournisseur.EN_ATTENTE);
     }
 
+    // Filtrage en Java plutôt qu'en JPQL : la clause classique
+    // "(:param IS NULL OR ...)" fait échouer l'inférence de type du driver
+    // PostgreSQL quand le paramètre vaut effectivement null ("could not
+    // determine data type of parameter"). Le volume de fournisseurs validés
+    // reste faible, un filtrage en mémoire est largement suffisant.
     public List<Fournisseur> rechercher(String ville, String pays, Long secteurId) {
-        return fournisseurRepository.rechercher(ville, pays, secteurId);
+        return fournisseurRepository.findByStatut(StatutFournisseur.VALIDE).stream()
+                .filter(f -> ville == null || ville.isBlank() || ville.equalsIgnoreCase(f.getVille()))
+                .filter(f -> pays == null || pays.isBlank() || pays.equalsIgnoreCase(f.getPays()))
+                .filter(f -> secteurId == null || (f.getSecteur() != null && secteurId.equals(f.getSecteur().getId())))
+                .toList();
     }
 
     // ── Catalogue d'articles ──────────────────────────────────────────────────
