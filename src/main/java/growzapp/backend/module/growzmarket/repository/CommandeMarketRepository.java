@@ -1,5 +1,6 @@
 package growzapp.backend.module.growzmarket.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,8 @@ public interface CommandeMarketRepository extends JpaRepository<CommandeMarket, 
     List<CommandeMarket> findByStatutOrderByDateCommandeDesc(StatutCommandeMarket statut);
 
     List<CommandeMarket> findAllByOrderByDateCommandeDesc();
+
+    // Utilisé par le job planifié qui ouvre automatiquement un litige sur
+    // les commandes prêtes mais jamais retirées après le délai configuré.
+    List<CommandeMarket> findByStatutAndDatePreteBefore(StatutCommandeMarket statut, LocalDateTime seuil);
 }

@@ -254,6 +254,42 @@ public class CommandeMarketService {
         return commandeMarketRepository.findByProjetPorteurIdOrderByDateCommandeDesc(porteurId);
     }
 
+    // ── Job planifié : commandes prêtes jamais retirées ─────────────────────
+    // Ouvre automatiquement un litige (directement exploitable dans l'écran
+    // d'arbitrage admin déjà existant) plutôt que de laisser une commande
+    // NON_RETIREE sans aucun moyen de la traiter côté UI.
+    @Transactional
+    public void traiterCommandesNonRetirees(int delaiJours) {
+        LocalDateTime seuil = LocalDateTime.now().minusDays(delaiJours);
+        List<CommandeMarket> expirees = commandeMarketRepository
+                .findByStatutAndDatePreteBefore(StatutCommandeMarket.PRETE_AU_RETRAIT, seuil);
+
+        for (CommandeMarket commande : expirees) {
+            commande.setStatut(StatutCommandeMarket.LITIGE);
+            commande.setMotifLitige("Non retirée sous " + delaiJours + " jours — litige ouvert automatiquement.");
+            commandeMarketRepository.save(commande);
+
+            notificationService.notifyAdmins(
+                    "Litige GrowzMarket (automatique)",
+                    "Commande #" + commande.getId() + " jamais retirée après " + delaiJours + " jours.",
+                    "/admin/growzmarket");
+
+            User porteur = commande.getProjet().getPorteur();
+            if (porteur != null) {
+                notificationService.notifyUser(
+                        porteur,
+                        "Commande non retirée",
+                        "La commande #" + commande.getId() + " n'a pas été retirée à temps — un litige a été ouvert.",
+                        commande.getProjet().getId(), commande.getProjet().getSlug());
+            }
+            notificationService.notifyUser(
+                    commande.getAcheteur(),
+                    "Commande non retirée",
+                    "Vous n'avez pas retiré la commande #" + commande.getId() + " à temps — un litige a été ouvert, contactez le support si besoin.",
+                    null, "/mon-espace/mes-achats-market");
+        }
+    }
+
     public List<CommandeMarket> getEnLitigeAdmin() {
         return commandeMarketRepository.findByStatutOrderByDateCommandeDesc(StatutCommandeMarket.LITIGE);
     }
