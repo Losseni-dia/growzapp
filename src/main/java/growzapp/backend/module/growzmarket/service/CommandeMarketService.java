@@ -42,12 +42,6 @@ public class CommandeMarketService {
                 .orElseThrow(() -> new EntityNotFoundException("Commande introuvable avec l'ID : " + id));
     }
 
-    private void ensureAcheteur(CommandeMarket commande, User user) {
-        if (!commande.getAcheteur().getId().equals(user.getId())) {
-            throw new SecurityException("Cette commande ne vous appartient pas.");
-        }
-    }
-
     private void ensurePorteurVendeur(CommandeMarket commande, User user) {
         if (commande.getProjet().getPorteur() == null
                 || !commande.getProjet().getPorteur().getId().equals(user.getId())) {
@@ -142,7 +136,7 @@ public class CommandeMarketService {
                     "Nouvelle vente GrowzMarket",
                     "Commande #" + saved.getId() + " (" + total.toPlainString() + " FCFA) sur " + projetVendeur.getLibelle()
                             + " — préparez-la pour le retrait.",
-                    projetVendeur.getId(), projetVendeur.getSlug());
+                    null, "/mon-espace/mes-ventes-market");
         }
 
         return saved;
@@ -163,7 +157,7 @@ public class CommandeMarketService {
                 commande.getAcheteur(),
                 "Votre commande GrowzMarket est prête",
                 "Commande #" + commande.getId() + " est prête au retrait : " + commande.getProjet().getLibelle() + ".",
-                null, "/growzmarket/mes-achats");
+                null, "/mon-espace/mes-achats-market");
 
         return saved;
     }
