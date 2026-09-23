@@ -85,13 +85,13 @@ public class CommandeMarketController {
         return ApiResponseDTO.success(commandeMarketService.toDto(saved));
     }
 
-    @PostMapping("/{id}/confirmer-retrait")
-    @Operation(summary = "Confirmer le retrait de ma commande (acheteur)")
-    public ApiResponseDTO<CommandeMarketDTO> confirmerRetrait(
+    @PostMapping("/{id}/valider-retrait")
+    @Operation(summary = "Valider le retrait d'une commande (porteur-vendeur)", description = "L'acheteur montre le numéro de sa commande sur place — c'est le vendeur qui clôture, pas l'acheteur lui-même.")
+    public ApiResponseDTO<CommandeMarketDTO> validerRetrait(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
         User user = getCurrentUser(userDetails);
-        CommandeMarket saved = commandeMarketService.confirmerRetrait(id, user);
+        CommandeMarket saved = commandeMarketService.validerRetrait(id, user);
         return ApiResponseDTO.success(commandeMarketService.toDto(saved));
     }
 

@@ -168,12 +168,16 @@ public class CommandeMarketService {
         return saved;
     }
 
-    // ── Confirmation de retrait / litige, côté acheteur ─────────────────────
+    // ── Validation du retrait, côté vendeur ─────────────────────────────────
+    // C'est le porteur-vendeur qui clôture la commande, pas l'acheteur : il
+    // retrouve la commande dans "Mes ventes" via son numéro (montré/communiqué
+    // par l'acheteur physiquement présent) et valide lui-même la remise. Un
+    // acheteur ne peut pas s'auto-confirmer une réception qui n'a pas eu lieu.
     @Transactional
-    public CommandeMarket confirmerRetrait(Long id, User acheteur) {
+    public CommandeMarket validerRetrait(Long id, User porteurUser) {
         CommandeMarket commande = getOrThrow(id);
-        ensureAcheteur(commande, acheteur);
-        ensureStatut(commande, StatutCommandeMarket.PRETE_AU_RETRAIT, "confirmer le retrait de cette commande");
+        ensurePorteurVendeur(commande, porteurUser);
+        ensureStatut(commande, StatutCommandeMarket.PRETE_AU_RETRAIT, "valider le retrait de cette commande");
 
         commande.setStatut(StatutCommandeMarket.RETIREE);
         commande.setDateRetraitConfirme(LocalDateTime.now());
@@ -184,14 +188,11 @@ public class CommandeMarketService {
 
         CommandeMarket saved = commandeMarketRepository.save(commande);
 
-        User porteur = commande.getProjet().getPorteur();
-        if (porteur != null) {
-            notificationService.notifyUser(
-                    porteur,
-                    "Retrait confirmé",
-                    "L'acheteur a confirmé le retrait de la commande #" + commande.getId() + ".",
-                    commande.getProjet().getId(), commande.getProjet().getSlug());
-        }
+        notificationService.notifyUser(
+                commande.getAcheteur(),
+                "Retrait validé",
+                "Le vendeur a validé la remise de votre commande #" + commande.getId() + ".",
+                null, "/mon-espace/mes-achats-market");
 
         return saved;
     }
