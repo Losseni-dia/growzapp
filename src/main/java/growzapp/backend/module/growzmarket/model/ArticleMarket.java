@@ -72,7 +72,11 @@ public class ArticleMarket {
     @Column(name = "delai_preparation", length = 100)
     private String delaiPreparation;
 
-    @ElementCollection
+    // EAGER : listes toujours petites (quelques photos par article), évite
+    // les soucis de lazy-loading Hibernate/Jackson hors session (observé en
+    // test : la collection revenait `null` en JSON malgré des lignes
+    // présentes en base, faute d'initialisation déclenchée avant sérialisation).
+    @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
     @CollectionTable(name = "articles_market_photos", joinColumns = @JoinColumn(name = "article_id"))
     @Column(name = "url", nullable = false)
     @OrderColumn(name = "position")

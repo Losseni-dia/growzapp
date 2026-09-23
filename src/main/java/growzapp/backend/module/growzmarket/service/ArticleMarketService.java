@@ -153,7 +153,7 @@ public class ArticleMarketService {
                 a.getStock(),
                 a.getCategorie().name(),
                 a.getDelaiPreparation(),
-                a.getPhotos(),
+                a.getPhotos() != null ? a.getPhotos() : List.of(),
                 a.getPointRetrait(),
                 a.getTelephoneContact());
     }
