@@ -40,5 +40,11 @@ public enum TypeTransaction {
 
     // Commande fournisseur : paiement direct wallet projet -> wallet
     // fournisseur, sans jamais transiter par le porteur.
-    PAIEMENT_FOURNISSEUR
+    PAIEMENT_FOURNISSEUR,
+
+    // GrowzMarket : achat grand public d'un produit/service vendu par un
+    // porteur — débite le wallet personnel de l'acheteur, crédite le
+    // soldeBloque du wallet du projet vendeur (même gouvernance que l'argent
+    // des investisseurs, débloqué ensuite par l'admin).
+    VENTE_MARKET
 }

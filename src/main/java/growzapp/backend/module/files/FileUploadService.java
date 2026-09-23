@@ -44,6 +44,12 @@ public class FileUploadService {
     private static final Path FOURNISSEUR_LOGOS_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
             .resolve("uploads").resolve("fournisseur-logos");
 
+    private static final Path MARKET_PHOTOS_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
+            .resolve("uploads").resolve("market-photos");
+
+    private static final Path MARKET_FACTURES_UPLOAD_ROOT = Paths.get(System.getProperty("user.dir"))
+            .resolve("uploads").resolve("market-factures");
+
     static {
         try {
             Files.createDirectories(UPLOAD_ROOT);
@@ -53,6 +59,8 @@ public class FileUploadService {
             Files.createDirectories(ARTICLE_PHOTOS_UPLOAD_ROOT);
             Files.createDirectories(DOCUMENTS_UPLOAD_ROOT);
             Files.createDirectories(FOURNISSEUR_LOGOS_UPLOAD_ROOT);
+            Files.createDirectories(MARKET_PHOTOS_UPLOAD_ROOT);
+            Files.createDirectories(MARKET_FACTURES_UPLOAD_ROOT);
         } catch (IOException e) {
             throw new RuntimeException("Impossible de créer les dossiers d'upload", e);
         }
@@ -157,6 +165,46 @@ public class FileUploadService {
             return "/uploads/commande-factures/" + safeName;
         } catch (Exception e) {
             throw new RuntimeException("Échec de l'enregistrement de la facture générée", e);
+        }
+    }
+
+    public String uploadMarketPhoto(MultipartFile file, Long articleId) {
+        try {
+            fileValidationService.validateImage(file);
+
+            String original = file.getOriginalFilename();
+            String safeName = articleId + "_" + System.currentTimeMillis() + "_" +
+                    original.replaceAll("[^a-zA-Z0-9.-]", "_");
+
+            Path destination = MARKET_PHOTOS_UPLOAD_ROOT.resolve(safeName);
+            Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+
+            return "/uploads/market-photos/" + safeName;
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Échec upload photo GrowzMarket", e);
+        }
+    }
+
+    public String enregistrerFactureMarketGeneree(byte[] pdfBytes, Long commandeId) {
+        try {
+            String safeName = commandeId + "_" + System.currentTimeMillis() + "_facture.pdf";
+            Path destination = MARKET_FACTURES_UPLOAD_ROOT.resolve(safeName);
+            Files.write(destination, pdfBytes);
+            return "/uploads/market-factures/" + safeName;
+        } catch (Exception e) {
+            throw new RuntimeException("Échec de l'enregistrement de la facture GrowzMarket générée", e);
+        }
+    }
+
+    public byte[] chargerFactureMarket(String factureUrl) {
+        try {
+            String filename = factureUrl.substring(factureUrl.lastIndexOf('/') + 1);
+            Path source = MARKET_FACTURES_UPLOAD_ROOT.resolve(filename);
+            return Files.readAllBytes(source);
+        } catch (Exception e) {
+            throw new RuntimeException("Échec de la lecture de la facture GrowzMarket", e);
         }
     }
 
