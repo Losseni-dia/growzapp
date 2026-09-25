@@ -260,7 +260,8 @@ public class FichePorteurController {
     public ResponseEntity<ApiResponseDTO<Page<FichePorteurAdminDTO>>> getListe(
             @Parameter(description = "Recherche par nom, prénom ou email") @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
 
         Pageable pageable = PageRequest.of(page, size);
         // Réutilise la requête existante en excluant NON_SOUMISE via une liste de
@@ -269,7 +270,7 @@ public class FichePorteurController {
         // n'est pas NON_SOUMISE (fiches réellement créées par un admin).
         Page<FichePorteurAdminDTO> result = userRepository
                 .findFichesPorteurCreees(search, pageable)
-                .map(this::toAdminDto);
+                .map(u -> toAdminDto(u, langue));
         return ResponseEntity.ok(ApiResponseDTO.success(result));
     }
 
@@ -362,10 +363,10 @@ public class FichePorteurController {
                 .collect(Collectors.toList());
     }
 
-    private FichePorteurAdminDTO toAdminDto(User u) {
+    private FichePorteurAdminDTO toAdminDto(User u, String langue) {
         return new FichePorteurAdminDTO(
                 u.getId(), u.getNom(), u.getPrenom(), u.getLogin(), u.getEmail(), photoAffichee(u),
-                u.getFicheBio(),
+                resolveBio(u, langue),
                 u.getFicheStatutJuridique() != null ? u.getFicheStatutJuridique().name() : null,
                 u.getFicheRaisonSociale(), u.getFicheAnneesExperience(), u.getFicheProjetsPrecedents(),
                 u.getFicheProjetsMisEnAvantIds(),
