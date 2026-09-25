@@ -9,11 +9,14 @@ import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.referentiel.model.Secteur;
 import growzapp.backend.module.referentiel.repository.SecteurRepository;
 import growzapp.backend.module.traduction.DeepL.model.ArticleMarketTraduction;
+import growzapp.backend.module.traduction.DeepL.model.FicheBioTraduction;
 import growzapp.backend.module.traduction.DeepL.model.ProjetTraduction;
 import growzapp.backend.module.traduction.DeepL.model.SecteurTraduction;
 import growzapp.backend.module.traduction.DeepL.repository.ArticleMarketTraductionRepository;
+import growzapp.backend.module.traduction.DeepL.repository.FicheBioTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.repository.SecteurTraductionRepository;
+import growzapp.backend.module.user.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +34,7 @@ public class DeepLTranslationService {
     private final SecteurTraductionRepository secteurTraductionRepository;
     private final SecteurRepository secteurRepository;
     private final ArticleMarketTraductionRepository articleMarketTraductionRepository;
+    private final FicheBioTraductionRepository ficheBioTraductionRepository;
 
     @Value("${deepl.api-key}")
     private String deeplApiKey;
@@ -128,6 +132,48 @@ public class DeepLTranslationService {
     }
 
     /**
+     * Traduit automatiquement la bio de la fiche de présentation d'un
+     * porteur en anglais et en espagnol via l'API DeepL. Appelé à chaque
+     * enregistrement de la fiche par l'admin (la bio est un texte libre,
+     * pas versionné comme un projet, donc retraduit à chaque modification).
+     */
+    @Transactional
+    public void traduireFicheBio(User porteur) {
+        try {
+            com.deepl.api.TranslatorOptions options = new com.deepl.api.TranslatorOptions()
+                    .setServerUrl(deeplBaseUrl);
+            Translator translator = new Translator(deeplApiKey, options);
+
+            saveFicheBioTraduction(porteur, "fr", porteur.getFicheBio());
+
+            for (String targetLang : TARGET_LANGUAGES) {
+                try {
+                    String bioTradu = translate(translator, porteur.getFicheBio(), targetLang);
+                    String langCode = DEEPL_LANG_MAP.get(targetLang);
+                    saveFicheBioTraduction(porteur, langCode, bioTradu);
+                    log.info("Bio fiche porteur {} traduite en {}", porteur.getId(), langCode);
+                } catch (Exception e) {
+                    log.error("Erreur traduction bio fiche porteur {} en {} : {}",
+                            porteur.getId(), targetLang, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Erreur initialisation DeepL pour bio fiche porteur {} : {}",
+                    porteur.getId(), e.getMessage());
+        }
+    }
+
+    private void saveFicheBioTraduction(User porteur, String langue, String bio) {
+        FicheBioTraduction traduction = ficheBioTraductionRepository
+                .findByUserIdAndLangue(porteur.getId(), langue)
+                .orElse(new FicheBioTraduction());
+        traduction.setUser(porteur);
+        traduction.setLangue(langue);
+        traduction.setBio(bio);
+        ficheBioTraductionRepository.save(traduction);
+    }
+
+    /**
      * Traduit le nom d'un secteur (une fois, partagé par tous les projets de
      * ce secteur) et sauvegarde le résultat. Idempotent — écrase la
      * traduction existante si le nom du secteur a changé.
@@ -167,6 +213,27 @@ public class DeepLTranslationService {
         traduction.setLangue(langue);
         traduction.setNom(nom);
         secteurTraductionRepository.save(traduction);
+    }
+
+    /**
+     * Retraduit la bio de toutes les fiches porteur déjà soumises — à
+     * utiliser en backfill une fois après l'ajout de cette fonctionnalité,
+     * pour les fiches créées avant que la traduction ne soit automatique.
+     */
+    @Transactional
+    public int traduireToutesLesFichesBio(List<User> porteursAvecFiche) {
+        int count = 0;
+        for (User porteur : porteursAvecFiche) {
+            if (porteur.getFicheBio() == null || porteur.getFicheBio().isBlank())
+                continue;
+            try {
+                traduireFicheBio(porteur);
+                count++;
+            } catch (Exception e) {
+                log.warn("Erreur traduction bio fiche porteur {} : {}", porteur.getId(), e.getMessage());
+            }
+        }
+        return count;
     }
 
     /**

@@ -29,8 +29,11 @@ import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.traduction.DeepL.model.FicheBioTraduction;
 import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection;
+import growzapp.backend.module.traduction.DeepL.repository.FicheBioTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
+import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import growzapp.backend.module.user.dto.FichePorteurAdminDTO;
 import growzapp.backend.module.user.dto.FichePorteurPublicDTO;
 import growzapp.backend.module.user.dto.FichePorteurSubmitDTO;
@@ -62,6 +65,8 @@ public class FichePorteurController {
     private final jakarta.validation.Validator validator;
     private final ProjetRepository projetRepository;
     private final ProjetTraductionRepository projetTraductionRepository;
+    private final FicheBioTraductionRepository ficheBioTraductionRepository;
+    private final DeepLTranslationService deepLTranslationService;
 
     // ── CONSULTER SA PROPRE FICHE (lecture seule, porteur) ──────────────────
     @GetMapping
@@ -97,7 +102,7 @@ public class FichePorteurController {
                 (porteur.getPrenom() != null ? porteur.getPrenom() : "") + " "
                         + (porteur.getNom() != null ? porteur.getNom() : ""),
                 photoAffichee(porteur),
-                porteur.getFicheBio(),
+                resolveBio(porteur, langue),
                 porteur.getFicheStatutJuridique() != null ? porteur.getFicheStatutJuridique().name() : null,
                 porteur.getFicheRaisonSociale(),
                 porteur.getFicheAnneesExperience(),
@@ -163,6 +168,7 @@ public class FichePorteurController {
         porteur.setFicheValidatedAt(statut == StatutFichePorteur.EN_ATTENTE ? porteur.getFicheValidatedAt() : LocalDateTime.now());
         porteur.setFicheCommentaireRejet(statut == StatutFichePorteur.REJETEE ? commentaire : null);
         userRepository.save(porteur);
+        deepLTranslationService.traduireFicheBio(porteur);
 
         String message;
         if (statut == StatutFichePorteur.VALIDEE) {
@@ -214,6 +220,7 @@ public class FichePorteurController {
         porteur.setFicheCommentaireRejet(null);
         porteur.setFichePhotoUrl(null);
         userRepository.save(porteur);
+        ficheBioTraductionRepository.deleteByUserId(userId);
 
         return ResponseEntity.ok(ApiResponseDTO.<String>success(null).message("Fiche supprimée"));
     }
@@ -228,6 +235,21 @@ public class FichePorteurController {
         User porteur = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
         return ResponseEntity.ok(ApiResponseDTO.success(toMap(porteur, "fr")));
+    }
+
+    // ── ADMIN : RETRADUIRE LA BIO DE TOUTES LES FICHES (BACKFILL) ───────────
+    @PostMapping("/admin/retraduire-bios")
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "[Admin] Retraduit via DeepL la bio de toutes les fiches déjà soumises", description = "À exécuter une fois après le déploiement de la traduction automatique de la bio, pour les fiches créées avant cet ajout.", tags = {
+            "Fiche Porteur" })
+    public ResponseEntity<ApiResponseDTO<String>> retraduireBios() {
+        List<User> porteurs = userRepository
+                .findFichesPorteurCreees(null, PageRequest.of(0, Integer.MAX_VALUE))
+                .getContent();
+        int count = deepLTranslationService.traduireToutesLesFichesBio(porteurs);
+        return ResponseEntity.ok(ApiResponseDTO.<String>success(null)
+                .message(count + " bio(s) retraduite(s)"));
     }
 
     // ── ADMIN : LISTER LES FICHES EXISTANTES ────────────────────────────────
@@ -253,7 +275,7 @@ public class FichePorteurController {
 
     private Map<String, Object> toMap(User user, String langue) {
         Map<String, Object> data = new java.util.HashMap<>();
-        data.put("bio", user.getFicheBio());
+        data.put("bio", resolveBio(user, langue));
         data.put("statutJuridique", user.getFicheStatutJuridique());
         data.put("raisonSociale", user.getFicheRaisonSociale());
         data.put("anneesExperience", user.getFicheAnneesExperience());
@@ -294,6 +316,18 @@ public class FichePorteurController {
         return (user.getFichePhotoUrl() != null && !user.getFichePhotoUrl().isBlank())
                 ? user.getFichePhotoUrl()
                 : user.getImage();
+    }
+
+    // Bio traduite (DeepL) selon la langue demandée — repli sur le texte
+    // français si aucune traduction n'existe encore (ex : fiche créée avant
+    // l'ajout de cette fonctionnalité, en attendant le prochain enregistrement).
+    private String resolveBio(User porteur, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr"))
+            return porteur.getFicheBio();
+        return ficheBioTraductionRepository.findByUserIdAndLangue(porteur.getId(), langue)
+                .map(FicheBioTraduction::getBio)
+                .filter(b -> b != null && !b.isBlank())
+                .orElse(porteur.getFicheBio());
     }
 
     // Résout les ids de projets mis en avant en libellés déjà traduits (comme
