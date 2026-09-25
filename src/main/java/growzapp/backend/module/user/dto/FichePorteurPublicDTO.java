@@ -2,6 +2,8 @@ package growzapp.backend.module.user.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.util.List;
+
 /**
  * Fiche publique — volontairement dépourvue de tout moyen de contact direct
  * (téléphone, email, site web, LinkedIn, réseaux). GrowzApp reste le seul
@@ -19,6 +21,7 @@ public record FichePorteurPublicDTO(
         String raisonSociale,
         Integer anneesExperience,
         String projetsPrecedents,
+        List<ProjetPrecedentDTO> projetsPrecedentsListe,
         boolean verifie
 ) {
 }

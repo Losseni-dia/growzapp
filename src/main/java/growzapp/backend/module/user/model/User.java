@@ -178,6 +178,15 @@ public class User {
     @Column(name = "fiche_projets_precedents", columnDefinition = "TEXT")
     private String ficheProjetsPrecedents;
 
+    // Projets réels du porteur mis en avant sur sa fiche — remplace la
+    // composition manuelle de texte : on référence les projets par id pour
+    // pouvoir afficher leur libellé déjà traduit (DeepL) et leur statut
+    // via i18n, plutôt que de figer un texte en français dans la fiche.
+    @ElementCollection
+    @CollectionTable(name = "fiche_projets_mis_en_avant", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "projet_id")
+    private List<Long> ficheProjetsMisEnAvantIds = new ArrayList<>();
+
     @Column(name = "fiche_contact_telephone", length = 30)
     private String ficheContactTelephone;
 

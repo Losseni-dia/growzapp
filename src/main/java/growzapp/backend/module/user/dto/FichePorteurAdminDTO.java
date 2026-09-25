@@ -1,6 +1,7 @@
 package growzapp.backend.module.user.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -17,6 +18,7 @@ public record FichePorteurAdminDTO(
         String raisonSociale,
         Integer anneesExperience,
         String projetsPrecedents,
+        List<Long> projetsMisEnAvantIds,
         String contactTelephone,
         String contactEmail,
         String siteWeb,

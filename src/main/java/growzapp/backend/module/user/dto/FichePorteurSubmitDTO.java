@@ -8,6 +8,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+
 @Schema(description = "Soumission de la fiche de présentation du porteur")
 public record FichePorteurSubmitDTO(
 
@@ -28,6 +30,8 @@ public record FichePorteurSubmitDTO(
 
         @Size(max = 2000, message = "La description des projets précédents ne doit pas dépasser 2000 caractères")
         String projetsPrecedents,
+
+        List<Long> projetsMisEnAvantIds,
 
         @NotBlank(message = "Le contact téléphonique professionnel est obligatoire")
         String contactTelephone,

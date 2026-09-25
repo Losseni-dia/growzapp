@@ -1,7 +1,10 @@
 package growzapp.backend.module.user.controller;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,10 +26,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import growzapp.backend.module.files.FileUploadService;
 import growzapp.backend.module.notification.service.NotificationService;
+import growzapp.backend.module.projet.model.Projet;
+import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection;
+import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.user.dto.FichePorteurAdminDTO;
 import growzapp.backend.module.user.dto.FichePorteurPublicDTO;
 import growzapp.backend.module.user.dto.FichePorteurSubmitDTO;
+import growzapp.backend.module.user.dto.ProjetPrecedentDTO;
 import growzapp.backend.module.user.enums.StatutFichePorteur;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
@@ -52,6 +60,8 @@ public class FichePorteurController {
     private final FileUploadService fileUploadService;
     private final ObjectMapper objectMapper;
     private final jakarta.validation.Validator validator;
+    private final ProjetRepository projetRepository;
+    private final ProjetTraductionRepository projetTraductionRepository;
 
     // ── CONSULTER SA PROPRE FICHE (lecture seule, porteur) ──────────────────
     @GetMapping
@@ -59,10 +69,11 @@ public class FichePorteurController {
     @SecurityRequirement(name = "BearerAuth")
     @Operation(summary = "Consulter sa propre fiche de présentation et son statut (lecture seule)", tags = { "Fiche Porteur" })
     public ResponseEntity<ApiResponseDTO<Map<String, Object>>> getMaFiche(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         User user = userRepository.findByLoginForAuth(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-        return ResponseEntity.ok(ApiResponseDTO.success(toMap(user)));
+        return ResponseEntity.ok(ApiResponseDTO.success(toMap(user, langue)));
     }
 
     // ── CONSULTER LA FICHE PUBLIQUE D'UN PORTEUR (page détail projet) ───────
@@ -71,7 +82,9 @@ public class FichePorteurController {
     @SecurityRequirement(name = "BearerAuth")
     @Operation(summary = "Consulter la fiche publique d'un porteur (visible des investisseurs connectés)", description = "Ne retourne jamais de coordonnée de contact directe — GrowzApp reste le seul intermédiaire.", tags = {
             "Fiche Porteur" })
-    public ResponseEntity<ApiResponseDTO<FichePorteurPublicDTO>> getFichePublique(@PathVariable Long porteurId) {
+    public ResponseEntity<ApiResponseDTO<FichePorteurPublicDTO>> getFichePublique(
+            @PathVariable Long porteurId,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         User porteur = userRepository.findById(porteurId)
                 .orElseThrow(() -> new RuntimeException("Porteur introuvable"));
 
@@ -89,6 +102,7 @@ public class FichePorteurController {
                 porteur.getFicheRaisonSociale(),
                 porteur.getFicheAnneesExperience(),
                 porteur.getFicheProjetsPrecedents(),
+                resolveProjetsPrecedents(porteur, langue),
                 true);
 
         return ResponseEntity.ok(ApiResponseDTO.success(dto));
@@ -135,6 +149,7 @@ public class FichePorteurController {
         porteur.setFicheRaisonSociale(dto.raisonSociale());
         porteur.setFicheAnneesExperience(dto.anneesExperience());
         porteur.setFicheProjetsPrecedents(dto.projetsPrecedents());
+        porteur.setFicheProjetsMisEnAvantIds(dto.projetsMisEnAvantIds() != null ? dto.projetsMisEnAvantIds() : new java.util.ArrayList<>());
         porteur.setFicheContactTelephone(dto.contactTelephone());
         porteur.setFicheContactEmail(dto.contactEmail());
         porteur.setFicheSiteWeb(dto.siteWeb());
@@ -187,6 +202,7 @@ public class FichePorteurController {
         porteur.setFicheRaisonSociale(null);
         porteur.setFicheAnneesExperience(null);
         porteur.setFicheProjetsPrecedents(null);
+        porteur.setFicheProjetsMisEnAvantIds(new java.util.ArrayList<>());
         porteur.setFicheContactTelephone(null);
         porteur.setFicheContactEmail(null);
         porteur.setFicheSiteWeb(null);
@@ -211,7 +227,7 @@ public class FichePorteurController {
     public ResponseEntity<ApiResponseDTO<Map<String, Object>>> getFicheAdmin(@PathVariable Long userId) {
         User porteur = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-        return ResponseEntity.ok(ApiResponseDTO.success(toMap(porteur)));
+        return ResponseEntity.ok(ApiResponseDTO.success(toMap(porteur, "fr")));
     }
 
     // ── ADMIN : LISTER LES FICHES EXISTANTES ────────────────────────────────
@@ -235,13 +251,15 @@ public class FichePorteurController {
         return ResponseEntity.ok(ApiResponseDTO.success(result));
     }
 
-    private Map<String, Object> toMap(User user) {
+    private Map<String, Object> toMap(User user, String langue) {
         Map<String, Object> data = new java.util.HashMap<>();
         data.put("bio", user.getFicheBio());
         data.put("statutJuridique", user.getFicheStatutJuridique());
         data.put("raisonSociale", user.getFicheRaisonSociale());
         data.put("anneesExperience", user.getFicheAnneesExperience());
         data.put("projetsPrecedents", user.getFicheProjetsPrecedents());
+        data.put("projetsMisEnAvantIds", user.getFicheProjetsMisEnAvantIds());
+        data.put("projetsPrecedentsListe", resolveProjetsPrecedents(user, langue));
         // Contact déjà saisi sur la fiche, sinon on retombe sur les
         // coordonnées du compte (inscription) pour éviter à l'admin de
         // ressaisir une info déjà connue.
@@ -278,12 +296,45 @@ public class FichePorteurController {
                 : user.getImage();
     }
 
+    // Résout les ids de projets mis en avant en libellés déjà traduits (comme
+    // pour les projets du catalogue) et statuts bruts — le statut est traduit
+    // côté frontend via i18n (mêmes clés que la liste des projets), pas ici,
+    // pour rester cohérent avec le reste de l'appli.
+    private List<ProjetPrecedentDTO> resolveProjetsPrecedents(User porteur, String langue) {
+        List<Long> ids = porteur.getFicheProjetsMisEnAvantIds();
+        if (ids == null || ids.isEmpty())
+            return List.of();
+        List<Projet> projets = projetRepository.findAllById(ids);
+        return projets.stream()
+                .map(p -> {
+                    String libelle = p.getLibelle();
+                    if (langue != null && !langue.isBlank() && !langue.equals("fr")) {
+                        Optional<ProjetTraductionProjection> traduction = projetTraductionRepository
+                                .findProjectionByProjetIdAndLangue(p.getId(), langue);
+                        if (traduction.isPresent() && traduction.get().getLibelle() != null
+                                && !traduction.get().getLibelle().isBlank()) {
+                            libelle = traduction.get().getLibelle();
+                        }
+                    }
+                    int pct = p.getObjectifFinancement() != null
+                            && p.getObjectifFinancement().compareTo(java.math.BigDecimal.ZERO) > 0
+                                    ? p.getMontantCollecte().multiply(java.math.BigDecimal.valueOf(100))
+                                            .divide(p.getObjectifFinancement(), 0, java.math.RoundingMode.HALF_UP)
+                                            .intValue()
+                                    : 0;
+                    return new ProjetPrecedentDTO(p.getId(), libelle,
+                            p.getStatutProjet() != null ? p.getStatutProjet().name() : null, pct);
+                })
+                .collect(Collectors.toList());
+    }
+
     private FichePorteurAdminDTO toAdminDto(User u) {
         return new FichePorteurAdminDTO(
                 u.getId(), u.getNom(), u.getPrenom(), u.getLogin(), u.getEmail(), photoAffichee(u),
                 u.getFicheBio(),
                 u.getFicheStatutJuridique() != null ? u.getFicheStatutJuridique().name() : null,
                 u.getFicheRaisonSociale(), u.getFicheAnneesExperience(), u.getFicheProjetsPrecedents(),
+                u.getFicheProjetsMisEnAvantIds(),
                 u.getFicheContactTelephone(), u.getFicheContactEmail(), u.getFicheSiteWeb(), u.getFicheLinkedin(),
                 u.getFicheReseauxAutres(),
                 u.getFicheStatut() != null ? u.getFicheStatut().name() : null,
