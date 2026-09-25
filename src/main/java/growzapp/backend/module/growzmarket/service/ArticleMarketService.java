@@ -1,6 +1,7 @@
 package growzapp.backend.module.growzmarket.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,9 @@ import growzapp.backend.module.growzmarket.model.ArticleMarket;
 import growzapp.backend.module.growzmarket.repository.ArticleMarketRepository;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
+import growzapp.backend.module.traduction.DeepL.model.ArticleMarketTraductionProjection;
+import growzapp.backend.module.traduction.DeepL.repository.ArticleMarketTraductionRepository;
+import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import growzapp.backend.module.user.model.User;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +30,8 @@ public class ArticleMarketService {
     private final ArticleMarketRepository articleMarketRepository;
     private final ProjetRepository projetRepository;
     private final FileUploadService fileUploadService;
+    private final DeepLTranslationService deepLTranslationService;
+    private final ArticleMarketTraductionRepository articleMarketTraductionRepository;
 
     private Projet getProjetDontUserEstPorteur(Long projetId, Long userId) {
         Projet projet = projetRepository.findById(projetId)
@@ -64,6 +70,8 @@ public class ArticleMarketService {
             saved = articleMarketRepository.save(saved);
         }
 
+        deepLTranslationService.traduireArticle(saved);
+
         return saved;
     }
 
@@ -98,7 +106,9 @@ public class ArticleMarketService {
             }
         }
 
-        return articleMarketRepository.save(article);
+        ArticleMarket saved = articleMarketRepository.save(article);
+        deepLTranslationService.traduireArticle(saved);
+        return saved;
     }
 
     @Transactional
@@ -156,5 +166,41 @@ public class ArticleMarketService {
                 a.getPhotos() != null ? a.getPhotos() : List.of(),
                 a.getPointRetrait(),
                 a.getTelephoneContact());
+    }
+
+    // ── Traduction (DeepL) ───────────────────────────────────────────────────
+    public ArticleMarketDTO applyTraduction(ArticleMarketDTO dto, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr")) {
+            return dto;
+        }
+        Optional<ArticleMarketTraductionProjection> traduction = articleMarketTraductionRepository
+                .findProjectionByArticleIdAndLangue(dto.id(), langue);
+        if (traduction.isEmpty()) {
+            return dto;
+        }
+        ArticleMarketTraductionProjection t = traduction.get();
+        return new ArticleMarketDTO(
+                dto.id(),
+                dto.projetId(),
+                dto.projetLibelle(),
+                dto.porteurNom(),
+                (t.getNom() != null && !t.getNom().isBlank()) ? t.getNom() : dto.nom(),
+                (t.getDescription() != null && !t.getDescription().isBlank()) ? t.getDescription() : dto.description(),
+                dto.prix(),
+                dto.unite(),
+                dto.disponible(),
+                dto.stock(),
+                dto.categorie(),
+                dto.delaiPreparation(),
+                dto.photos(),
+                dto.pointRetrait(),
+                dto.telephoneContact());
+    }
+
+    public List<ArticleMarketDTO> applyTraductions(List<ArticleMarketDTO> dtos, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr")) {
+            return dtos;
+        }
+        return dtos.stream().map(dto -> applyTraduction(dto, langue)).toList();
     }
 }

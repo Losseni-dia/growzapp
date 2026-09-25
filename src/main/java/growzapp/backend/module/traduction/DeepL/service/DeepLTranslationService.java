@@ -4,11 +4,14 @@ package growzapp.backend.module.traduction.DeepL.service;
 import com.deepl.api.DeepLException;
 import com.deepl.api.TextResult;
 import com.deepl.api.Translator;
+import growzapp.backend.module.growzmarket.model.ArticleMarket;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.referentiel.model.Secteur;
 import growzapp.backend.module.referentiel.repository.SecteurRepository;
+import growzapp.backend.module.traduction.DeepL.model.ArticleMarketTraduction;
 import growzapp.backend.module.traduction.DeepL.model.ProjetTraduction;
 import growzapp.backend.module.traduction.DeepL.model.SecteurTraduction;
+import growzapp.backend.module.traduction.DeepL.repository.ArticleMarketTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.repository.SecteurTraductionRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ public class DeepLTranslationService {
     private final ProjetTraductionRepository traductionRepository;
     private final SecteurTraductionRepository secteurTraductionRepository;
     private final SecteurRepository secteurRepository;
+    private final ArticleMarketTraductionRepository articleMarketTraductionRepository;
 
     @Value("${deepl.api-key}")
     private String deeplApiKey;
@@ -84,6 +88,42 @@ public class DeepLTranslationService {
         } catch (Exception e) {
             log.error("Erreur initialisation DeepL pour projet {} : {}",
                     projet.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Traduit automatiquement le nom et la description d'un article
+     * GrowzMarket en anglais et en espagnol via l'API DeepL.
+     * Appelé à la création et à la modification de l'article.
+     */
+    @Transactional
+    public void traduireArticle(ArticleMarket article) {
+        try {
+            com.deepl.api.TranslatorOptions options = new com.deepl.api.TranslatorOptions()
+                    .setServerUrl(deeplBaseUrl);
+            Translator translator = new Translator(deeplApiKey, options);
+
+            // Sauvegarder d'abord la version française (langue source)
+            saveArticleTraduction(article, "fr", article.getNom(), article.getDescription());
+
+            for (String targetLang : TARGET_LANGUAGES) {
+                try {
+                    String nomTradu = translate(translator, article.getNom(), targetLang);
+                    String descriptionTradu = translate(translator, article.getDescription(), targetLang);
+
+                    String langCode = DEEPL_LANG_MAP.get(targetLang);
+                    saveArticleTraduction(article, langCode, nomTradu, descriptionTradu);
+
+                    log.info("Article {} traduit en {}", article.getId(), langCode);
+
+                } catch (Exception e) {
+                    log.error("Erreur traduction article {} en {} : {}",
+                            article.getId(), targetLang, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Erreur initialisation DeepL pour article {} : {}",
+                    article.getId(), e.getMessage());
         }
     }
 
@@ -174,5 +214,21 @@ public class DeepLTranslationService {
         traduction.setDescription(description);
 
         traductionRepository.save(traduction);
+    }
+
+    /**
+     * Sauvegarde ou met à jour la traduction d'un article GrowzMarket.
+     */
+    private void saveArticleTraduction(ArticleMarket article, String langue, String nom, String description) {
+        ArticleMarketTraduction traduction = articleMarketTraductionRepository
+                .findByArticleIdAndLangue(article.getId(), langue)
+                .orElse(new ArticleMarketTraduction());
+
+        traduction.setArticle(article);
+        traduction.setLangue(langue);
+        traduction.setNom(nom);
+        traduction.setDescription(description);
+
+        articleMarketTraductionRepository.save(traduction);
     }
 }

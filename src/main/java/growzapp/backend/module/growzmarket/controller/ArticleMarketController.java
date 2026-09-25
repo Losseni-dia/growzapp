@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,17 +43,21 @@ public class ArticleMarketController {
 
     @GetMapping
     @Operation(summary = "Catalogue public GrowzMarket", description = "Articles disponibles, tous porteurs confondus.")
-    public ApiResponseDTO<List<ArticleMarketDTO>> catalogue() {
+    public ApiResponseDTO<List<ArticleMarketDTO>> catalogue(
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         List<ArticleMarketDTO> dtos = articleMarketService.getCatalogue().stream()
                 .map(articleMarketService::toDto)
                 .toList();
-        return ApiResponseDTO.success(dtos);
+        return ApiResponseDTO.success(articleMarketService.applyTraductions(dtos, langue));
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Détail d'un article GrowzMarket")
-    public ApiResponseDTO<ArticleMarketDTO> detail(@PathVariable Long id) {
-        return ApiResponseDTO.success(articleMarketService.toDto(articleMarketService.getById(id)));
+    public ApiResponseDTO<ArticleMarketDTO> detail(
+            @PathVariable Long id,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
+        ArticleMarketDTO dto = articleMarketService.toDto(articleMarketService.getById(id));
+        return ApiResponseDTO.success(articleMarketService.applyTraduction(dto, langue));
     }
 
     @PostMapping(consumes = "multipart/form-data")
