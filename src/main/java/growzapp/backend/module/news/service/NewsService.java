@@ -12,6 +12,7 @@ import growzapp.backend.module.news.model.News;
 import growzapp.backend.module.news.model.NewsCategory;
 import growzapp.backend.module.news.repository.NewsRepository;
 import growzapp.backend.module.notification.service.NotificationService;
+import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 
 @Service
 public class NewsService {
@@ -21,6 +22,9 @@ public class NewsService {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private DeepLTranslationService deepLTranslationService;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -40,6 +44,7 @@ public class NewsService {
     @Transactional
     public News createNews(News news) {
         News saved = newsRepository.save(news);
+        deepLTranslationService.traduireNews(saved);
 
         // Notifier tous les utilisateurs de la nouvelle actualité
         String extrait = saved.getContent() != null && saved.getContent().length() > 120
@@ -63,7 +68,9 @@ public class NewsService {
         news.setContent(newsDetails.getContent());
         news.setImageUrl(newsDetails.getImageUrl());
         news.setCategory(newsDetails.getCategory());
-        return newsRepository.save(news);
+        News saved = newsRepository.save(news);
+        deepLTranslationService.traduireNews(saved);
+        return saved;
     }
 
     @Transactional
@@ -104,6 +111,7 @@ public class NewsService {
     public News saveNews(News news) {
         news.setCreatedAt(LocalDateTime.now());
         News saved = newsRepository.save(news);
+        deepLTranslationService.traduireNews(saved);
 
         // Notifier tous les utilisateurs
         String extrait = saved.getContent() != null && saved.getContent().length() > 120

@@ -15,6 +15,9 @@ import growzapp.backend.module.news.model.NewsCategory;
 import growzapp.backend.module.news.repository.NewsRepository;
 import growzapp.backend.module.news.service.NewsService;
 import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.traduction.DeepL.model.NewsTraductionProjection;
+import growzapp.backend.module.traduction.DeepL.repository.NewsTraductionRepository;
+import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -27,6 +30,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping({ "/api/v1/news", "/api/news" })
@@ -42,6 +46,12 @@ public class NewsController {
     @Autowired
     private FileStorageService fileStorageService;
 
+    @Autowired
+    private NewsTraductionRepository newsTraductionRepository;
+
+    @Autowired
+    private DeepLTranslationService deepLTranslationService;
+
     @GetMapping
     @Operation(summary = "Lister les articles", description = "Retourne tous les articles, triés du plus récent au plus ancien. Filtrable par catégorie.", tags = {
             "News" })
@@ -51,10 +61,12 @@ public class NewsController {
     public ResponseEntity<ApiResponseDTO<List<News>>> getAllNews(
             @Parameter(description = "Filtrer par catégorie", schema = @Schema(allowableValues = { "PLATFORM_UPDATE",
                     "INVESTMENT_OPPORTUNITY", "PERFORMANCE_REPORT", "EDUCATION",
-                    "SECURITY" })) @RequestParam(required = false) NewsCategory category) {
+                    "SECURITY" })) @RequestParam(required = false) NewsCategory category,
+            @Parameter(description = "Langue de traduction souhaitée", example = "es") @RequestParam(required = false, defaultValue = "fr") String langue) {
         List<News> result = category != null
                 ? newsRepository.findByCategoryOrderByCreatedAtDesc(category)
                 : newsRepository.findAllByOrderByCreatedAtDesc();
+        applyTraductions(result, langue);
         return ResponseEntity.ok(ApiResponseDTO.success(result));
     }
 
@@ -64,9 +76,12 @@ public class NewsController {
     public ResponseEntity<ApiResponseDTO<Page<News>>> getAllForAdmin(
             @Parameter(description = "Recherche par titre") @RequestParam(required = false) String search,
             @Parameter(description = "Numéro de page (commence à 0)", example = "0") @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Nombre d'éléments par page", example = "20") @RequestParam(defaultValue = "20") int size) {
+            @Parameter(description = "Nombre d'éléments par page", example = "20") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Langue de traduction souhaitée", example = "es") @RequestParam(required = false, defaultValue = "fr") String langue) {
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(ApiResponseDTO.success(newsRepository.findForAdmin(search, pageable)));
+        Page<News> result = newsRepository.findForAdmin(search, pageable);
+        applyTraductions(result.getContent(), langue);
+        return ResponseEntity.ok(ApiResponseDTO.success(result));
     }
 
     @PostMapping
@@ -98,8 +113,43 @@ public class NewsController {
             @ApiResponse(responseCode = "404", description = "Article introuvable", content = @Content(schema = @Schema()))
     })
     public ResponseEntity<ApiResponseDTO<News>> getNewsById(
-            @Parameter(description = "Identifiant de l'article", example = "1", required = true) @PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponseDTO.success(newsService.getNewsById(id)));
+            @Parameter(description = "Identifiant de l'article", example = "1", required = true) @PathVariable Long id,
+            @Parameter(description = "Langue de traduction souhaitée", example = "es") @RequestParam(required = false, defaultValue = "fr") String langue) {
+        News news = newsService.getNewsById(id);
+        applyTraduction(news, langue);
+        return ResponseEntity.ok(ApiResponseDTO.success(news));
+    }
+
+    // ── ADMIN : RETRADUIRE TOUS LES ARTICLES (BACKFILL) ─────────────────────
+    @PostMapping("/admin/retraduire-tout")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMMUNICANT')")
+    @Operation(summary = "[Admin] Retraduit via DeepL le titre et le contenu de tous les articles déjà publiés", description = "À exécuter une fois après le déploiement de la traduction automatique, pour les articles créés avant cet ajout.", tags = {
+            "News" })
+    public ResponseEntity<ApiResponseDTO<String>> retraduireTout() {
+        List<News> all = newsRepository.findAllByOrderByCreatedAtDesc();
+        int count = deepLTranslationService.traduireToutesLesNews(all);
+        return ResponseEntity.ok(ApiResponseDTO.<String>success(null).message(count + " article(s) retraduit(s)"));
+    }
+
+    // ── Helper : appliquer traduction sur un article ─────────────────────────
+    private void applyTraduction(News news, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr"))
+            return;
+        Optional<NewsTraductionProjection> traduction = newsTraductionRepository
+                .findProjectionByNewsIdAndLangue(news.getId(), langue);
+        traduction.ifPresent(t -> {
+            if (t.getTitle() != null && !t.getTitle().isBlank())
+                news.setTitle(t.getTitle());
+            if (t.getContent() != null && !t.getContent().isBlank())
+                news.setContent(t.getContent());
+        });
+    }
+
+    // ── Helper : appliquer traduction sur une liste ──────────────────────────
+    private void applyTraductions(List<News> newsList, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr"))
+            return;
+        newsList.forEach(n -> applyTraduction(n, langue));
     }
 
     @PutMapping("/{id}")

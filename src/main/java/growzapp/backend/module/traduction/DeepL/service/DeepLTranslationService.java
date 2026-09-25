@@ -5,15 +5,18 @@ import com.deepl.api.DeepLException;
 import com.deepl.api.TextResult;
 import com.deepl.api.Translator;
 import growzapp.backend.module.growzmarket.model.ArticleMarket;
+import growzapp.backend.module.news.model.News;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.referentiel.model.Secteur;
 import growzapp.backend.module.referentiel.repository.SecteurRepository;
 import growzapp.backend.module.traduction.DeepL.model.ArticleMarketTraduction;
 import growzapp.backend.module.traduction.DeepL.model.FicheBioTraduction;
+import growzapp.backend.module.traduction.DeepL.model.NewsTraduction;
 import growzapp.backend.module.traduction.DeepL.model.ProjetTraduction;
 import growzapp.backend.module.traduction.DeepL.model.SecteurTraduction;
 import growzapp.backend.module.traduction.DeepL.repository.ArticleMarketTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.repository.FicheBioTraductionRepository;
+import growzapp.backend.module.traduction.DeepL.repository.NewsTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.repository.SecteurTraductionRepository;
 import growzapp.backend.module.user.model.User;
@@ -35,6 +38,7 @@ public class DeepLTranslationService {
     private final SecteurRepository secteurRepository;
     private final ArticleMarketTraductionRepository articleMarketTraductionRepository;
     private final FicheBioTraductionRepository ficheBioTraductionRepository;
+    private final NewsTraductionRepository newsTraductionRepository;
 
     @Value("${deepl.api-key}")
     private String deeplApiKey;
@@ -161,6 +165,71 @@ public class DeepLTranslationService {
             log.error("Erreur initialisation DeepL pour bio fiche porteur {} : {}",
                     porteur.getId(), e.getMessage());
         }
+    }
+
+    /**
+     * Traduit automatiquement le titre et le contenu d'un article
+     * d'actualité en anglais et en espagnol via l'API DeepL.
+     * Appelé à la création et à la modification de l'article.
+     */
+    @Transactional
+    public void traduireNews(News news) {
+        try {
+            com.deepl.api.TranslatorOptions options = new com.deepl.api.TranslatorOptions()
+                    .setServerUrl(deeplBaseUrl);
+            Translator translator = new Translator(deeplApiKey, options);
+
+            saveNewsTraduction(news, "fr", news.getTitle(), news.getContent());
+
+            for (String targetLang : TARGET_LANGUAGES) {
+                try {
+                    String titleTradu = translate(translator, news.getTitle(), targetLang);
+                    String contentTradu = translate(translator, news.getContent(), targetLang);
+
+                    String langCode = DEEPL_LANG_MAP.get(targetLang);
+                    saveNewsTraduction(news, langCode, titleTradu, contentTradu);
+
+                    log.info("Article d'actualité {} traduit en {}", news.getId(), langCode);
+                } catch (Exception e) {
+                    log.error("Erreur traduction article d'actualité {} en {} : {}",
+                            news.getId(), targetLang, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Erreur initialisation DeepL pour article d'actualité {} : {}",
+                    news.getId(), e.getMessage());
+        }
+    }
+
+    private void saveNewsTraduction(News news, String langue, String title, String content) {
+        NewsTraduction traduction = newsTraductionRepository
+                .findByNewsIdAndLangue(news.getId(), langue)
+                .orElse(new NewsTraduction());
+
+        traduction.setNews(news);
+        traduction.setLangue(langue);
+        traduction.setTitle(title);
+        traduction.setContent(content);
+
+        newsTraductionRepository.save(traduction);
+    }
+
+    /**
+     * Retraduit tous les articles d'actualité déjà publiés — à utiliser en
+     * backfill une fois après l'ajout de cette fonctionnalité.
+     */
+    @Transactional
+    public int traduireToutesLesNews(List<News> newsList) {
+        int count = 0;
+        for (News news : newsList) {
+            try {
+                traduireNews(news);
+                count++;
+            } catch (Exception e) {
+                log.warn("Erreur traduction article d'actualité {} : {}", news.getId(), e.getMessage());
+            }
+        }
+        return count;
     }
 
     private void saveFicheBioTraduction(User porteur, String langue, String bio) {
