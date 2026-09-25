@@ -3,6 +3,7 @@ package growzapp.backend.module.traduction.DeepL.service;
 
 import com.deepl.api.DeepLException;
 import com.deepl.api.TextResult;
+import com.deepl.api.TextTranslationOptions;
 import com.deepl.api.Translator;
 import growzapp.backend.module.growzmarket.model.ArticleMarket;
 import growzapp.backend.module.news.model.News;
@@ -184,7 +185,11 @@ public class DeepLTranslationService {
             for (String targetLang : TARGET_LANGUAGES) {
                 try {
                     String titleTradu = translate(translator, news.getTitle(), targetLang);
-                    String contentTradu = translate(translator, news.getContent(), targetLang);
+                    // Le contenu est du HTML (éditeur riche) : sans tag_handling("html"),
+                    // DeepL traite le HTML comme du texte brut et mutile les entités
+                    // (ex : "&nbsp;") — ça collait des mots ("tojointly", "yourcontinent")
+                    // ou laissait des "&" orphelins dans le texte traduit.
+                    String contentTradu = translateHtml(translator, news.getContent(), targetLang);
 
                     String langCode = DEEPL_LANG_MAP.get(targetLang);
                     saveNewsTraduction(news, langCode, titleTradu, contentTradu);
@@ -333,6 +338,22 @@ public class DeepLTranslationService {
         if (text == null || text.isBlank())
             return "";
         TextResult result = translator.translateText(text, "FR", targetLang);
+        return result.getText();
+    }
+
+    /**
+     * Traduit un texte HTML (éditeur riche) vers une langue cible via DeepL,
+     * en indiquant explicitement à l'API qu'il s'agit de HTML : DeepL décode
+     * alors correctement les entités (ex : "&nbsp;") et les balises au lieu
+     * de les traiter comme du texte brut, ce qui évite les mots collés ou
+     * les caractères orphelins dans le résultat.
+     */
+    private String translateHtml(Translator translator, String html, String targetLang)
+            throws DeepLException, InterruptedException {
+        if (html == null || html.isBlank())
+            return "";
+        TextTranslationOptions options = new TextTranslationOptions().setTagHandling("html");
+        TextResult result = translator.translateText(html, "FR", targetLang, options);
         return result.getText();
     }
 
