@@ -41,8 +41,23 @@ public class NewsService {
                 .orElseThrow(() -> new RuntimeException("Actualité non trouvée"));
     }
 
+    // L'éditeur riche (Quill) insère des espaces insécables (U+00A0, ou
+    // l'entité "&nbsp;") au lieu d'espaces normales à de nombreux endroits
+    // — un espace insécable empêche le navigateur de couper la ligne à cet
+    // endroit, donc le texte ne peut se replier qu'aux rares espaces
+    // normales restantes, ce qui donne un retour à la ligne très inégal et
+    // des mots qui semblent "collés" ou coupés au mauvais endroit, dans
+    // toutes les langues (le problème n'a rien à voir avec la traduction).
+    private String sanitizeHtml(String html) {
+        if (html == null)
+            return null;
+        return html.replace(" ", " ").replace("&nbsp;", " ");
+    }
+
     @Transactional
     public News createNews(News news) {
+        news.setTitle(sanitizeHtml(news.getTitle()));
+        news.setContent(sanitizeHtml(news.getContent()));
         News saved = newsRepository.save(news);
         deepLTranslationService.traduireNews(saved);
 
@@ -64,8 +79,8 @@ public class NewsService {
     @Transactional
     public News updateNews(Long id, News newsDetails) {
         News news = getNewsById(id);
-        news.setTitle(newsDetails.getTitle());
-        news.setContent(newsDetails.getContent());
+        news.setTitle(sanitizeHtml(newsDetails.getTitle()));
+        news.setContent(sanitizeHtml(newsDetails.getContent()));
         news.setImageUrl(newsDetails.getImageUrl());
         news.setCategory(newsDetails.getCategory());
         News saved = newsRepository.save(news);
@@ -109,6 +124,8 @@ public class NewsService {
     }
 
     public News saveNews(News news) {
+        news.setTitle(sanitizeHtml(news.getTitle()));
+        news.setContent(sanitizeHtml(news.getContent()));
         news.setCreatedAt(LocalDateTime.now());
         News saved = newsRepository.save(news);
         deepLTranslationService.traduireNews(saved);
