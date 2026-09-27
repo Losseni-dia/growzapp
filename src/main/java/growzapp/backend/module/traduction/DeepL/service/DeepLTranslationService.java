@@ -137,6 +137,24 @@ public class DeepLTranslationService {
     }
 
     /**
+     * Retraduit tous les articles GrowzMarket déjà publiés — à utiliser en
+     * backfill une fois après l'ajout de cette fonctionnalité.
+     */
+    @Transactional
+    public int traduireTousLesArticles(List<ArticleMarket> articles) {
+        int count = 0;
+        for (ArticleMarket article : articles) {
+            try {
+                traduireArticle(article);
+                count++;
+            } catch (Exception e) {
+                log.warn("Erreur traduction article {} : {}", article.getId(), e.getMessage());
+            }
+        }
+        return count;
+    }
+
+    /**
      * Traduit automatiquement la bio de la fiche de présentation d'un
      * porteur en anglais et en espagnol via l'API DeepL. Appelé à chaque
      * enregistrement de la fiche par l'admin (la bio est un texte libre,

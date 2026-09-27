@@ -38,6 +38,13 @@ public class AdminArticleMarketController {
         return ApiResponseDTO.success(dtos);
     }
 
+    @PostMapping("/retraduire-tout")
+    @Operation(summary = "Retraduit via DeepL le nom et la description de tous les articles GrowzMarket", description = "À exécuter une fois après le déploiement de la traduction automatique, pour les articles créés avant cet ajout.")
+    public ApiResponseDTO<String> retraduireTout() {
+        int count = articleMarketService.retraduireTout();
+        return ApiResponseDTO.<String>success(null).message(count + " article(s) retraduit(s)");
+    }
+
     @GetMapping("/en-attente")
     @Operation(summary = "Lister les articles en attente de validation")
     public ApiResponseDTO<List<ArticleMarketDTO>> getEnAttente() {

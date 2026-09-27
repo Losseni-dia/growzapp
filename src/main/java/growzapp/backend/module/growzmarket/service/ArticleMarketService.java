@@ -158,6 +158,11 @@ public class ArticleMarketService {
     }
 
     @Transactional
+    public int retraduireTout() {
+        return deepLTranslationService.traduireTousLesArticles(articleMarketRepository.findAllByOrderByCreatedAtDesc());
+    }
+
+    @Transactional
     public ArticleMarket valider(Long articleId) {
         ArticleMarket article = getById(articleId);
         article.setStatutValidation(StatutArticleMarket.VALIDE);
