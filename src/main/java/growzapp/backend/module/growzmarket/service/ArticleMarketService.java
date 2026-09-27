@@ -140,6 +140,23 @@ public class ArticleMarketService {
         return articleMarketRepository.findByProjetPorteurIdOrderByCreatedAtDesc(porteurId);
     }
 
+    // ── Admin : supervision du catalogue (tous porteurs, dispo ou non) ─────
+    public List<ArticleMarket> getAllForAdmin() {
+        return articleMarketRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    @Transactional
+    public ArticleMarket setDisponibiliteAdmin(Long articleId, boolean disponible) {
+        ArticleMarket article = getById(articleId);
+        article.setDisponible(disponible);
+        return articleMarketRepository.save(article);
+    }
+
+    @Transactional
+    public void supprimerArticleAdmin(Long articleId) {
+        articleMarketRepository.delete(getById(articleId));
+    }
+
     public ArticleMarket getById(Long id) {
         return articleMarketRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Article introuvable avec l'ID : " + id));

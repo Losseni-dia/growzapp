@@ -13,4 +13,6 @@ public interface ArticleMarketRepository extends JpaRepository<ArticleMarket, Lo
     List<ArticleMarket> findByProjetPorteurIdOrderByCreatedAtDesc(Long porteurId);
 
     List<ArticleMarket> findByDisponibleTrueOrderByCreatedAtDesc();
+
+    List<ArticleMarket> findAllByOrderByCreatedAtDesc();
 }
