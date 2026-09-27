@@ -77,14 +77,12 @@ public class FedaPayService implements PaymentProviderService {
 
     @Override
     public PaymentSessionResponse creerSessionCommandeMarket(
-            BigDecimal montant, Long userId, Long projetId, String projetLibelle,
-            String lignesCompact, boolean confirmationLieuRetrait) {
+            BigDecimal montant, Long userId, String lignesCompact, boolean confirmationLieuRetrait) {
         return creerSession(montant,
-                "Achat GrowzMarket — " + projetLibelle,
+                "Achat GrowzMarket",
                 Map.of(
                         "type", "COMMANDE_MARKET",
                         "user_id", userId.toString(),
-                        "projet_id", projetId.toString(),
                         "lignes", lignesCompact,
                         "confirmation_lieu_retrait", String.valueOf(confirmationLieuRetrait)),
                 frontendUrl + "/growzmarket/panier?mm=success");

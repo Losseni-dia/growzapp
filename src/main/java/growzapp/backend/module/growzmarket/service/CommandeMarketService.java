@@ -3,7 +3,9 @@ package growzapp.backend.module.growzmarket.service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,29 +88,31 @@ public class CommandeMarketService {
         }
     }
 
-    public record LignesResult(Projet projetVendeur, List<CommandeMarketLigne> lignes, BigDecimal total) {
+    // Un groupe = les lignes d'une commande GrowzMarket destinées à un même
+    // projet vendeur — un panier peut désormais contenir plusieurs vendeurs,
+    // chacun devient sa propre CommandeMarket, mais tous sont payés en une
+    // seule fois (un seul débit wallet, ou une seule session Stripe/Mobile
+    // Money) puis répartis vers chaque trésorerie projet.
+    public record VendorGroup(Projet projetVendeur, List<CommandeMarketLigne> lignes, BigDecimal sousTotal) {
     }
 
-    // Valide les lignes, vérifie stock/disponibilité/cohérence vendeur, et
-    // décrémente le stock — appelé au moment où l'achat est réellement
-    // engagé (wallet : immédiatement ; paiement externe : à la confirmation
-    // webhook, jamais avant, pour ne bloquer le stock qu'un paiement réussi).
-    private LignesResult construireLignesEtDecrementerStock(User acheteur, CommandeMarketCreateDTO dto,
-            CommandeMarket commande) {
-        Projet projetVendeur = null;
-        List<CommandeMarketLigne> lignes = new ArrayList<>();
-        BigDecimal total = BigDecimal.ZERO;
+    public record PrevisualisationResult(List<VendorGroup> groupes, BigDecimal total) {
+    }
+
+    // Valide les lignes (disponibilité, stock, pas d'auto-achat) et les
+    // regroupe par vendeur — décrémente le stock uniquement si demandé,
+    // appelé au moment où l'achat est réellement engagé (wallet :
+    // immédiatement ; paiement externe : à la confirmation webhook, jamais
+    // avant, pour ne bloquer le stock qu'un paiement réussi).
+    private List<VendorGroup> grouperParVendeur(User acheteur, CommandeMarketCreateDTO dto,
+            boolean decrementerStock) {
+        Map<Long, Projet> projetsParId = new LinkedHashMap<>();
+        Map<Long, List<CommandeMarketLigne>> lignesParProjet = new LinkedHashMap<>();
+        Map<Long, BigDecimal> totalParProjet = new LinkedHashMap<>();
 
         for (CommandeMarketLigneCreateDTO ligneDto : dto.lignes()) {
             ArticleMarket article = articleMarketRepository.findById(ligneDto.articleId())
                     .orElseThrow(() -> new EntityNotFoundException("Article introuvable : " + ligneDto.articleId()));
-
-            if (projetVendeur == null) {
-                projetVendeur = article.getProjet();
-            } else if (!projetVendeur.getId().equals(article.getProjet().getId())) {
-                throw new IllegalArgumentException(
-                        "Tous les articles d'une même commande GrowzMarket doivent venir du même vendeur.");
-            }
 
             if (!article.isDisponible()) {
                 throw new IllegalArgumentException("L'article " + article.getNom() + " n'est plus disponible.");
@@ -122,73 +126,98 @@ public class CommandeMarketService {
                 throw new IllegalArgumentException("Vous ne pouvez pas acheter vos propres articles.");
             }
 
-            if (article.getStock() != null) {
+            if (decrementerStock && article.getStock() != null) {
                 article.setStock(article.getStock() - ligneDto.quantite());
                 articleMarketRepository.save(article);
             }
 
+            Long projetId = article.getProjet().getId();
+            projetsParId.putIfAbsent(projetId, article.getProjet());
+
             CommandeMarketLigne ligne = new CommandeMarketLigne();
-            ligne.setCommande(commande);
             ligne.setArticle(article);
             ligne.setLibelle(article.getNom());
             ligne.setPrixUnitaire(article.getPrix());
             ligne.setQuantite(ligneDto.quantite());
             BigDecimal sousTotal = article.getPrix().multiply(BigDecimal.valueOf(ligneDto.quantite()));
             ligne.setSousTotal(sousTotal);
-            total = total.add(sousTotal);
-            lignes.add(ligne);
+
+            lignesParProjet.computeIfAbsent(projetId, k -> new ArrayList<>()).add(ligne);
+            totalParProjet.merge(projetId, sousTotal, BigDecimal::add);
         }
 
-        return new LignesResult(projetVendeur, lignes, total);
+        List<VendorGroup> groupes = new ArrayList<>();
+        for (Long projetId : projetsParId.keySet()) {
+            groupes.add(new VendorGroup(projetsParId.get(projetId), lignesParProjet.get(projetId),
+                    totalParProjet.get(projetId)));
+        }
+        return groupes;
+    }
+
+    private CommandeMarket construireCommande(User acheteur, VendorGroup groupe, boolean confirmationLieuRetrait) {
+        CommandeMarket commande = new CommandeMarket();
+        commande.setAcheteur(acheteur);
+        commande.setProjet(groupe.projetVendeur());
+        for (CommandeMarketLigne ligne : groupe.lignes()) {
+            ligne.setCommande(commande);
+        }
+        commande.setLignes(groupe.lignes());
+        commande.setMontantTotal(groupe.sousTotal());
+        commande.setConfirmationLieuRetrait(confirmationLieuRetrait);
+        commande.setStatut(StatutCommandeMarket.PAYEE);
+        return commande;
     }
 
     // ── Achat, côté acheteur — paiement immédiat, pas de validation admin ────
+    // Un seul débit wallet pour le panier entier, réparti vers chaque
+    // trésorerie projet (voir CommandeMarketTransactionHelper.VendorPart).
     @Transactional
-    public CommandeMarket creerCommande(User acheteur, CommandeMarketCreateDTO dto) {
-        CommandeMarket commande = new CommandeMarket();
-        LignesResult res = construireLignesEtDecrementerStock(acheteur, dto, commande);
+    public List<CommandeMarket> creerCommande(User acheteur, CommandeMarketCreateDTO dto) {
+        List<VendorGroup> groupes = grouperParVendeur(acheteur, dto, true);
 
-        commande.setAcheteur(acheteur);
-        commande.setProjet(res.projetVendeur());
-        commande.setLignes(res.lignes());
-        commande.setMontantTotal(res.total());
-        commande.setConfirmationLieuRetrait(dto.confirmationLieuRetrait());
-        commande.setStatut(StatutCommandeMarket.PAYEE);
+        List<CommandeMarket> commandes = new ArrayList<>();
+        List<CommandeMarketTransactionHelper.VendorPart> parts = new ArrayList<>();
+        BigDecimal montantTotal = BigDecimal.ZERO;
 
-        CommandeMarket saved = commandeMarketRepository.save(commande);
+        for (VendorGroup groupe : groupes) {
+            CommandeMarket saved = commandeMarketRepository.save(
+                    construireCommande(acheteur, groupe, dto.confirmationLieuRetrait()));
+            commandes.add(saved);
+            parts.add(new CommandeMarketTransactionHelper.VendorPart(
+                    groupe.projetVendeur().getId(), saved.getId(), groupe.sousTotal()));
+            montantTotal = montantTotal.add(groupe.sousTotal());
 
-        // Paiement immédiat — pas d'étape intermédiaire, contrairement au
-        // module Fournisseur où l'admin valide avant tout mouvement de fonds.
-        txHelper.executerAchat(acheteur.getId(), res.projetVendeur().getId(), saved.getId(), res.total());
+            notifierNouvelleVente(saved, groupe.projetVendeur(), groupe.sousTotal());
+        }
 
-        notifierNouvelleVente(saved, res.projetVendeur(), res.total());
-        return saved;
+        txHelper.executerAchatMultiVendeur(acheteur.getId(), parts, montantTotal);
+        return commandes;
     }
 
     // ── Achat payé directement par Mobile Money/Carte (jamais par le wallet
-    // interne) — la commande n'est créée qu'à la confirmation webhook du
+    // interne) — les commandes ne sont créées qu'à la confirmation webhook du
     // paiement, jamais avant (cf previsualiserCommande pour l'estimation
     // affichée au moment du choix du moyen de paiement).
     @Transactional
-    public CommandeMarket creerCommandeDepuisPaiementExterne(User acheteur, CommandeMarketCreateDTO dto,
+    public List<CommandeMarket> creerCommandeDepuisPaiementExterne(User acheteur, CommandeMarketCreateDTO dto,
             growzapp.backend.module.wallet.enums.SourcePaiement source) {
-        CommandeMarket commande = new CommandeMarket();
-        LignesResult res = construireLignesEtDecrementerStock(acheteur, dto, commande);
+        List<VendorGroup> groupes = grouperParVendeur(acheteur, dto, true);
 
-        commande.setAcheteur(acheteur);
-        commande.setProjet(res.projetVendeur());
-        commande.setLignes(res.lignes());
-        commande.setMontantTotal(res.total());
-        commande.setConfirmationLieuRetrait(dto.confirmationLieuRetrait());
-        commande.setStatut(StatutCommandeMarket.PAYEE);
+        List<CommandeMarket> commandes = new ArrayList<>();
+        List<CommandeMarketTransactionHelper.VendorPart> parts = new ArrayList<>();
 
-        CommandeMarket saved = commandeMarketRepository.save(commande);
+        for (VendorGroup groupe : groupes) {
+            CommandeMarket saved = commandeMarketRepository.save(
+                    construireCommande(acheteur, groupe, dto.confirmationLieuRetrait()));
+            commandes.add(saved);
+            parts.add(new CommandeMarketTransactionHelper.VendorPart(
+                    groupe.projetVendeur().getId(), saved.getId(), groupe.sousTotal()));
 
-        txHelper.executerAchatExterne(acheteur.getId(), res.projetVendeur().getId(), saved.getId(), res.total(),
-                source);
+            notifierNouvelleVente(saved, groupe.projetVendeur(), groupe.sousTotal());
+        }
 
-        notifierNouvelleVente(saved, res.projetVendeur(), res.total());
-        return saved;
+        txHelper.executerAchatExterneMultiVendeur(acheteur.getId(), parts, source);
+        return commandes;
     }
 
     // Validation stricte en LECTURE SEULE (ne décrémente jamais le stock) —
@@ -196,35 +225,10 @@ public class CommandeMarketService {
     // paiement externe (Mobile Money/Carte) : le stock n'est réellement
     // engagé qu'à la confirmation du paiement (voir
     // creerCommandeDepuisPaiementExterne), jamais avant.
-    public LignesResult previsualiserCommande(User acheteur, CommandeMarketCreateDTO dto) {
-        Projet projetVendeur = null;
-        BigDecimal total = BigDecimal.ZERO;
-
-        for (CommandeMarketLigneCreateDTO ligneDto : dto.lignes()) {
-            ArticleMarket article = articleMarketRepository.findById(ligneDto.articleId())
-                    .orElseThrow(() -> new EntityNotFoundException("Article introuvable : " + ligneDto.articleId()));
-
-            if (projetVendeur == null) {
-                projetVendeur = article.getProjet();
-            } else if (!projetVendeur.getId().equals(article.getProjet().getId())) {
-                throw new IllegalArgumentException(
-                        "Tous les articles d'une même commande GrowzMarket doivent venir du même vendeur.");
-            }
-            if (!article.isDisponible()) {
-                throw new IllegalArgumentException("L'article " + article.getNom() + " n'est plus disponible.");
-            }
-            if (article.getStock() != null && article.getStock() < ligneDto.quantite()) {
-                throw new IllegalArgumentException(
-                        "Stock insuffisant pour " + article.getNom() + " (" + article.getStock() + " restant(s)).");
-            }
-            if (article.getProjet().getPorteur() != null
-                    && article.getProjet().getPorteur().getId().equals(acheteur.getId())) {
-                throw new IllegalArgumentException("Vous ne pouvez pas acheter vos propres articles.");
-            }
-            total = total.add(article.getPrix().multiply(BigDecimal.valueOf(ligneDto.quantite())));
-        }
-
-        return new LignesResult(projetVendeur, List.of(), total);
+    public PrevisualisationResult previsualiserCommande(User acheteur, CommandeMarketCreateDTO dto) {
+        List<VendorGroup> groupes = grouperParVendeur(acheteur, dto, false);
+        BigDecimal total = groupes.stream().map(VendorGroup::sousTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new PrevisualisationResult(groupes, total);
     }
 
     private void notifierNouvelleVente(CommandeMarket saved, Projet projetVendeur, BigDecimal total) {

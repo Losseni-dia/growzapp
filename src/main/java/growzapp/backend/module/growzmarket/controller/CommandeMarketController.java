@@ -76,30 +76,30 @@ public class CommandeMarketController {
     }
 
     @PostMapping
-    @Operation(summary = "Acheter sur GrowzMarket", description = "Paiement immédiat par wallet — nécessite d'avoir coché la confirmation du point de retrait.")
-    public ApiResponseDTO<CommandeMarketDTO> acheter(
+    @Operation(summary = "Acheter sur GrowzMarket", description = "Paiement immédiat par wallet — un seul débit pour tout le panier, même s'il concerne plusieurs vendeurs. Nécessite d'avoir coché la confirmation du point de retrait.")
+    public ApiResponseDTO<List<CommandeMarketDTO>> acheter(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CommandeMarketCreateDTO dto) {
         User acheteur = getCurrentUser(userDetails);
-        CommandeMarket saved = commandeMarketService.creerCommande(acheteur, dto);
-        return ApiResponseDTO.success(commandeMarketService.toDto(saved, acheteur.getId(), false));
+        List<CommandeMarket> saved = commandeMarketService.creerCommande(acheteur, dto);
+        return ApiResponseDTO.success(
+                saved.stream().map(c -> commandeMarketService.toDto(c, acheteur.getId(), false)).toList());
     }
 
     @PostMapping("/carte")
-    @Operation(summary = "Acheter sur GrowzMarket par carte bancaire (Stripe)", description = "Crée une session Stripe Checkout — la commande n'est réellement créée qu'à la confirmation du paiement par webhook.")
+    @Operation(summary = "Acheter sur GrowzMarket par carte bancaire (Stripe)", description = "Crée une session Stripe Checkout pour tout le panier (un ou plusieurs vendeurs) — les commandes ne sont réellement créées qu'à la confirmation du paiement par webhook.")
     public java.util.Map<String, String> acheterParCarte(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CommandeMarketCreateDTO dto) {
         User acheteur = getCurrentUser(userDetails);
         var apercu = commandeMarketService.previsualiserCommande(acheteur, dto);
         String redirectUrl = stripeDepositService.createCommandeMarketSession(
-                acheteur.getId(), apercu.projetVendeur().getId(), apercu.projetVendeur().getLibelle(),
-                encoderLignesCompact(dto), dto.confirmationLieuRetrait(), apercu.total());
+                acheteur.getId(), encoderLignesCompact(dto), dto.confirmationLieuRetrait(), apercu.total());
         return java.util.Map.of("redirectUrl", redirectUrl);
     }
 
     @PostMapping("/mobile")
-    @Operation(summary = "Acheter sur GrowzMarket par Mobile Money", description = "Crée une session de paiement Mobile Money (FedaPay, bascule PayDunya) — la commande n'est réellement créée qu'à la confirmation du paiement par webhook.")
+    @Operation(summary = "Acheter sur GrowzMarket par Mobile Money", description = "Crée une session de paiement Mobile Money (FedaPay, bascule PayDunya) pour tout le panier — les commandes ne sont réellement créées qu'à la confirmation du paiement par webhook.")
     public java.util.Map<String, String> acheterParMobile(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CommandeMarketCreateDTO dto) {
@@ -107,8 +107,7 @@ public class CommandeMarketController {
         var apercu = commandeMarketService.previsualiserCommande(acheteur, dto);
 
         PaymentProviderService.PaymentSessionResponse response = paymentProviderRouter.creerSessionCommandeMarket(
-                apercu.total(), acheteur.getId(), apercu.projetVendeur().getId(), apercu.projetVendeur().getLibelle(),
-                encoderLignesCompact(dto), dto.confirmationLieuRetrait());
+                apercu.total(), acheteur.getId(), encoderLignesCompact(dto), dto.confirmationLieuRetrait());
 
         Wallet wallet = walletRepository.findByUserId(acheteur.getId())
                 .orElseThrow(() -> new RuntimeException("Wallet introuvable"));
@@ -119,11 +118,10 @@ public class CommandeMarketController {
                 .montant(apercu.total())
                 .type(TypeTransaction.VENTE_MARKET)
                 .statut(StatutTransaction.EN_ATTENTE_PAIEMENT)
-                .description("Achat GrowzMarket Mobile Money — " + apercu.projetVendeur().getLibelle())
+                .description("Achat GrowzMarket Mobile Money")
                 .createdAt(java.time.LocalDateTime.now())
                 .referenceExterne(response.sessionToken())
                 .referenceType("COMMANDE_MARKET_INITIATION")
-                .referenceId(apercu.projetVendeur().getId())
                 .sourcePaiement(SourcePaiement.MOBILE_MONEY)
                 .build();
         transactionRepository.save(tx);

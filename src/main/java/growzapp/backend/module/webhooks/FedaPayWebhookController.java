@@ -136,8 +136,9 @@ public class FedaPayWebhookController {
                 var saved = commandeMarketService.creerCommandeDepuisPaiementExterne(
                         user, dto, SourcePaiement.MOBILE_MONEY);
 
-                log.info("COMMANDE MARKET FEDAPAY PAYÉE → id={} user={} montant={}",
-                        saved.getId(), userId, montant);
+                log.info("COMMANDE MARKET FEDAPAY PAYÉE → ids={} user={} montant={}",
+                        saved.stream().map(growzapp.backend.module.growzmarket.model.CommandeMarket::getId).toList(),
+                        userId, montant);
             } else {
                 walletService.deposerFonds(userId, montant.doubleValue(), "FEDAPAY_MM");
                 log.info("DÉPÔT FEDAPAY CRÉDITÉ → user={} montant={}", userId, montant);

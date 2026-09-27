@@ -40,8 +40,6 @@ public interface PaymentProviderService {
     PaymentSessionResponse creerSessionCommandeMarket(
             BigDecimal montant,
             Long userId,
-            Long projetId,
-            String projetLibelle,
             String lignesCompact,
             boolean confirmationLieuRetrait);
 

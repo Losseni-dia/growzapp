@@ -165,10 +165,12 @@ public class StripeDepositService {
         }
 
         // ── 2bis. ACHAT GROWZMARKET DIRECT PAR CARTE ─────────────────────────────
+        // Le panier peut désormais couvrir plusieurs vendeurs en une seule
+        // session — les lignes compactes (toutes vendeurs confondus) suffisent
+        // à reconstruire chaque commande au moment du webhook, pas besoin de
+        // rattacher la session à un projet en particulier.
         public String createCommandeMarketSession(
                         Long userId,
-                        Long projetId,
-                        String projetLibelle,
                         String lignesCompact,
                         boolean confirmationLieuRetrait,
                         BigDecimal montantTotalFCFA) {
@@ -188,7 +190,6 @@ public class StripeDepositService {
                                         .setClientReferenceId(userId.toString())
                                         .putMetadata("type", "COMMANDE_MARKET")
                                         .putMetadata("user_id", userId.toString())
-                                        .putMetadata("projet_id", projetId.toString())
                                         .putMetadata("lignes", lignesCompact)
                                         .putMetadata("confirmation_lieu_retrait", String.valueOf(confirmationLieuRetrait))
                                         .putMetadata("montant_fcfa", montantTotalFCFA.toPlainString())
@@ -203,8 +204,7 @@ public class StripeDepositService {
                                                                                                         .setProductData(
                                                                                                                         SessionCreateParams.LineItem.PriceData.ProductData
                                                                                                                                         .builder()
-                                                                                                                                        .setName("Achat GrowzMarket — "
-                                                                                                                                                        + projetLibelle)
+                                                                                                                                        .setName("Achat GrowzMarket")
                                                                                                                                         .setDescription(
                                                                                                                                                         montantTotalFCFA
                                                                                                                                                                         .toPlainString()
@@ -215,8 +215,8 @@ public class StripeDepositService {
                                         .build();
 
                         Session session = Session.create(params);
-                        log.info("Session Stripe commande market créée : {} pour user={} projet={}",
-                                        session.getId(), userId, projetId);
+                        log.info("Session Stripe commande market créée : {} pour user={}",
+                                        session.getId(), userId);
                         return session.getUrl();
 
                 } catch (StripeException e) {

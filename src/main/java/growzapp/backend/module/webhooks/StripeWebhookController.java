@@ -3,6 +3,7 @@ package growzapp.backend.module.webhooks;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -280,12 +281,15 @@ public class StripeWebhookController {
             CommandeMarketCreateDTO dto = CommandeMarketService.decoderCommandeCompacte(
                     lignesCompact, confirmationLieuRetrait);
 
-            CommandeMarket saved = commandeMarketService.creerCommandeDepuisPaiementExterne(
+            List<CommandeMarket> saved = commandeMarketService.creerCommandeDepuisPaiementExterne(
                     user, dto, SourcePaiement.CARTE_BANCAIRE);
-            saved.setReferenceExterneStripe(sessionId);
-            commandeMarketRepository.save(saved);
+            for (CommandeMarket c : saved) {
+                c.setReferenceExterneStripe(sessionId);
+            }
+            commandeMarketRepository.saveAll(saved);
 
-            log.info("COMMANDE MARKET STRIPE PAYÉE → id={} user={} session={}", saved.getId(), userId, sessionId);
+            log.info("COMMANDE MARKET STRIPE PAYÉE → ids={} user={} session={}",
+                    saved.stream().map(CommandeMarket::getId).toList(), userId, sessionId);
         } catch (Exception e) {
             log.error("Erreur handleCommandeMarketPayeeRaw session={}", sessionId, e);
             throw new RuntimeException(e);

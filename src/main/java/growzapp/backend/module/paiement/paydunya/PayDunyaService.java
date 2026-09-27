@@ -63,10 +63,9 @@ public class PayDunyaService implements PaymentProviderService {
 
         @Override
         public PaymentSessionResponse creerSessionCommandeMarket(
-                        BigDecimal montant, Long userId, Long projetId, String projetLibelle,
-                        String lignesCompact, boolean confirmationLieuRetrait) {
+                        BigDecimal montant, Long userId, String lignesCompact, boolean confirmationLieuRetrait) {
                 PayDunyaResponse r = createCommandeMarketSession(
-                                montant, userId, projetId, projetLibelle, lignesCompact, confirmationLieuRetrait);
+                                montant, userId, lignesCompact, confirmationLieuRetrait);
                 return new PaymentSessionResponse(r.redirectUrl(), r.invoiceToken());
         }
 
@@ -212,11 +211,12 @@ public class PayDunyaService implements PaymentProviderService {
         }
 
         // ── ACHAT GROWZMARKET PAR MOBILE MONEY ───────────────────────────────────
+        // Le panier peut désormais couvrir plusieurs vendeurs en une seule
+        // session — les lignes compactes (toutes vendeurs confondus) suffisent
+        // à reconstruire chaque commande au moment du webhook.
         public PayDunyaResponse createCommandeMarketSession(
                         BigDecimal montantFCFA,
                         Long userId,
-                        Long projetId,
-                        String projetLibelle,
                         String lignesCompact,
                         boolean confirmationLieuRetrait) {
 
@@ -225,7 +225,7 @@ public class PayDunyaService implements PaymentProviderService {
                 Map<String, Object> payload = Map.of(
                                 "invoice", Map.of(
                                                 "total_amount", montantFCFA.doubleValue(),
-                                                "description", "Achat GrowzMarket — " + projetLibelle),
+                                                "description", "Achat GrowzMarket"),
                                 "store", Map.of(
                                                 "name", "GrowzApp",
                                                 "website_url", "https://my-growzapp.com"),
@@ -235,7 +235,6 @@ public class PayDunyaService implements PaymentProviderService {
                                 "custom_data", Map.of(
                                                 "type", "COMMANDE_MARKET",
                                                 "user_id", userId.toString(),
-                                                "projet_id", projetId.toString(),
                                                 "lignes", lignesCompact,
                                                 "confirmation_lieu_retrait", String.valueOf(confirmationLieuRetrait)));
 

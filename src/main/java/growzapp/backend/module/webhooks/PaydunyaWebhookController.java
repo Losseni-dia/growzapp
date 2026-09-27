@@ -157,8 +157,9 @@ public class PaydunyaWebhookController {
                     tx.setCompletedAt(LocalDateTime.now());
                     transactionRepository.save(tx);
 
-                    log.info("COMMANDE MARKET PAYDUNYA PAYÉE → id={} user={} montant={}",
-                            saved.getId(), userId, tx.getMontant());
+                    log.info("COMMANDE MARKET PAYDUNYA PAYÉE → ids={} user={} montant={}",
+                            saved.stream().map(growzapp.backend.module.growzmarket.model.CommandeMarket::getId).toList(),
+                            userId, tx.getMontant());
 
                 } else if ("PREMIUM".equals(type) && projetIdStr != null) {
                     Long projetId = Long.parseLong(projetIdStr);
