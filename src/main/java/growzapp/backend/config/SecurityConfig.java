@@ -116,6 +116,9 @@ public class SecurityConfig {
                                                                 "/api/v1/contrats/{numero}/download")
                                                 .permitAll()
 
+                                                .requestMatchers(HttpMethod.POST, "/api/contact/public",
+                                                                "/api/v1/contact/public")
+                                                .permitAll()
                                                 .requestMatchers("/api/news/**", "/api/v1/news/**").permitAll()
                                                 .requestMatchers("/api/fournisseurs/partenaires").permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/market/articles",

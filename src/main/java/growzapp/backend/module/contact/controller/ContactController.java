@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import growzapp.backend.module.contact.dto.ContactMessageCreateDTO;
 import growzapp.backend.module.contact.dto.ContactMessageDTO;
+import growzapp.backend.module.contact.dto.ContactMessagePublicCreateDTO;
 import growzapp.backend.module.contact.dto.ContactReplyCreateDTO;
 import growzapp.backend.module.contact.model.ContactMessage;
 import growzapp.backend.module.contact.service.ContactService;
@@ -46,6 +47,13 @@ public class ContactController {
             @Valid @RequestBody ContactMessageCreateDTO dto) {
         User user = getCurrentUser(userDetails);
         ContactMessage saved = contactService.creerMessage(user, dto);
+        return ApiResponseDTO.success(contactService.toDto(saved));
+    }
+
+    @PostMapping("/public")
+    @Operation(summary = "Contacter le support sans compte (visiteur non connecté)", description = "Utilisé notamment quand un compte a été supprimé et ne peut donc plus se connecter pour utiliser le formulaire habituel.")
+    public ApiResponseDTO<ContactMessageDTO> envoyerPublic(@Valid @RequestBody ContactMessagePublicCreateDTO dto) {
+        ContactMessage saved = contactService.creerMessagePublic(dto);
         return ApiResponseDTO.success(contactService.toDto(saved));
     }
 

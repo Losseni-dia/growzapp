@@ -36,10 +36,16 @@ public class ContactMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Nullable : un visiteur non connecté (ex. compte supprimé qui ne peut
+    // plus se connecter) peut contacter le support sans compte — dans ce
+    // cas c'est `email` ci-dessous qui identifie l'expéditeur, pas `user`.
     @JsonIgnore
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = true)
     private User user;
+
+    @Column(name = "email_visiteur", length = 191)
+    private String emailVisiteur;
 
     @Column(nullable = false, length = 150)
     private String sujet;

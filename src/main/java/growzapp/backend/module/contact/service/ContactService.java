@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import growzapp.backend.module.contact.dto.ContactMessageCreateDTO;
 import growzapp.backend.module.contact.dto.ContactMessageDTO;
+import growzapp.backend.module.contact.dto.ContactMessagePublicCreateDTO;
 import growzapp.backend.module.contact.dto.ContactReplyDTO;
 import growzapp.backend.module.contact.enums.StatutContact;
 import growzapp.backend.module.contact.model.ContactMessage;
@@ -41,6 +42,26 @@ public class ContactService {
         notificationService.notifyAdmins(
                 "Nouveau message de contact",
                 (user.getPrenom() + " " + user.getNom()).trim() + " — " + dto.sujet(),
+                "/admin/contact");
+
+        return saved;
+    }
+
+    // ── Visiteur non connecté (ex. compte supprimé, ne peut plus se
+    // connecter) — pas de fil continu possible côté visiteur, seule la
+    // réponse admin par email fait suite à ce message.
+    @Transactional
+    public ContactMessage creerMessagePublic(ContactMessagePublicCreateDTO dto) {
+        ContactMessage msg = new ContactMessage();
+        msg.setUser(null);
+        msg.setEmailVisiteur(dto.email());
+        msg.setSujet(dto.sujet());
+        msg.setMessage(dto.message());
+        ContactMessage saved = contactMessageRepository.save(msg);
+
+        notificationService.notifyAdmins(
+                "Nouveau message de contact (visiteur)",
+                dto.email() + " — " + dto.sujet(),
                 "/admin/contact");
 
         return saved;
@@ -102,22 +123,29 @@ public class ContactService {
         msg.setHiddenForUser(false);
         ContactMessage saved = contactMessageRepository.save(msg);
 
-        String destinataire = resolveEmail(msg.getUser());
+        String destinataire = msg.getUser() != null ? resolveEmail(msg.getUser()) : msg.getEmailVisiteur();
+        String destinataireNom = msg.getUser() != null
+                ? (msg.getUser().getPrenom() + " " + msg.getUser().getNom())
+                : "Visiteur";
         if (destinataire != null) {
             emailService.envoyerReponseContact(
                     destinataire,
-                    msg.getUser().getPrenom() + " " + msg.getUser().getNom(),
+                    destinataireNom,
                     msg.getSujet(),
                     msg.getMessage(),
                     contenu);
         }
 
-        notificationService.notifyUser(
-                msg.getUser(),
-                "Réponse à votre message",
-                msg.getSujet(),
-                null,
-                "/mon-espace/contact");
+        // Un visiteur non connecté n'a pas de compte à notifier — la
+        // réponse par email ci-dessus est son seul canal.
+        if (msg.getUser() != null) {
+            notificationService.notifyUser(
+                    msg.getUser(),
+                    "Réponse à votre message",
+                    msg.getSujet(),
+                    null,
+                    "/mon-espace/contact");
+        }
 
         return saved;
     }
@@ -173,9 +201,9 @@ public class ContactService {
 
         return new ContactMessageDTO(
                 msg.getId(),
-                msg.getUser().getId(),
-                (msg.getUser().getPrenom() + " " + msg.getUser().getNom()).trim(),
-                resolveEmail(msg.getUser()),
+                msg.getUser() != null ? msg.getUser().getId() : null,
+                msg.getUser() != null ? (msg.getUser().getPrenom() + " " + msg.getUser().getNom()).trim() : "Visiteur",
+                msg.getUser() != null ? resolveEmail(msg.getUser()) : msg.getEmailVisiteur(),
                 msg.getSujet(),
                 msg.getMessage(),
                 msg.getStatut().name(),
