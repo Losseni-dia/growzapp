@@ -108,7 +108,7 @@ public class ProjetService {
     // être mis en avant dans sa fiche de présentation.
     public List<Projet> getProjetsPubliesByPorteurId(Long porteurId) {
         return projetRepository.findByPorteurId(porteurId).stream()
-                .filter(p -> STATUTS_PROCHES_VISIBLES.contains(p.getStatutProjet()))
+                .filter(p -> p.getStatutProjet().estPublie())
                 .toList();
     }
 
@@ -664,12 +664,9 @@ public class ProjetService {
     // liste que les projets VALIDE (en cours de financement). On exclut
     // seulement les statuts non publics : brouillon, en attente de
     // validation admin, ou rejeté.
-    private static final java.util.Set<StatutProjet> STATUTS_PROCHES_VISIBLES = java.util.Set.of(
-            StatutProjet.VALIDE, StatutProjet.EN_COURS, StatutProjet.TERMINE, StatutProjet.FINANCE);
-
     public List<Projet> findProjetsProches(double lat, double lon, double rayonKm) {
         return projetRepository.findAll().stream()
-                .filter(p -> STATUTS_PROCHES_VISIBLES.contains(p.getStatutProjet()))
+                .filter(p -> p.getStatutProjet().estPublie())
                 .filter(p -> p.getSiteProjet() != null && p.getSiteProjet().getLatitude() != null)
                 .filter(p -> calculerDistance(lat, lon,
                         p.getSiteProjet().getLatitude().doubleValue(),

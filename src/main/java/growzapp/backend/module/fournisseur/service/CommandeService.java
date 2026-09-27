@@ -102,6 +102,13 @@ public class CommandeService {
         if (projet.getPorteur() == null || !projet.getPorteur().getId().equals(porteur.getId())) {
             throw new SecurityException("Vous ne pouvez commander que pour l'un de vos propres projets.");
         }
+        // Seul un projet réellement validé par l'admin (financement en
+        // cours ou déjà financé) peut commander chez un fournisseur — un
+        // projet brouillon, soumis ou rejeté ne l'est jamais.
+        if (!projet.getStatutProjet().estPublie()) {
+            throw new IllegalStateException(
+                    "Ce projet doit être validé par l'admin avant de pouvoir commander chez un fournisseur.");
+        }
 
         Fournisseur fournisseur = fournisseurRepository.findById(dto.fournisseurId())
                 .orElseThrow(() -> new EntityNotFoundException("Fournisseur introuvable"));

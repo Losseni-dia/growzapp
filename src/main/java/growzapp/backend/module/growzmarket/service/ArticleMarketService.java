@@ -42,6 +42,13 @@ public class ArticleMarketService {
         if (projet.getPorteur() == null || !projet.getPorteur().getId().equals(userId)) {
             throw new SecurityException("Vous n'êtes pas le porteur de ce projet.");
         }
+        // Seul un projet réellement validé par l'admin (financement en
+        // cours ou déjà financé) peut vendre sur GrowzMarket — un projet
+        // brouillon, soumis ou rejeté ne l'est jamais.
+        if (!projet.getStatutProjet().estPublie()) {
+            throw new IllegalStateException(
+                    "Ce projet doit être validé par l'admin avant de pouvoir vendre sur GrowzMarket.");
+        }
         return projet;
     }
 

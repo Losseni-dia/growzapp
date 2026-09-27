@@ -341,6 +341,10 @@ public class FichePorteurController {
             return List.of();
         List<Projet> projets = projetRepository.findAllById(ids);
         return projets.stream()
+                // Filet de sécurité : même si l'admin ne peut normalement
+                // sélectionner que des projets publiés, un projet peut être
+                // rejeté après coup — jamais un projet non publié affiché ici.
+                .filter(p -> p.getStatutProjet().estPublie())
                 .map(p -> {
                     String libelle = p.getLibelle();
                     if (langue != null && !langue.isBlank() && !langue.equals("fr")) {
