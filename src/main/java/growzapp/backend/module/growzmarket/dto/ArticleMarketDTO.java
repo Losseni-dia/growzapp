@@ -18,5 +18,7 @@ public record ArticleMarketDTO(
         String delaiPreparation,
         List<String> photos,
         String pointRetrait,
-        String telephoneContact) {
+        String telephoneContact,
+        String statutValidation,
+        String motifRejet) {
 }

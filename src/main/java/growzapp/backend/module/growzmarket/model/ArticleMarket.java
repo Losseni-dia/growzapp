@@ -8,6 +8,7 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import growzapp.backend.module.growzmarket.enums.CategorieMarket;
+import growzapp.backend.module.growzmarket.enums.StatutArticleMarket;
 import growzapp.backend.module.projet.model.Projet;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -60,6 +61,18 @@ public class ArticleMarket {
 
     @Column(nullable = false)
     private boolean disponible = true;
+
+    // Validation admin obligatoire avant apparition dans le catalogue public
+    // (même principe que les fournisseurs) — le porteur voit son article
+    // dans sa boutique quel que soit ce statut, mais il n'apparaît côté
+    // acheteur que si VALIDE (et disponible). Toute modification remet
+    // l'article en attente pour re-validation.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "statut_validation", nullable = false, length = 20)
+    private StatutArticleMarket statutValidation = StatutArticleMarket.EN_ATTENTE;
+
+    @Column(name = "motif_rejet", length = 500)
+    private String motifRejet;
 
     // null = stock illimité, sinon décrémenté à chaque commande payée.
     private Integer stock;

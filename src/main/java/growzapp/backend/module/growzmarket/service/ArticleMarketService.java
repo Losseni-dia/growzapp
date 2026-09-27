@@ -11,8 +11,10 @@ import growzapp.backend.module.files.FileUploadService;
 import growzapp.backend.module.growzmarket.dto.ArticleMarketCreateDTO;
 import growzapp.backend.module.growzmarket.dto.ArticleMarketDTO;
 import growzapp.backend.module.growzmarket.enums.CategorieMarket;
+import growzapp.backend.module.growzmarket.enums.StatutArticleMarket;
 import growzapp.backend.module.growzmarket.model.ArticleMarket;
 import growzapp.backend.module.growzmarket.repository.ArticleMarketRepository;
+import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.traduction.DeepL.model.ArticleMarketTraductionProjection;
@@ -32,6 +34,7 @@ public class ArticleMarketService {
     private final FileUploadService fileUploadService;
     private final DeepLTranslationService deepLTranslationService;
     private final ArticleMarketTraductionRepository articleMarketTraductionRepository;
+    private final NotificationService notificationService;
 
     private Projet getProjetDontUserEstPorteur(Long projetId, Long userId) {
         Projet projet = projetRepository.findById(projetId)
@@ -97,6 +100,11 @@ public class ArticleMarketService {
         article.setDelaiPreparation(dto.delaiPreparation());
         article.setPointRetrait(dto.pointRetrait());
         article.setTelephoneContact(dto.telephoneContact());
+        // Toute modification remet l'article en attente de re-validation —
+        // évite qu'un porteur validé change le contenu sans repasser par
+        // la modération (même logique que la fiche fournisseur).
+        article.setStatutValidation(StatutArticleMarket.EN_ATTENTE);
+        article.setMotifRejet(null);
 
         if (nouvellesPhotos != null) {
             for (MultipartFile photo : nouvellesPhotos) {
@@ -133,7 +141,7 @@ public class ArticleMarketService {
     }
 
     public List<ArticleMarket> getCatalogue() {
-        return articleMarketRepository.findByDisponibleTrueOrderByCreatedAtDesc();
+        return articleMarketRepository.findByDisponibleTrueAndStatutValidationOrderByCreatedAtDesc(StatutArticleMarket.VALIDE);
     }
 
     public List<ArticleMarket> getMesArticles(Long porteurId) {
@@ -143,6 +151,46 @@ public class ArticleMarketService {
     // ── Admin : supervision du catalogue (tous porteurs, dispo ou non) ─────
     public List<ArticleMarket> getAllForAdmin() {
         return articleMarketRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    public List<ArticleMarket> getEnAttente() {
+        return articleMarketRepository.findByStatutValidationOrderByCreatedAtDesc(StatutArticleMarket.EN_ATTENTE);
+    }
+
+    @Transactional
+    public ArticleMarket valider(Long articleId) {
+        ArticleMarket article = getById(articleId);
+        article.setStatutValidation(StatutArticleMarket.VALIDE);
+        article.setMotifRejet(null);
+        ArticleMarket saved = articleMarketRepository.save(article);
+
+        if (article.getProjet().getPorteur() != null) {
+            notificationService.notifyUser(
+                    article.getProjet().getPorteur(),
+                    "Votre article GrowzMarket a été validé",
+                    "\"" + article.getNom() + "\" est désormais visible dans le catalogue public.",
+                    null,
+                    "/mon-espace/ma-boutique");
+        }
+        return saved;
+    }
+
+    @Transactional
+    public ArticleMarket rejeter(Long articleId, String motif) {
+        ArticleMarket article = getById(articleId);
+        article.setStatutValidation(StatutArticleMarket.REJETE);
+        article.setMotifRejet(motif);
+        ArticleMarket saved = articleMarketRepository.save(article);
+
+        if (article.getProjet().getPorteur() != null) {
+            notificationService.notifyUser(
+                    article.getProjet().getPorteur(),
+                    "Votre article GrowzMarket a été rejeté",
+                    motif,
+                    null,
+                    "/mon-espace/ma-boutique");
+        }
+        return saved;
     }
 
     @Transactional
@@ -182,7 +230,9 @@ public class ArticleMarketService {
                 a.getDelaiPreparation(),
                 a.getPhotos() != null ? a.getPhotos() : List.of(),
                 a.getPointRetrait(),
-                a.getTelephoneContact());
+                a.getTelephoneContact(),
+                a.getStatutValidation().name(),
+                a.getMotifRejet());
     }
 
     // ── Traduction (DeepL) ───────────────────────────────────────────────────
@@ -211,7 +261,9 @@ public class ArticleMarketService {
                 dto.delaiPreparation(),
                 dto.photos(),
                 dto.pointRetrait(),
-                dto.telephoneContact());
+                dto.telephoneContact(),
+                dto.statutValidation(),
+                dto.motifRejet());
     }
 
     public List<ArticleMarketDTO> applyTraductions(List<ArticleMarketDTO> dtos, String langue) {
