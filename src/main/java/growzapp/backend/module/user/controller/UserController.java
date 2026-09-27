@@ -147,14 +147,31 @@ public class UserController {
                     // peut donc venir que de là (compte introuvable) ou du mot de
                     // passe. Choix produit explicite : afficher l'erreur sous le
                     // champ concerné plutôt qu'un message générique anti-énumération.
-                    String field = userEntity == null ? "login" : "password";
-                    String message = userEntity == null
-                                    ? "Identifiant introuvable"
-                                    : "Mot de passe incorrect";
+                    if (userEntity == null) {
+                            // findByLoginForAuth exclut les comptes supprimés (soft delete)
+                            // — un login existant mais supprimé ressemblait donc à un
+                            // login jamais inscrit ("Identifiant introuvable"), ce qui
+                            // laissait l'utilisateur sans explication ni recours.
+                            boolean estUnCompteSupprime = userRepository.findByLogin(request.getLogin())
+                                            .map(u -> u.getSupprimeLe() != null)
+                                            .orElse(false);
+                            if (estUnCompteSupprime) {
+                                    return ResponseEntity.status(401).body(Map.of(
+                                                    "success", false,
+                                                    "field", "login",
+                                                    "deleted", true,
+                                                    "error", "Ce compte a été supprimé.",
+                                                    "supportEmail", "losdiakite@gmail.com"));
+                            }
+                            return ResponseEntity.status(401).body(Map.of(
+                                            "success", false,
+                                            "field", "login",
+                                            "error", "Identifiant introuvable"));
+                    }
                     return ResponseEntity.status(401).body(Map.of(
                                     "success", false,
-                                    "field", field,
-                                    "error", message));
+                                    "field", "password",
+                                    "error", "Mot de passe incorrect"));
             }
     }
 
