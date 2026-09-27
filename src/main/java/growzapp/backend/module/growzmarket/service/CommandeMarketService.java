@@ -13,10 +13,12 @@ import growzapp.backend.module.growzmarket.dto.CommandeMarketCreateDTO;
 import growzapp.backend.module.growzmarket.dto.CommandeMarketDTO;
 import growzapp.backend.module.growzmarket.dto.CommandeMarketLigneCreateDTO;
 import growzapp.backend.module.growzmarket.dto.CommandeMarketLigneDTO;
+import growzapp.backend.module.growzmarket.dto.LitigeMessageDTO;
 import growzapp.backend.module.growzmarket.enums.StatutCommandeMarket;
 import growzapp.backend.module.growzmarket.model.ArticleMarket;
 import growzapp.backend.module.growzmarket.model.CommandeMarket;
 import growzapp.backend.module.growzmarket.model.CommandeMarketLigne;
+import growzapp.backend.module.growzmarket.model.CommandeMarketLitigeMessage;
 import growzapp.backend.module.growzmarket.repository.ArticleMarketRepository;
 import growzapp.backend.module.growzmarket.repository.CommandeMarketRepository;
 import growzapp.backend.module.notification.service.NotificationService;
@@ -217,6 +219,46 @@ public class CommandeMarketService {
         return saved;
     }
 
+    // ── Échange sur un litige (acheteur, vendeur, admin) — avant clôture ────
+    @Transactional
+    public CommandeMarket ajouterMessageLitige(Long id, User auteur, String contenu, boolean estAdmin) {
+        CommandeMarket commande = getOrThrow(id);
+        boolean estAcheteur = commande.getAcheteur().getId().equals(auteur.getId());
+        boolean estVendeur = commande.getProjet().getPorteur() != null
+                && commande.getProjet().getPorteur().getId().equals(auteur.getId());
+        if (!estAdmin && !estAcheteur && !estVendeur) {
+            throw new SecurityException("Vous n'avez pas accès à cette commande.");
+        }
+        if (commande.getStatut() != StatutCommandeMarket.LITIGE) {
+            throw new IllegalStateException(
+                    "Cette commande n'est pas en litige (statut " + commande.getStatut() + ").");
+        }
+
+        CommandeMarketLitigeMessage message = new CommandeMarketLitigeMessage();
+        message.setCommande(commande);
+        message.setAuteur(auteur);
+        message.setRole(estAdmin ? "ADMIN" : (estAcheteur ? "ACHETEUR" : "VENDEUR"));
+        message.setContenu(contenu);
+        commande.getLitigeMessages().add(message);
+        CommandeMarket saved = commandeMarketRepository.save(commande);
+
+        // Notifie les autres parties, jamais l'auteur lui-même.
+        String texte = "Commande #" + commande.getId() + " : nouveau message sur le litige.";
+        if (!estAcheteur) {
+            notificationService.notifyUser(commande.getAcheteur(), "Litige GrowzMarket", texte,
+                    null, "/mon-espace/mes-achats-market");
+        }
+        if (!estVendeur && commande.getProjet().getPorteur() != null) {
+            notificationService.notifyUser(commande.getProjet().getPorteur(), "Litige GrowzMarket", texte,
+                    null, "/mon-espace/mes-ventes-market");
+        }
+        if (!estAdmin) {
+            notificationService.notifyAdmins("Litige GrowzMarket", texte, "/admin/growzmarket");
+        }
+
+        return saved;
+    }
+
     // ── Arbitrage admin ──────────────────────────────────────────────────────
     @Transactional
     public CommandeMarket arbitrer(Long id, boolean enFaveurDuVendeur, String motif) {
@@ -319,6 +361,16 @@ public class CommandeMarketService {
                         l.getSousTotal()))
                 .toList();
 
+        List<LitigeMessageDTO> litigeMessages = c.getLitigeMessages().stream()
+                .map(m -> new LitigeMessageDTO(
+                        m.getId(),
+                        m.getAuteur().getId(),
+                        (m.getAuteur().getPrenom() + " " + m.getAuteur().getNom()).trim(),
+                        m.getRole(),
+                        m.getContenu(),
+                        m.getDateEnvoi()))
+                .toList();
+
         User porteur = c.getProjet().getPorteur();
 
         return new CommandeMarketDTO(
@@ -336,6 +388,7 @@ public class CommandeMarketService {
                 c.getDateRetraitConfirme(),
                 c.getMotifLitige(),
                 c.getFactureUrl(),
-                lignes);
+                lignes,
+                litigeMessages);
     }
 }

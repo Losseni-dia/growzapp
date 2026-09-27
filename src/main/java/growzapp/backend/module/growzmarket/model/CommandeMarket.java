@@ -79,6 +79,11 @@ public class CommandeMarket {
     @OneToMany(mappedBy = "commande", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CommandeMarketLigne> lignes = new ArrayList<>();
 
+    @JsonIgnore
+    @OneToMany(mappedBy = "commande", cascade = CascadeType.ALL, orphanRemoval = true)
+    @jakarta.persistence.OrderBy("dateEnvoi ASC")
+    private List<CommandeMarketLitigeMessage> litigeMessages = new ArrayList<>();
+
     @PrePersist
     public void onCreate() {
         this.dateCommande = LocalDateTime.now();

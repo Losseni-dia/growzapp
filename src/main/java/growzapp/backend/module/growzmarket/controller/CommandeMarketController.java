@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import growzapp.backend.module.fournisseur.dto.MotifDTO;
 import growzapp.backend.module.growzmarket.dto.CommandeMarketCreateDTO;
 import growzapp.backend.module.growzmarket.dto.CommandeMarketDTO;
+import growzapp.backend.module.growzmarket.dto.LitigeMessageCreateDTO;
 import growzapp.backend.module.growzmarket.model.CommandeMarket;
 import growzapp.backend.module.growzmarket.service.CommandeMarketService;
 import growzapp.backend.module.shared.ApiResponseDTO;
@@ -103,6 +104,17 @@ public class CommandeMarketController {
             @Valid @RequestBody MotifDTO dto) {
         User user = getCurrentUser(userDetails);
         CommandeMarket saved = commandeMarketService.ouvrirLitige(id, user, dto.motif());
+        return ApiResponseDTO.success(commandeMarketService.toDto(saved));
+    }
+
+    @PostMapping("/{id}/litige/messages")
+    @Operation(summary = "Ajouter un message à un litige en cours (acheteur ou vendeur)", description = "Uniquement possible tant que la commande est au statut LITIGE, avant clôture/arbitrage.")
+    public ApiResponseDTO<CommandeMarketDTO> ajouterMessageLitige(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @Valid @RequestBody LitigeMessageCreateDTO dto) {
+        User user = getCurrentUser(userDetails);
+        CommandeMarket saved = commandeMarketService.ajouterMessageLitige(id, user, dto.message(), estAdmin(user));
         return ApiResponseDTO.success(commandeMarketService.toDto(saved));
     }
 

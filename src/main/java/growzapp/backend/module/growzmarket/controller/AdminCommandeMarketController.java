@@ -2,6 +2,8 @@ package growzapp.backend.module.growzmarket.controller;
 
 import java.util.List;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,9 +14,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import growzapp.backend.module.fournisseur.dto.MotifDTO;
 import growzapp.backend.module.growzmarket.dto.CommandeMarketDTO;
+import growzapp.backend.module.growzmarket.dto.LitigeMessageCreateDTO;
 import growzapp.backend.module.growzmarket.model.CommandeMarket;
 import growzapp.backend.module.growzmarket.service.CommandeMarketService;
 import growzapp.backend.module.shared.ApiResponseDTO;
+import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -27,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 public class AdminCommandeMarketController {
 
     private final CommandeMarketService commandeMarketService;
+    private final UserRepository userRepository;
 
     @GetMapping("/toutes")
     @Operation(summary = "Lister toutes les commandes GrowzMarket, tous statuts confondus")
@@ -44,6 +50,18 @@ public class AdminCommandeMarketController {
                 .map(commandeMarketService::toDto)
                 .toList();
         return ApiResponseDTO.success(dtos);
+    }
+
+    @PostMapping("/{id}/litige/messages")
+    @Operation(summary = "Ajouter un message admin à un litige en cours", description = "Uniquement possible tant que la commande est au statut LITIGE, avant clôture/arbitrage.")
+    public ApiResponseDTO<CommandeMarketDTO> ajouterMessageLitige(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @Valid @RequestBody LitigeMessageCreateDTO dto) {
+        User admin = userRepository.findByLoginForAuth(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        CommandeMarket saved = commandeMarketService.ajouterMessageLitige(id, admin, dto.message(), true);
+        return ApiResponseDTO.success(commandeMarketService.toDto(saved));
     }
 
     @PostMapping("/{id}/arbitrer")

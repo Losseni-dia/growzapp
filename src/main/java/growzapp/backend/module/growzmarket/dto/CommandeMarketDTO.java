@@ -19,5 +19,6 @@ public record CommandeMarketDTO(
         LocalDateTime dateRetraitConfirme,
         String motifLitige,
         String factureUrl,
-        List<CommandeMarketLigneDTO> lignes) {
+        List<CommandeMarketLigneDTO> lignes,
+        List<LitigeMessageDTO> litigeMessages) {
 }
