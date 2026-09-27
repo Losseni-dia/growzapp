@@ -220,8 +220,13 @@ public class CommandeMarketService {
     }
 
     // ── Échange sur un litige (acheteur, vendeur, admin) — avant clôture ────
+    // destinataire : uniquement pour un message admin (ACHETEUR ou VENDEUR,
+    // jamais les deux) — l'admin doit choisir à qui il s'adresse, l'autre
+    // partie ne verra jamais ce message précis. Les messages acheteur/vendeur
+    // restent visibles de toutes les parties, destinataire reste null pour eux.
     @Transactional
-    public CommandeMarket ajouterMessageLitige(Long id, User auteur, String contenu, boolean estAdmin) {
+    public CommandeMarket ajouterMessageLitige(Long id, User auteur, String contenu, boolean estAdmin,
+            String destinataire) {
         CommandeMarket commande = getOrThrow(id);
         boolean estAcheteur = commande.getAcheteur().getId().equals(auteur.getId());
         boolean estVendeur = commande.getProjet().getPorteur() != null
@@ -239,20 +244,30 @@ public class CommandeMarketService {
         message.setAuteur(auteur);
         message.setRole(estAdmin ? "ADMIN" : (estAcheteur ? "ACHETEUR" : "VENDEUR"));
         message.setContenu(contenu);
+        message.setDestinataire(estAdmin ? destinataire : null);
         commande.getLitigeMessages().add(message);
         CommandeMarket saved = commandeMarketRepository.save(commande);
 
-        // Notifie les autres parties, jamais l'auteur lui-même.
+        // Notifie les autres parties, jamais l'auteur lui-même. Un message
+        // admin ne notifie que le destinataire choisi, pas l'autre partie.
         String texte = "Commande #" + commande.getId() + " : nouveau message sur le litige.";
-        if (!estAcheteur) {
-            notificationService.notifyUser(commande.getAcheteur(), "Litige GrowzMarket", texte,
-                    null, "/mon-espace/mes-achats-market");
-        }
-        if (!estVendeur && commande.getProjet().getPorteur() != null) {
-            notificationService.notifyUser(commande.getProjet().getPorteur(), "Litige GrowzMarket", texte,
-                    null, "/mon-espace/mes-ventes-market");
-        }
-        if (!estAdmin) {
+        if (estAdmin) {
+            if ("ACHETEUR".equals(destinataire)) {
+                notificationService.notifyUser(commande.getAcheteur(), "Litige GrowzMarket", texte,
+                        null, "/mon-espace/mes-achats-market");
+            } else if ("VENDEUR".equals(destinataire) && commande.getProjet().getPorteur() != null) {
+                notificationService.notifyUser(commande.getProjet().getPorteur(), "Litige GrowzMarket", texte,
+                        null, "/mon-espace/mes-ventes-market");
+            }
+        } else {
+            if (!estAcheteur) {
+                notificationService.notifyUser(commande.getAcheteur(), "Litige GrowzMarket", texte,
+                        null, "/mon-espace/mes-achats-market");
+            }
+            if (!estVendeur && commande.getProjet().getPorteur() != null) {
+                notificationService.notifyUser(commande.getProjet().getPorteur(), "Litige GrowzMarket", texte,
+                        null, "/mon-espace/mes-ventes-market");
+            }
             notificationService.notifyAdmins("Litige GrowzMarket", texte, "/admin/growzmarket");
         }
 
@@ -350,7 +365,15 @@ public class CommandeMarketService {
         return fileUploadService.chargerFactureMarket(commande.getFactureUrl());
     }
 
+    // Vue admin par défaut — aucune restriction, l'admin voit à qui chaque
+    // message a été adressé.
     public CommandeMarketDTO toDto(CommandeMarket c) {
+        return toDto(c, null, true);
+    }
+
+    // Vue acheteur/vendeur : un message admin destiné à l'autre partie
+    // reste invisible — seul l'admin et le destinataire choisi le voient.
+    public CommandeMarketDTO toDto(CommandeMarket c, Long viewerId, boolean isAdmin) {
         List<CommandeMarketLigneDTO> lignes = c.getLignes().stream()
                 .map(l -> new CommandeMarketLigneDTO(
                         l.getId(),
@@ -361,13 +384,30 @@ public class CommandeMarketService {
                         l.getSousTotal()))
                 .toList();
 
+        boolean viewerEstAcheteur = !isAdmin && viewerId != null && c.getAcheteur().getId().equals(viewerId);
+        boolean viewerEstVendeur = !isAdmin && viewerId != null && c.getProjet().getPorteur() != null
+                && c.getProjet().getPorteur().getId().equals(viewerId);
+
         List<LitigeMessageDTO> litigeMessages = c.getLitigeMessages().stream()
+                .filter(m -> {
+                    if (isAdmin || !"ADMIN".equals(m.getRole())) {
+                        return true;
+                    }
+                    if (viewerEstAcheteur) {
+                        return "ACHETEUR".equals(m.getDestinataire());
+                    }
+                    if (viewerEstVendeur) {
+                        return "VENDEUR".equals(m.getDestinataire());
+                    }
+                    return false;
+                })
                 .map(m -> new LitigeMessageDTO(
                         m.getId(),
                         m.getAuteur().getId(),
                         (m.getAuteur().getPrenom() + " " + m.getAuteur().getNom()).trim(),
                         m.getRole(),
                         m.getContenu(),
+                        m.getDestinataire(),
                         m.getDateEnvoi()))
                 .toList();
 

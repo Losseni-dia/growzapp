@@ -53,7 +53,7 @@ public class CommandeMarketController {
             @Valid @RequestBody CommandeMarketCreateDTO dto) {
         User acheteur = getCurrentUser(userDetails);
         CommandeMarket saved = commandeMarketService.creerCommande(acheteur, dto);
-        return ApiResponseDTO.success(commandeMarketService.toDto(saved));
+        return ApiResponseDTO.success(commandeMarketService.toDto(saved, acheteur.getId(), false));
     }
 
     @GetMapping("/mes-achats")
@@ -61,7 +61,7 @@ public class CommandeMarketController {
     public ApiResponseDTO<List<CommandeMarketDTO>> mesAchats(@AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
         List<CommandeMarketDTO> dtos = commandeMarketService.getMesAchats(user.getId()).stream()
-                .map(commandeMarketService::toDto)
+                .map(c -> commandeMarketService.toDto(c, user.getId(), false))
                 .toList();
         return ApiResponseDTO.success(dtos);
     }
@@ -71,7 +71,7 @@ public class CommandeMarketController {
     public ApiResponseDTO<List<CommandeMarketDTO>> mesVentes(@AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
         List<CommandeMarketDTO> dtos = commandeMarketService.getMesVentes(user.getId()).stream()
-                .map(commandeMarketService::toDto)
+                .map(c -> commandeMarketService.toDto(c, user.getId(), false))
                 .toList();
         return ApiResponseDTO.success(dtos);
     }
@@ -83,7 +83,7 @@ public class CommandeMarketController {
             @PathVariable Long id) {
         User user = getCurrentUser(userDetails);
         CommandeMarket saved = commandeMarketService.marquerPrete(id, user);
-        return ApiResponseDTO.success(commandeMarketService.toDto(saved));
+        return ApiResponseDTO.success(commandeMarketService.toDto(saved, user.getId(), false));
     }
 
     @PostMapping("/{id}/valider-retrait")
@@ -93,7 +93,7 @@ public class CommandeMarketController {
             @PathVariable Long id) {
         User user = getCurrentUser(userDetails);
         CommandeMarket saved = commandeMarketService.validerRetrait(id, user);
-        return ApiResponseDTO.success(commandeMarketService.toDto(saved));
+        return ApiResponseDTO.success(commandeMarketService.toDto(saved, user.getId(), false));
     }
 
     @PostMapping("/{id}/litige")
@@ -104,7 +104,7 @@ public class CommandeMarketController {
             @Valid @RequestBody MotifDTO dto) {
         User user = getCurrentUser(userDetails);
         CommandeMarket saved = commandeMarketService.ouvrirLitige(id, user, dto.motif());
-        return ApiResponseDTO.success(commandeMarketService.toDto(saved));
+        return ApiResponseDTO.success(commandeMarketService.toDto(saved, user.getId(), false));
     }
 
     @PostMapping("/{id}/litige/messages")
@@ -114,8 +114,8 @@ public class CommandeMarketController {
             @PathVariable Long id,
             @Valid @RequestBody LitigeMessageCreateDTO dto) {
         User user = getCurrentUser(userDetails);
-        CommandeMarket saved = commandeMarketService.ajouterMessageLitige(id, user, dto.message(), estAdmin(user));
-        return ApiResponseDTO.success(commandeMarketService.toDto(saved));
+        CommandeMarket saved = commandeMarketService.ajouterMessageLitige(id, user, dto.message(), false, null);
+        return ApiResponseDTO.success(commandeMarketService.toDto(saved, user.getId(), false));
     }
 
     @GetMapping("/{id}/facture")

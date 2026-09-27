@@ -8,5 +8,6 @@ public record LitigeMessageDTO(
         String auteurNom,
         String role,
         String contenu,
+        String destinataire,
         LocalDateTime dateEnvoi) {
 }

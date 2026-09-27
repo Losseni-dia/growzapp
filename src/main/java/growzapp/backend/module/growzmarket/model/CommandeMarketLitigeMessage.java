@@ -51,6 +51,13 @@ public class CommandeMarketLitigeMessage {
     @Column(nullable = false, length = 1000)
     private String contenu;
 
+    // Uniquement rempli pour un message admin (role=ADMIN) : à qui ce
+    // message est destiné (ACHETEUR ou VENDEUR) — l'autre partie ne le
+    // voit jamais. Les messages acheteur/vendeur restent visibles de
+    // toutes les parties, pas besoin de ce champ pour eux.
+    @Column(length = 20)
+    private String destinataire;
+
     @Column(name = "date_envoi", nullable = false)
     private LocalDateTime dateEnvoi;
 

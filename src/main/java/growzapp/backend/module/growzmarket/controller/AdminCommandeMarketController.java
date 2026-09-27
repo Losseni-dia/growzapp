@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import growzapp.backend.module.fournisseur.dto.MotifDTO;
 import growzapp.backend.module.growzmarket.dto.CommandeMarketDTO;
-import growzapp.backend.module.growzmarket.dto.LitigeMessageCreateDTO;
+import growzapp.backend.module.growzmarket.dto.LitigeMessageAdminCreateDTO;
 import growzapp.backend.module.growzmarket.model.CommandeMarket;
 import growzapp.backend.module.growzmarket.service.CommandeMarketService;
 import growzapp.backend.module.shared.ApiResponseDTO;
@@ -57,10 +57,11 @@ public class AdminCommandeMarketController {
     public ApiResponseDTO<CommandeMarketDTO> ajouterMessageLitige(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id,
-            @Valid @RequestBody LitigeMessageCreateDTO dto) {
+            @Valid @RequestBody LitigeMessageAdminCreateDTO dto) {
         User admin = userRepository.findByLoginForAuth(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-        CommandeMarket saved = commandeMarketService.ajouterMessageLitige(id, admin, dto.message(), true);
+        CommandeMarket saved = commandeMarketService.ajouterMessageLitige(id, admin, dto.message(), true,
+                dto.destinataire());
         return ApiResponseDTO.success(commandeMarketService.toDto(saved));
     }
 
