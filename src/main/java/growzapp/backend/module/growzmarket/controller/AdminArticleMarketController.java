@@ -31,11 +31,12 @@ public class AdminArticleMarketController {
 
     @GetMapping
     @Operation(summary = "Lister tous les articles GrowzMarket, tous porteurs et statuts confondus")
-    public ApiResponseDTO<List<ArticleMarketDTO>> getAll() {
+    public ApiResponseDTO<List<ArticleMarketDTO>> getAll(
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         List<ArticleMarketDTO> dtos = articleMarketService.getAllForAdmin().stream()
                 .map(articleMarketService::toDto)
                 .toList();
-        return ApiResponseDTO.success(dtos);
+        return ApiResponseDTO.success(articleMarketService.applyTraductions(dtos, langue));
     }
 
     @PostMapping("/retraduire-tout")
@@ -47,11 +48,12 @@ public class AdminArticleMarketController {
 
     @GetMapping("/en-attente")
     @Operation(summary = "Lister les articles en attente de validation")
-    public ApiResponseDTO<List<ArticleMarketDTO>> getEnAttente() {
+    public ApiResponseDTO<List<ArticleMarketDTO>> getEnAttente(
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         List<ArticleMarketDTO> dtos = articleMarketService.getEnAttente().stream()
                 .map(articleMarketService::toDto)
                 .toList();
-        return ApiResponseDTO.success(dtos);
+        return ApiResponseDTO.success(articleMarketService.applyTraductions(dtos, langue));
     }
 
     @PostMapping("/{id}/valider")

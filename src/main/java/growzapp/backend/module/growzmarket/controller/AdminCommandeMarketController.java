@@ -36,18 +36,20 @@ public class AdminCommandeMarketController {
 
     @GetMapping("/toutes")
     @Operation(summary = "Lister toutes les commandes GrowzMarket, tous statuts confondus")
-    public ApiResponseDTO<List<CommandeMarketDTO>> getToutes() {
+    public ApiResponseDTO<List<CommandeMarketDTO>> getToutes(
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         List<CommandeMarketDTO> dtos = commandeMarketService.getToutesAdmin().stream()
-                .map(commandeMarketService::toDto)
+                .map(c -> commandeMarketService.toDto(c, null, true, langue))
                 .toList();
         return ApiResponseDTO.success(dtos);
     }
 
     @GetMapping("/litiges")
     @Operation(summary = "Lister les commandes GrowzMarket en litige")
-    public ApiResponseDTO<List<CommandeMarketDTO>> getLitiges() {
+    public ApiResponseDTO<List<CommandeMarketDTO>> getLitiges(
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         List<CommandeMarketDTO> dtos = commandeMarketService.getEnLitigeAdmin().stream()
-                .map(commandeMarketService::toDto)
+                .map(c -> commandeMarketService.toDto(c, null, true, langue))
                 .toList();
         return ApiResponseDTO.success(dtos);
     }

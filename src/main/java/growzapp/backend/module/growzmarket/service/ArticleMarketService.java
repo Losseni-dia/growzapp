@@ -18,7 +18,9 @@ import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.repository.ProjetRepository;
 import growzapp.backend.module.traduction.DeepL.model.ArticleMarketTraductionProjection;
+import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection;
 import growzapp.backend.module.traduction.DeepL.repository.ArticleMarketTraductionRepository;
+import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.traduction.DeepL.service.DeepLTranslationService;
 import growzapp.backend.module.user.model.User;
 import jakarta.persistence.EntityNotFoundException;
@@ -34,6 +36,7 @@ public class ArticleMarketService {
     private final FileUploadService fileUploadService;
     private final DeepLTranslationService deepLTranslationService;
     private final ArticleMarketTraductionRepository articleMarketTraductionRepository;
+    private final ProjetTraductionRepository projetTraductionRepository;
     private final NotificationService notificationService;
 
     private Projet getProjetDontUserEstPorteur(Long projetId, Long userId) {
@@ -248,20 +251,52 @@ public class ArticleMarketService {
     }
 
     // ── Traduction (DeepL) ───────────────────────────────────────────────────
+    // Recherche le libellé traduit du projet vendeur (déjà en base via la
+    // traduction automatique des projets) — factorisé ici car réutilisé
+    // partout où un article s'affiche avec le nom de son projet (catalogue,
+    // admin, commandes).
+    // Traduction du nom d'un article isolément — utilisée par
+    // CommandeMarketService pour afficher le libellé des lignes de commande
+    // (figé en français à la commande) dans la langue du visiteur.
+    public String traduireNomArticle(Long articleId, String nomFr, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr") || articleId == null) {
+            return nomFr;
+        }
+        return articleMarketTraductionRepository.findProjectionByArticleIdAndLangue(articleId, langue)
+                .map(ArticleMarketTraductionProjection::getNom)
+                .filter(n -> n != null && !n.isBlank())
+                .orElse(nomFr);
+    }
+
+    public String traduireProjetLibelle(Long projetId, String projetLibelleFr, String langue) {
+        if (langue == null || langue.isBlank() || langue.equals("fr")) {
+            return projetLibelleFr;
+        }
+        return projetTraductionRepository.findProjectionByProjetIdAndLangue(projetId, langue)
+                .map(ProjetTraductionProjection::getLibelle)
+                .filter(l -> l != null && !l.isBlank())
+                .orElse(projetLibelleFr);
+    }
+
     public ArticleMarketDTO applyTraduction(ArticleMarketDTO dto, String langue) {
         if (langue == null || langue.isBlank() || langue.equals("fr")) {
             return dto;
         }
+        String projetLibelle = traduireProjetLibelle(dto.projetId(), dto.projetLibelle(), langue);
+
         Optional<ArticleMarketTraductionProjection> traduction = articleMarketTraductionRepository
                 .findProjectionByArticleIdAndLangue(dto.id(), langue);
         if (traduction.isEmpty()) {
-            return dto;
+            return projetLibelle.equals(dto.projetLibelle()) ? dto : new ArticleMarketDTO(
+                    dto.id(), dto.projetId(), projetLibelle, dto.porteurNom(), dto.nom(), dto.description(),
+                    dto.prix(), dto.unite(), dto.disponible(), dto.stock(), dto.categorie(), dto.delaiPreparation(),
+                    dto.photos(), dto.pointRetrait(), dto.telephoneContact(), dto.statutValidation(), dto.motifRejet());
         }
         ArticleMarketTraductionProjection t = traduction.get();
         return new ArticleMarketDTO(
                 dto.id(),
                 dto.projetId(),
-                dto.projetLibelle(),
+                projetLibelle,
                 dto.porteurNom(),
                 (t.getNom() != null && !t.getNom().isBlank()) ? t.getNom() : dto.nom(),
                 (t.getDescription() != null && !t.getDescription().isBlank()) ? t.getDescription() : dto.description(),

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import growzapp.backend.module.fournisseur.dto.MotifDTO;
@@ -131,20 +132,24 @@ public class CommandeMarketController {
 
     @GetMapping("/mes-achats")
     @Operation(summary = "Lister mes achats GrowzMarket")
-    public ApiResponseDTO<List<CommandeMarketDTO>> mesAchats(@AuthenticationPrincipal UserDetails userDetails) {
+    public ApiResponseDTO<List<CommandeMarketDTO>> mesAchats(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         User user = getCurrentUser(userDetails);
         List<CommandeMarketDTO> dtos = commandeMarketService.getMesAchats(user.getId()).stream()
-                .map(c -> commandeMarketService.toDto(c, user.getId(), false))
+                .map(c -> commandeMarketService.toDto(c, user.getId(), false, langue))
                 .toList();
         return ApiResponseDTO.success(dtos);
     }
 
     @GetMapping("/mes-ventes")
     @Operation(summary = "Lister les ventes reçues sur mes projets (porteur)")
-    public ApiResponseDTO<List<CommandeMarketDTO>> mesVentes(@AuthenticationPrincipal UserDetails userDetails) {
+    public ApiResponseDTO<List<CommandeMarketDTO>> mesVentes(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false, defaultValue = "fr") String langue) {
         User user = getCurrentUser(userDetails);
         List<CommandeMarketDTO> dtos = commandeMarketService.getMesVentes(user.getId()).stream()
-                .map(c -> commandeMarketService.toDto(c, user.getId(), false))
+                .map(c -> commandeMarketService.toDto(c, user.getId(), false, langue))
                 .toList();
         return ApiResponseDTO.success(dtos);
     }

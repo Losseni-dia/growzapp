@@ -40,6 +40,7 @@ public class CommandeMarketService {
     private final NotificationService notificationService;
     private final FileUploadService fileUploadService;
     private final CommandeMarketFacturePdfService facturePdfService;
+    private final ArticleMarketService articleMarketService;
 
     private CommandeMarket getOrThrow(Long id) {
         return commandeMarketRepository.findById(id)
@@ -467,17 +468,26 @@ public class CommandeMarketService {
     // Vue admin par défaut — aucune restriction, l'admin voit à qui chaque
     // message a été adressé.
     public CommandeMarketDTO toDto(CommandeMarket c) {
-        return toDto(c, null, true);
+        return toDto(c, null, true, "fr");
+    }
+
+    public CommandeMarketDTO toDto(CommandeMarket c, Long viewerId, boolean isAdmin) {
+        return toDto(c, viewerId, isAdmin, "fr");
     }
 
     // Vue acheteur/vendeur : un message admin destiné à l'autre partie
     // reste invisible — seul l'admin et le destinataire choisi le voient.
-    public CommandeMarketDTO toDto(CommandeMarket c, Long viewerId, boolean isAdmin) {
+    // Le libellé de chaque ligne est figé en français au moment de la
+    // commande (snapshot) — on le retraduit à la volée via l'article
+    // d'origine, comme pour le catalogue, plutôt que de le retraduire à la
+    // commande (qui figerait une seule langue pour toujours).
+    public CommandeMarketDTO toDto(CommandeMarket c, Long viewerId, boolean isAdmin, String langue) {
         List<CommandeMarketLigneDTO> lignes = c.getLignes().stream()
                 .map(l -> new CommandeMarketLigneDTO(
                         l.getId(),
                         l.getArticle() != null ? l.getArticle().getId() : null,
-                        l.getLibelle(),
+                        articleMarketService.traduireNomArticle(
+                                l.getArticle() != null ? l.getArticle().getId() : null, l.getLibelle(), langue),
                         l.getPrixUnitaire(),
                         l.getQuantite(),
                         l.getSousTotal()))
@@ -515,7 +525,7 @@ public class CommandeMarketService {
         return new CommandeMarketDTO(
                 c.getId(),
                 c.getProjet().getId(),
-                c.getProjet().getLibelle(),
+                articleMarketService.traduireProjetLibelle(c.getProjet().getId(), c.getProjet().getLibelle(), langue),
                 porteur != null ? (porteur.getPrenom() + " " + porteur.getNom()).trim() : null,
                 c.getAcheteur().getId(),
                 (c.getAcheteur().getPrenom() + " " + c.getAcheteur().getNom()).trim(),
