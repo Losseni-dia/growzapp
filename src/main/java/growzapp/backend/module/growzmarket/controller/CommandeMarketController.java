@@ -87,7 +87,7 @@ public class CommandeMarketController {
 
     @PostMapping("/carte")
     @Operation(summary = "Acheter sur GrowzMarket par carte bancaire (Stripe)", description = "Crée une session Stripe Checkout — la commande n'est réellement créée qu'à la confirmation du paiement par webhook.")
-    public ApiResponseDTO<java.util.Map<String, String>> acheterParCarte(
+    public java.util.Map<String, String> acheterParCarte(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CommandeMarketCreateDTO dto) {
         User acheteur = getCurrentUser(userDetails);
@@ -95,12 +95,12 @@ public class CommandeMarketController {
         String redirectUrl = stripeDepositService.createCommandeMarketSession(
                 acheteur.getId(), apercu.projetVendeur().getId(), apercu.projetVendeur().getLibelle(),
                 encoderLignesCompact(dto), dto.confirmationLieuRetrait(), apercu.total());
-        return ApiResponseDTO.success(java.util.Map.of("redirectUrl", redirectUrl));
+        return java.util.Map.of("redirectUrl", redirectUrl);
     }
 
     @PostMapping("/mobile")
     @Operation(summary = "Acheter sur GrowzMarket par Mobile Money", description = "Crée une session de paiement Mobile Money (FedaPay, bascule PayDunya) — la commande n'est réellement créée qu'à la confirmation du paiement par webhook.")
-    public ApiResponseDTO<java.util.Map<String, String>> acheterParMobile(
+    public java.util.Map<String, String> acheterParMobile(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CommandeMarketCreateDTO dto) {
         User acheteur = getCurrentUser(userDetails);
@@ -128,7 +128,7 @@ public class CommandeMarketController {
                 .build();
         transactionRepository.save(tx);
 
-        return ApiResponseDTO.success(java.util.Map.of("redirectUrl", response.redirectUrl()));
+        return java.util.Map.of("redirectUrl", response.redirectUrl());
     }
 
     @GetMapping("/mes-achats")
