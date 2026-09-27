@@ -62,6 +62,15 @@ public class PayDunyaService implements PaymentProviderService {
         }
 
         @Override
+        public PaymentSessionResponse creerSessionCommandeMarket(
+                        BigDecimal montant, Long userId, Long projetId, String projetLibelle,
+                        String lignesCompact, boolean confirmationLieuRetrait) {
+                PayDunyaResponse r = createCommandeMarketSession(
+                                montant, userId, projetId, projetLibelle, lignesCompact, confirmationLieuRetrait);
+                return new PaymentSessionResponse(r.redirectUrl(), r.invoiceToken());
+        }
+
+        @Override
         public boolean verifierPaiementReussi(String referenceExterne) {
                 if (referenceExterne == null || referenceExterne.isBlank()) {
                         return false;
@@ -198,6 +207,45 @@ public class PayDunyaService implements PaymentProviderService {
                         return parseResponse(response.getBody(), "INVESTISSEMENT");
                 } catch (HttpClientErrorException e) {
                         log.error("Erreur HTTP PayDunya investissement : {}", e.getResponseBodyAsString());
+                        throw new RuntimeException("Erreur PayDunya.", e);
+                }
+        }
+
+        // ── ACHAT GROWZMARKET PAR MOBILE MONEY ───────────────────────────────────
+        public PayDunyaResponse createCommandeMarketSession(
+                        BigDecimal montantFCFA,
+                        Long userId,
+                        Long projetId,
+                        String projetLibelle,
+                        String lignesCompact,
+                        boolean confirmationLieuRetrait) {
+
+                String url = getBaseUrl() + "/checkout-invoice/create";
+
+                Map<String, Object> payload = Map.of(
+                                "invoice", Map.of(
+                                                "total_amount", montantFCFA.doubleValue(),
+                                                "description", "Achat GrowzMarket — " + projetLibelle),
+                                "store", Map.of(
+                                                "name", "GrowzApp",
+                                                "website_url", "https://my-growzapp.com"),
+                                "actions", Map.of(
+                                                "cancel_url", frontendUrl + "/growzmarket/panier?mm=cancel",
+                                                "return_url", frontendUrl + "/growzmarket/panier?mm=success"),
+                                "custom_data", Map.of(
+                                                "type", "COMMANDE_MARKET",
+                                                "user_id", userId.toString(),
+                                                "projet_id", projetId.toString(),
+                                                "lignes", lignesCompact,
+                                                "confirmation_lieu_retrait", String.valueOf(confirmationLieuRetrait)));
+
+                try {
+                        ResponseEntity<Map> response = restTemplate.postForEntity(
+                                        url, new HttpEntity<>(payload, buildHeaders()), Map.class);
+                        log.info("Réponse PayDunya commande market : {}", response.getBody());
+                        return parseResponse(response.getBody(), "COMMANDE_MARKET");
+                } catch (HttpClientErrorException e) {
+                        log.error("Erreur HTTP PayDunya commande market : {}", e.getResponseBodyAsString());
                         throw new RuntimeException("Erreur PayDunya.", e);
                 }
         }

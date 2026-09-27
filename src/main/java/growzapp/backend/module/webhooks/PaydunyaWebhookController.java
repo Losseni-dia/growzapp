@@ -1,5 +1,7 @@
 package growzapp.backend.module.webhooks;
 
+import growzapp.backend.module.growzmarket.dto.CommandeMarketCreateDTO;
+import growzapp.backend.module.growzmarket.service.CommandeMarketService;
 import growzapp.backend.module.investissement.service.InvestissementService;
 import growzapp.backend.module.paiement.model.PayoutModel;
 import growzapp.backend.module.paiement.repository.PayoutModelRepository;
@@ -46,6 +48,7 @@ public class PaydunyaWebhookController {
     private final UserRepository userRepository;
     private final InvestissementService investissementService;
     private final growzapp.backend.module.projet.service.ProjetService projetService;
+    private final CommandeMarketService commandeMarketService;
 
     // PayDunya envoie application/x-www-form-urlencoded avec data[field][subfield]
     @PostMapping(consumes = { MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.ALL_VALUE })
@@ -83,6 +86,8 @@ public class PaydunyaWebhookController {
         String userIdStr = params.get("data[custom_data][user_id]");
         String projetIdStr = params.get("data[custom_data][projet_id]");
         String partsStr = params.get("data[custom_data][nombre_parts]");
+        String lignesCompact = params.get("data[custom_data][lignes]");
+        String confirmationLieuRetraitStr = params.get("data[custom_data][confirmation_lieu_retrait]");
 
         // ── 1. RETRAIT (PayoutModel) ──────────────────────────────────────
         Optional<PayoutModel> payoutOpt = payoutModelRepository.findByPaydunyaToken(token);
@@ -134,6 +139,26 @@ public class PaydunyaWebhookController {
 
                     log.info("INVESTISSEMENT PAYDUNYA EN_ATTENTE → user={} projet={} parts={} montant={}",
                             userId, projetId, parts, tx.getMontant());
+
+                } else if ("COMMANDE_MARKET".equals(type) && userIdStr != null) {
+                    Long userId = Long.parseLong(userIdStr);
+                    User user = userRepository.findById(userId)
+                            .orElseThrow(() -> new RuntimeException("User introuvable : " + userId));
+
+                    boolean confirmationLieuRetrait = confirmationLieuRetraitStr == null
+                            || Boolean.parseBoolean(confirmationLieuRetraitStr);
+                    CommandeMarketCreateDTO dto = CommandeMarketService.decoderCommandeCompacte(
+                            lignesCompact, confirmationLieuRetrait);
+
+                    var saved = commandeMarketService.creerCommandeDepuisPaiementExterne(
+                            user, dto, growzapp.backend.module.wallet.enums.SourcePaiement.MOBILE_MONEY);
+
+                    tx.setStatut(StatutTransaction.SUCCESS);
+                    tx.setCompletedAt(LocalDateTime.now());
+                    transactionRepository.save(tx);
+
+                    log.info("COMMANDE MARKET PAYDUNYA PAYÉE → id={} user={} montant={}",
+                            saved.getId(), userId, tx.getMontant());
 
                 } else if ("PREMIUM".equals(type) && projetIdStr != null) {
                     Long projetId = Long.parseLong(projetIdStr);

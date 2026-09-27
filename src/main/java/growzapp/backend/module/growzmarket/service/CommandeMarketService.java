@@ -44,6 +44,23 @@ public class CommandeMarketService {
                 .orElseThrow(() -> new EntityNotFoundException("Commande introuvable avec l'ID : " + id));
     }
 
+    // Décode le format compact "articleId:quantite,articleId:quantite"
+    // reçu en aller-retour via les métadonnées d'un paiement externe (voir
+    // CommandeMarketController.encoderLignesCompact) — utilisé par les
+    // webhooks Stripe/FedaPay/PayDunya pour reconstruire la commande réelle
+    // uniquement après confirmation du paiement.
+    public static CommandeMarketCreateDTO decoderCommandeCompacte(String lignesCompact,
+            boolean confirmationLieuRetrait) {
+        List<CommandeMarketLigneCreateDTO> lignes = new ArrayList<>();
+        if (lignesCompact != null && !lignesCompact.isBlank()) {
+            for (String part : lignesCompact.split(",")) {
+                String[] pair = part.split(":");
+                lignes.add(new CommandeMarketLigneCreateDTO(Long.parseLong(pair[0]), Integer.parseInt(pair[1])));
+            }
+        }
+        return new CommandeMarketCreateDTO(lignes, confirmationLieuRetrait);
+    }
+
     private void ensurePorteurVendeur(CommandeMarket commande, User user) {
         if (commande.getProjet().getPorteur() == null
                 || !commande.getProjet().getPorteur().getId().equals(user.getId())) {
@@ -69,14 +86,18 @@ public class CommandeMarketService {
         }
     }
 
-    // ── Achat, côté acheteur — paiement immédiat, pas de validation admin ────
-    @Transactional
-    public CommandeMarket creerCommande(User acheteur, CommandeMarketCreateDTO dto) {
+    public record LignesResult(Projet projetVendeur, List<CommandeMarketLigne> lignes, BigDecimal total) {
+    }
+
+    // Valide les lignes, vérifie stock/disponibilité/cohérence vendeur, et
+    // décrémente le stock — appelé au moment où l'achat est réellement
+    // engagé (wallet : immédiatement ; paiement externe : à la confirmation
+    // webhook, jamais avant, pour ne bloquer le stock qu'un paiement réussi).
+    private LignesResult construireLignesEtDecrementerStock(User acheteur, CommandeMarketCreateDTO dto,
+            CommandeMarket commande) {
         Projet projetVendeur = null;
         List<CommandeMarketLigne> lignes = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
-
-        CommandeMarket commande = new CommandeMarket();
 
         for (CommandeMarketLigneCreateDTO ligneDto : dto.lignes()) {
             ArticleMarket article = articleMarketRepository.findById(ligneDto.articleId())
@@ -118,10 +139,19 @@ public class CommandeMarketService {
             lignes.add(ligne);
         }
 
+        return new LignesResult(projetVendeur, lignes, total);
+    }
+
+    // ── Achat, côté acheteur — paiement immédiat, pas de validation admin ────
+    @Transactional
+    public CommandeMarket creerCommande(User acheteur, CommandeMarketCreateDTO dto) {
+        CommandeMarket commande = new CommandeMarket();
+        LignesResult res = construireLignesEtDecrementerStock(acheteur, dto, commande);
+
         commande.setAcheteur(acheteur);
-        commande.setProjet(projetVendeur);
-        commande.setLignes(lignes);
-        commande.setMontantTotal(total);
+        commande.setProjet(res.projetVendeur());
+        commande.setLignes(res.lignes());
+        commande.setMontantTotal(res.total());
         commande.setConfirmationLieuRetrait(dto.confirmationLieuRetrait());
         commande.setStatut(StatutCommandeMarket.PAYEE);
 
@@ -129,8 +159,74 @@ public class CommandeMarketService {
 
         // Paiement immédiat — pas d'étape intermédiaire, contrairement au
         // module Fournisseur où l'admin valide avant tout mouvement de fonds.
-        txHelper.executerAchat(acheteur.getId(), projetVendeur.getId(), saved.getId(), total);
+        txHelper.executerAchat(acheteur.getId(), res.projetVendeur().getId(), saved.getId(), res.total());
 
+        notifierNouvelleVente(saved, res.projetVendeur(), res.total());
+        return saved;
+    }
+
+    // ── Achat payé directement par Mobile Money/Carte (jamais par le wallet
+    // interne) — la commande n'est créée qu'à la confirmation webhook du
+    // paiement, jamais avant (cf previsualiserCommande pour l'estimation
+    // affichée au moment du choix du moyen de paiement).
+    @Transactional
+    public CommandeMarket creerCommandeDepuisPaiementExterne(User acheteur, CommandeMarketCreateDTO dto,
+            growzapp.backend.module.wallet.enums.SourcePaiement source) {
+        CommandeMarket commande = new CommandeMarket();
+        LignesResult res = construireLignesEtDecrementerStock(acheteur, dto, commande);
+
+        commande.setAcheteur(acheteur);
+        commande.setProjet(res.projetVendeur());
+        commande.setLignes(res.lignes());
+        commande.setMontantTotal(res.total());
+        commande.setConfirmationLieuRetrait(dto.confirmationLieuRetrait());
+        commande.setStatut(StatutCommandeMarket.PAYEE);
+
+        CommandeMarket saved = commandeMarketRepository.save(commande);
+
+        txHelper.executerAchatExterne(res.projetVendeur().getId(), saved.getId(), res.total(), source);
+
+        notifierNouvelleVente(saved, res.projetVendeur(), res.total());
+        return saved;
+    }
+
+    // Validation stricte en LECTURE SEULE (ne décrémente jamais le stock) —
+    // utilisée pour calculer le montant exact avant de créer une session de
+    // paiement externe (Mobile Money/Carte) : le stock n'est réellement
+    // engagé qu'à la confirmation du paiement (voir
+    // creerCommandeDepuisPaiementExterne), jamais avant.
+    public LignesResult previsualiserCommande(User acheteur, CommandeMarketCreateDTO dto) {
+        Projet projetVendeur = null;
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (CommandeMarketLigneCreateDTO ligneDto : dto.lignes()) {
+            ArticleMarket article = articleMarketRepository.findById(ligneDto.articleId())
+                    .orElseThrow(() -> new EntityNotFoundException("Article introuvable : " + ligneDto.articleId()));
+
+            if (projetVendeur == null) {
+                projetVendeur = article.getProjet();
+            } else if (!projetVendeur.getId().equals(article.getProjet().getId())) {
+                throw new IllegalArgumentException(
+                        "Tous les articles d'une même commande GrowzMarket doivent venir du même vendeur.");
+            }
+            if (!article.isDisponible()) {
+                throw new IllegalArgumentException("L'article " + article.getNom() + " n'est plus disponible.");
+            }
+            if (article.getStock() != null && article.getStock() < ligneDto.quantite()) {
+                throw new IllegalArgumentException(
+                        "Stock insuffisant pour " + article.getNom() + " (" + article.getStock() + " restant(s)).");
+            }
+            if (article.getProjet().getPorteur() != null
+                    && article.getProjet().getPorteur().getId().equals(acheteur.getId())) {
+                throw new IllegalArgumentException("Vous ne pouvez pas acheter vos propres articles.");
+            }
+            total = total.add(article.getPrix().multiply(BigDecimal.valueOf(ligneDto.quantite())));
+        }
+
+        return new LignesResult(projetVendeur, List.of(), total);
+    }
+
+    private void notifierNouvelleVente(CommandeMarket saved, Projet projetVendeur, BigDecimal total) {
         User porteur = projetVendeur.getPorteur();
         if (porteur != null) {
             notificationService.notifyUser(
@@ -140,8 +236,6 @@ public class CommandeMarketService {
                             + " — préparez-la pour le retrait.",
                     null, "/mon-espace/mes-ventes-market");
         }
-
-        return saved;
     }
 
     // ── Préparation, côté porteur-vendeur ────────────────────────────────────

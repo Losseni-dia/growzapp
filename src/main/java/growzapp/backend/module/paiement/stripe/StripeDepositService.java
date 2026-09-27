@@ -164,6 +164,67 @@ public class StripeDepositService {
                 }
         }
 
+        // ── 2bis. ACHAT GROWZMARKET DIRECT PAR CARTE ─────────────────────────────
+        public String createCommandeMarketSession(
+                        Long userId,
+                        Long projetId,
+                        String projetLibelle,
+                        String lignesCompact,
+                        boolean confirmationLieuRetrait,
+                        BigDecimal montantTotalFCFA) {
+                try {
+                        BigDecimal montantEUR = montantTotalFCFA.divide(TAUX_FCFA_PAR_EUR, 2, RoundingMode.HALF_UP);
+                        long amountInCents = montantEUR.multiply(BigDecimal.valueOf(100)).longValue();
+
+                        if (amountInCents < 50) {
+                                throw new RuntimeException("Montant trop faible pour Stripe (minimum 0.50 €)");
+                        }
+
+                        SessionCreateParams params = SessionCreateParams.builder()
+                                        .setLocale(SessionCreateParams.Locale.FR)
+                                        .setMode(SessionCreateParams.Mode.PAYMENT)
+                                        .setSuccessUrl(frontendUrl + "/growzmarket/panier?stripe=success")
+                                        .setCancelUrl(frontendUrl + "/growzmarket/panier?stripe=cancel")
+                                        .setClientReferenceId(userId.toString())
+                                        .putMetadata("type", "COMMANDE_MARKET")
+                                        .putMetadata("user_id", userId.toString())
+                                        .putMetadata("projet_id", projetId.toString())
+                                        .putMetadata("lignes", lignesCompact)
+                                        .putMetadata("confirmation_lieu_retrait", String.valueOf(confirmationLieuRetrait))
+                                        .putMetadata("montant_fcfa", montantTotalFCFA.toPlainString())
+                                        .addLineItem(
+                                                        SessionCreateParams.LineItem.builder()
+                                                                        .setQuantity(1L)
+                                                                        .setPriceData(
+                                                                                        SessionCreateParams.LineItem.PriceData
+                                                                                                        .builder()
+                                                                                                        .setCurrency("eur")
+                                                                                                        .setUnitAmount(amountInCents)
+                                                                                                        .setProductData(
+                                                                                                                        SessionCreateParams.LineItem.PriceData.ProductData
+                                                                                                                                        .builder()
+                                                                                                                                        .setName("Achat GrowzMarket — "
+                                                                                                                                                        + projetLibelle)
+                                                                                                                                        .setDescription(
+                                                                                                                                                        montantTotalFCFA
+                                                                                                                                                                        .toPlainString()
+                                                                                                                                                                        + " FCFA")
+                                                                                                                                        .build())
+                                                                                                        .build())
+                                                                        .build())
+                                        .build();
+
+                        Session session = Session.create(params);
+                        log.info("Session Stripe commande market créée : {} pour user={} projet={}",
+                                        session.getId(), userId, projetId);
+                        return session.getUrl();
+
+                } catch (StripeException e) {
+                        log.error("Erreur création session commande market Stripe", e);
+                        throw new RuntimeException("Impossible de créer le paiement Stripe: " + e.getMessage());
+                }
+        }
+
         // ── 3. ACHAT DU STATUT PREMIUM PAR CARTE ─────────────────────────────────
         public String createPremiumSession(Long userId, Long projetId, String projetSlug, BigDecimal montantFCFA) {
                 try {

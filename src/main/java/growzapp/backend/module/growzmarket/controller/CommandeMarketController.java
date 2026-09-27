@@ -17,12 +17,24 @@ import org.springframework.web.bind.annotation.RestController;
 import growzapp.backend.module.fournisseur.dto.MotifDTO;
 import growzapp.backend.module.growzmarket.dto.CommandeMarketCreateDTO;
 import growzapp.backend.module.growzmarket.dto.CommandeMarketDTO;
+import growzapp.backend.module.growzmarket.dto.CommandeMarketLigneCreateDTO;
 import growzapp.backend.module.growzmarket.dto.LitigeMessageCreateDTO;
 import growzapp.backend.module.growzmarket.model.CommandeMarket;
 import growzapp.backend.module.growzmarket.service.CommandeMarketService;
+import growzapp.backend.module.paiement.common.PaymentProviderRouter;
+import growzapp.backend.module.paiement.common.PaymentProviderService;
+import growzapp.backend.module.paiement.stripe.StripeDepositService;
 import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
+import growzapp.backend.module.wallet.enums.SourcePaiement;
+import growzapp.backend.module.wallet.enums.StatutTransaction;
+import growzapp.backend.module.wallet.enums.TypeTransaction;
+import growzapp.backend.module.wallet.enums.WalletType;
+import growzapp.backend.module.wallet.model.Transaction;
+import growzapp.backend.module.wallet.model.Wallet;
+import growzapp.backend.module.wallet.repository.TransactionRepository;
+import growzapp.backend.module.wallet.repository.WalletRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -36,6 +48,23 @@ public class CommandeMarketController {
 
     private final CommandeMarketService commandeMarketService;
     private final UserRepository userRepository;
+    private final WalletRepository walletRepository;
+    private final TransactionRepository transactionRepository;
+    private final StripeDepositService stripeDepositService;
+    private final PaymentProviderRouter paymentProviderRouter;
+
+    // "articleId:quantite,articleId:quantite" — format compact transmis en
+    // aller-retour via les métadonnées du fournisseur de paiement (limite de
+    // taille stricte côté Stripe), reconstruit à la confirmation webhook.
+    private String encoderLignesCompact(CommandeMarketCreateDTO dto) {
+        StringBuilder sb = new StringBuilder();
+        for (CommandeMarketLigneCreateDTO l : dto.lignes()) {
+            if (sb.length() > 0)
+                sb.append(",");
+            sb.append(l.articleId()).append(":").append(l.quantite());
+        }
+        return sb.toString();
+    }
 
     private User getCurrentUser(UserDetails userDetails) {
         return userRepository.findByLoginForAuth(userDetails.getUsername())
@@ -54,6 +83,52 @@ public class CommandeMarketController {
         User acheteur = getCurrentUser(userDetails);
         CommandeMarket saved = commandeMarketService.creerCommande(acheteur, dto);
         return ApiResponseDTO.success(commandeMarketService.toDto(saved, acheteur.getId(), false));
+    }
+
+    @PostMapping("/carte")
+    @Operation(summary = "Acheter sur GrowzMarket par carte bancaire (Stripe)", description = "Crée une session Stripe Checkout — la commande n'est réellement créée qu'à la confirmation du paiement par webhook.")
+    public ApiResponseDTO<java.util.Map<String, String>> acheterParCarte(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody CommandeMarketCreateDTO dto) {
+        User acheteur = getCurrentUser(userDetails);
+        var apercu = commandeMarketService.previsualiserCommande(acheteur, dto);
+        String redirectUrl = stripeDepositService.createCommandeMarketSession(
+                acheteur.getId(), apercu.projetVendeur().getId(), apercu.projetVendeur().getLibelle(),
+                encoderLignesCompact(dto), dto.confirmationLieuRetrait(), apercu.total());
+        return ApiResponseDTO.success(java.util.Map.of("redirectUrl", redirectUrl));
+    }
+
+    @PostMapping("/mobile")
+    @Operation(summary = "Acheter sur GrowzMarket par Mobile Money", description = "Crée une session de paiement Mobile Money (FedaPay, bascule PayDunya) — la commande n'est réellement créée qu'à la confirmation du paiement par webhook.")
+    public ApiResponseDTO<java.util.Map<String, String>> acheterParMobile(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody CommandeMarketCreateDTO dto) {
+        User acheteur = getCurrentUser(userDetails);
+        var apercu = commandeMarketService.previsualiserCommande(acheteur, dto);
+
+        PaymentProviderService.PaymentSessionResponse response = paymentProviderRouter.creerSessionCommandeMarket(
+                apercu.total(), acheteur.getId(), apercu.projetVendeur().getId(), apercu.projetVendeur().getLibelle(),
+                encoderLignesCompact(dto), dto.confirmationLieuRetrait());
+
+        Wallet wallet = walletRepository.findByUserId(acheteur.getId())
+                .orElseThrow(() -> new RuntimeException("Wallet introuvable"));
+
+        Transaction tx = Transaction.builder()
+                .walletId(wallet.getId())
+                .walletType(WalletType.USER)
+                .montant(apercu.total())
+                .type(TypeTransaction.VENTE_MARKET)
+                .statut(StatutTransaction.EN_ATTENTE_PAIEMENT)
+                .description("Achat GrowzMarket Mobile Money — " + apercu.projetVendeur().getLibelle())
+                .createdAt(java.time.LocalDateTime.now())
+                .referenceExterne(response.sessionToken())
+                .referenceType("COMMANDE_MARKET_INITIATION")
+                .referenceId(apercu.projetVendeur().getId())
+                .sourcePaiement(SourcePaiement.MOBILE_MONEY)
+                .build();
+        transactionRepository.save(tx);
+
+        return ApiResponseDTO.success(java.util.Map.of("redirectUrl", response.redirectUrl()));
     }
 
     @GetMapping("/mes-achats")

@@ -42,6 +42,19 @@ public class PaymentProviderRouter {
         }
     }
 
+    public PaymentProviderService.PaymentSessionResponse creerSessionCommandeMarket(
+            BigDecimal montant, Long userId, Long projetId, String projetLibelle,
+            String lignesCompact, boolean confirmationLieuRetrait) {
+        try {
+            return fedaPayService.creerSessionCommandeMarket(
+                    montant, userId, projetId, projetLibelle, lignesCompact, confirmationLieuRetrait);
+        } catch (Exception e) {
+            log.warn("FedaPay indisponible pour l'achat GrowzMarket (user={}), bascule sur PayDunya : {}", userId, e.getMessage());
+            return payDunyaService.creerSessionCommandeMarket(
+                    montant, userId, projetId, projetLibelle, lignesCompact, confirmationLieuRetrait);
+        }
+    }
+
     public PaymentProviderService.PaymentSessionResponse creerSessionPremium(
             BigDecimal montant, Long userId, Long projetId, String projetSlug) {
         try {

@@ -15,9 +15,12 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import growzapp.backend.module.growzmarket.dto.CommandeMarketCreateDTO;
+import growzapp.backend.module.growzmarket.service.CommandeMarketService;
 import growzapp.backend.module.investissement.service.InvestissementService;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.model.Transaction;
 import growzapp.backend.module.wallet.repository.TransactionRepository;
@@ -39,6 +42,7 @@ public class FedaPayWebhookController {
     private final InvestissementService investissementService;
     private final TransactionRepository transactionRepository;
     private final growzapp.backend.module.projet.service.ProjetService projetService;
+    private final CommandeMarketService commandeMarketService;
 
     @PostMapping
     @Transactional
@@ -118,6 +122,22 @@ public class FedaPayWebhookController {
                 projetService.activerPremiumExterne(projetId,
                         growzapp.backend.module.wallet.enums.SourcePaiement.MOBILE_MONEY);
                 log.info("PREMIUM FEDAPAY ACTIVÉ → projet={} user={}", projetId, userId);
+            } else if ("COMMANDE_MARKET".equals(type)) {
+                String lignesCompact = String.valueOf(metadata.getOrDefault("lignes", ""));
+                boolean confirmationLieuRetrait = Boolean.parseBoolean(
+                        String.valueOf(metadata.getOrDefault("confirmation_lieu_retrait", "true")));
+
+                User user = userRepository.findById(userId)
+                        .orElseThrow(() -> new RuntimeException("User introuvable : " + userId));
+
+                CommandeMarketCreateDTO dto = CommandeMarketService.decoderCommandeCompacte(
+                        lignesCompact, confirmationLieuRetrait);
+
+                var saved = commandeMarketService.creerCommandeDepuisPaiementExterne(
+                        user, dto, SourcePaiement.MOBILE_MONEY);
+
+                log.info("COMMANDE MARKET FEDAPAY PAYÉE → id={} user={} montant={}",
+                        saved.getId(), userId, montant);
             } else {
                 walletService.deposerFonds(userId, montant.doubleValue(), "FEDAPAY_MM");
                 log.info("DÉPÔT FEDAPAY CRÉDITÉ → user={} montant={}", userId, montant);

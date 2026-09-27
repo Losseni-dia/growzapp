@@ -75,6 +75,12 @@ public class CommandeMarket {
     @Column(name = "facture_url")
     private String factureUrl;
 
+    // Id de session Stripe — sert uniquement à l'idempotence du webhook
+    // (Stripe peut renvoyer plusieurs événements pour un même paiement),
+    // même principe que Investissement.referenceExterneStripe.
+    @Column(name = "reference_externe_stripe")
+    private String referenceExterneStripe;
+
     @JsonIgnore
     @OneToMany(mappedBy = "commande", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CommandeMarketLigne> lignes = new ArrayList<>();

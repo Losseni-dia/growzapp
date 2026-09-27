@@ -21,12 +21,17 @@ import com.stripe.model.Payout;
 import com.stripe.net.Webhook;
 
 import growzapp.backend.module.exchangerate.repository.ExchangeRateRepository;
+import growzapp.backend.module.growzmarket.dto.CommandeMarketCreateDTO;
+import growzapp.backend.module.growzmarket.model.CommandeMarket;
+import growzapp.backend.module.growzmarket.repository.CommandeMarketRepository;
+import growzapp.backend.module.growzmarket.service.CommandeMarketService;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
 import growzapp.backend.module.investissement.service.InvestissementService;
 import growzapp.backend.module.paiement.innerwallet.DepositService;
 import growzapp.backend.module.paiement.repository.PayoutModelRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +54,8 @@ public class StripeWebhookController {
     private final ExchangeRateRepository exchangeRateRepository;
     private final InvestissementService investissementService;
     private final growzapp.backend.module.projet.service.ProjetService projetService;
+    private final CommandeMarketService commandeMarketService;
+    private final CommandeMarketRepository commandeMarketRepository;
 
     @PostMapping
     public ResponseEntity<String> handle(
@@ -127,6 +134,8 @@ public class StripeWebhookController {
                 projetService.activerPremiumExterne(projetId,
                         growzapp.backend.module.wallet.enums.SourcePaiement.CARTE_BANCAIRE);
                 log.info("PREMIUM STRIPE ACTIVÉ → projet={} user={}", projetId, userId);
+            } else if ("COMMANDE_MARKET".equals(type)) {
+                handleCommandeMarketPayeeRaw(sessionId, userId, root);
             } else {
                 // ── Source de vérité : le montant FCFA d'ORIGINE saisi par l'utilisateur ──
                 // (stocké en metadata lors de la création de session, voir
@@ -249,6 +258,39 @@ public class StripeWebhookController {
             log.error("Erreur parsing JSON webhook charge.dispute.closed : {}", ex.getMessage(), ex);
         }
     }   
+
+    @Transactional
+    public void handleCommandeMarketPayeeRaw(String sessionId, Long userId, JsonNode root) {
+        try {
+            // ── Idempotence — Stripe peut renvoyer plusieurs événements pour
+            // un même paiement (checkout.session.completed puis
+            // async_payment_succeeded) ────────────────────────────────────
+            if (commandeMarketRepository.existsByReferenceExterneStripe(sessionId)) {
+                log.warn("Session Stripe (commande market) déjà traitée : {}", sessionId);
+                return;
+            }
+
+            String lignesCompact = root.path("metadata").path("lignes").asText("");
+            boolean confirmationLieuRetrait = root.path("metadata").path("confirmation_lieu_retrait")
+                    .asBoolean(true);
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User introuvable : " + userId));
+
+            CommandeMarketCreateDTO dto = CommandeMarketService.decoderCommandeCompacte(
+                    lignesCompact, confirmationLieuRetrait);
+
+            CommandeMarket saved = commandeMarketService.creerCommandeDepuisPaiementExterne(
+                    user, dto, SourcePaiement.CARTE_BANCAIRE);
+            saved.setReferenceExterneStripe(sessionId);
+            commandeMarketRepository.save(saved);
+
+            log.info("COMMANDE MARKET STRIPE PAYÉE → id={} user={} session={}", saved.getId(), userId, sessionId);
+        } catch (Exception e) {
+            log.error("Erreur handleCommandeMarketPayeeRaw session={}", sessionId, e);
+            throw new RuntimeException(e);
+        }
+    }
 
     @Transactional
     public void handleInvestissementPayeRaw(String sessionId, Long userId, BigDecimal montantEUR, String projetIdStr,

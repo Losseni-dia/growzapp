@@ -32,6 +32,20 @@ public interface PaymentProviderService {
             String projetSlug);
 
     /**
+     * Achat GrowzMarket payé directement par Mobile Money — les lignes de
+     * commande sont encodées en format compact "articleId:quantite,..."
+     * (transmis en aller-retour via les métadonnées du fournisseur), la
+     * commande réelle n'étant créée qu'à la confirmation webhook du paiement.
+     */
+    PaymentSessionResponse creerSessionCommandeMarket(
+            BigDecimal montant,
+            Long userId,
+            Long projetId,
+            String projetLibelle,
+            String lignesCompact,
+            boolean confirmationLieuRetrait);
+
+    /**
      * Vérifie auprès du fournisseur si un paiement a réellement été confirmé
      * — utilisé pour rattraper les cas où le webhook n'a jamais été reçu
      * (tunnel ngrok fermé, dashboard mal configuré, etc.).

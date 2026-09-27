@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import growzapp.backend.module.wallet.enums.SourcePaiement;
 import growzapp.backend.module.wallet.enums.StatutTransaction;
 import growzapp.backend.module.wallet.enums.TypeTransaction;
 import growzapp.backend.module.wallet.enums.WalletType;
@@ -78,6 +79,33 @@ public class CommandeMarketTransactionHelper {
 
         log.info("Commande GrowzMarket {} payée : {} FCFA de {} vers projet {}",
                 commandeId, montant, acheteurUserId, projetId);
+    }
+
+    // Achat payé directement par Mobile Money/Carte (jamais par le wallet
+    // interne) : aucun débit acheteur, seul le wallet projet est crédité —
+    // même logique que Investissement.investirDepuisPaiementExterne.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void executerAchatExterne(Long projetId, Long commandeId, BigDecimal montant, SourcePaiement source) {
+        Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
+                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+        walletProjet.crediterBloqueProjet(montant);
+        walletRepository.saveAndFlush(walletProjet);
+
+        transactionRepository.save(Transaction.builder()
+                .walletId(walletProjet.getId())
+                .walletType(WalletType.PROJET)
+                .montant(montant)
+                .type(TypeTransaction.VENTE_MARKET)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Vente GrowzMarket #" + commandeId + " (paiement externe) — trésorerie créditée")
+                .referenceType("COMMANDE_MARKET")
+                .referenceId(commandeId)
+                .sourcePaiement(source)
+                .completedAt(LocalDateTime.now())
+                .build());
+
+        log.info("Commande GrowzMarket {} payée (externe, {}) : {} FCFA crédités au projet {}",
+                commandeId, source, montant, projetId);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

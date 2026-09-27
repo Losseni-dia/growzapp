@@ -21,4 +21,6 @@ public interface CommandeMarketRepository extends JpaRepository<CommandeMarket, 
     // Utilisé par le job planifié qui ouvre automatiquement un litige sur
     // les commandes prêtes mais jamais retirées après le délai configuré.
     List<CommandeMarket> findByStatutAndDatePreteBefore(StatutCommandeMarket statut, LocalDateTime seuil);
+
+    boolean existsByReferenceExterneStripe(String referenceExterneStripe);
 }
