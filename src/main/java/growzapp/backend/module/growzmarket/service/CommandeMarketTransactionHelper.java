@@ -82,10 +82,15 @@ public class CommandeMarketTransactionHelper {
     }
 
     // Achat payé directement par Mobile Money/Carte (jamais par le wallet
-    // interne) : aucun débit acheteur, seul le wallet projet est crédité —
-    // même logique que Investissement.investirDepuisPaiementExterne.
+    // interne) : aucun débit du solde acheteur (l'argent n'y a jamais
+    // transité), seul le wallet projet est crédité — même logique que
+    // Investissement.investirDepuisPaiementExterne. On trace néanmoins
+    // l'achat dans l'historique de l'acheteur (montant informatif, sans
+    // impact sur son solde) pour qu'il y retrouve trace de son paiement
+    // externe, comme pour un achat payé par wallet.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void executerAchatExterne(Long projetId, Long commandeId, BigDecimal montant, SourcePaiement source) {
+    public void executerAchatExterne(Long acheteurUserId, Long projetId, Long commandeId, BigDecimal montant,
+            SourcePaiement source) {
         Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
                 .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
         walletProjet.crediterBloqueProjet(montant);
@@ -98,6 +103,22 @@ public class CommandeMarketTransactionHelper {
                 .type(TypeTransaction.VENTE_MARKET)
                 .statut(StatutTransaction.SUCCESS)
                 .description("Vente GrowzMarket #" + commandeId + " (paiement externe) — trésorerie créditée")
+                .referenceType("COMMANDE_MARKET")
+                .referenceId(commandeId)
+                .sourcePaiement(source)
+                .completedAt(LocalDateTime.now())
+                .build());
+
+        Wallet walletAcheteur = walletRepository.findByUserId(acheteurUserId)
+                .orElseThrow(() -> new IllegalStateException("Wallet acheteur introuvable"));
+
+        transactionRepository.save(Transaction.builder()
+                .walletId(walletAcheteur.getId())
+                .walletType(WalletType.USER)
+                .montant(montant)
+                .type(TypeTransaction.VENTE_MARKET)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Achat GrowzMarket #" + commandeId + " (paiement externe)")
                 .referenceType("COMMANDE_MARKET")
                 .referenceId(commandeId)
                 .sourcePaiement(source)

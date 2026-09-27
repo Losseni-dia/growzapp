@@ -184,7 +184,8 @@ public class CommandeMarketService {
 
         CommandeMarket saved = commandeMarketRepository.save(commande);
 
-        txHelper.executerAchatExterne(res.projetVendeur().getId(), saved.getId(), res.total(), source);
+        txHelper.executerAchatExterne(acheteur.getId(), res.projetVendeur().getId(), saved.getId(), res.total(),
+                source);
 
         notifierNouvelleVente(saved, res.projetVendeur(), res.total());
         return saved;
