@@ -1,6 +1,7 @@
 package growzapp.backend.config.exception;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +40,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException e) {
         String errors = e.getBindingResult().getFieldErrors().stream()
                 .map(err -> err.getField() + " : " + err.getDefaultMessage())
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("Données invalides");
+        return ResponseEntity.badRequest().body(errorBody(errors));
+    }
+
+    // Déclenché par @Validated sur un @RequestParam/@PathVariable (ex :
+    // @Pattern, @Size) — sans ce handler, une valeur invalide y tombait
+    // dans le filet générique ci-dessous et renvoyait un 500 au lieu d'un
+    // 400 explicite.
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException e) {
+        String errors = e.getConstraintViolations().stream()
+                .map(v -> v.getMessage())
                 .reduce((a, b) -> a + ", " + b)
                 .orElse("Données invalides");
         return ResponseEntity.badRequest().body(errorBody(errors));

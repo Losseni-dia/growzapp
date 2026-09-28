@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +27,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.kyc.dto.KycHistoriqueDTO;
@@ -46,6 +51,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping({"/api/v1/kyc", "/api/kyc"})
 @RequiredArgsConstructor
+@Validated
 @Tag(name = "KYC", description = "Vérification d'identité : soumission de documents et décision admin")
 public class KycController {
 
@@ -64,8 +70,8 @@ public class KycController {
             @RequestParam(value = "fileVerso", required = false) MultipartFile fileVerso,
             @RequestParam("fileSelfie") MultipartFile fileSelfie,
             @RequestParam("dateNaissance") String dateNaissance,
-            @RequestParam("adresse") String adresse,
-            @RequestParam("numeroPiece") String numeroPiece,
+            @RequestParam("adresse") @NotBlank(message = "L'adresse est requise.") @Size(max = 500, message = "L'adresse ne peut pas dépasser 500 caractères.") String adresse,
+            @RequestParam("numeroPiece") @NotBlank(message = "Le numéro de pièce est requis.") @Size(max = 50, message = "Le numéro de pièce ne peut pas dépasser 50 caractères.") @Pattern(regexp = "^[\\p{L}0-9 .\\-]+$", message = "Le numéro de pièce contient des caractères non autorisés.") String numeroPiece,
             @RequestParam("dateDelivrance") String dateDelivrance,
             @RequestParam("dateExpiration") String dateExpiration,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -74,21 +80,42 @@ public class KycController {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
+        // Retire tout caractère `<`/`>` en défense en profondeur contre une
+        // injection de balises/scripts — même si le rendu React échappe déjà
+        // ces valeurs par défaut, ces données finissent aussi dans des emails
+        // et PDF générés côté serveur.
+        String adresseSanitized = adresse.replaceAll("[<>]", "").trim();
+
+        LocalDate naissance = parseDateOrThrow(dateNaissance, "date de naissance");
+        LocalDate delivrance = parseDateOrThrow(dateDelivrance, "date de délivrance");
+        LocalDate expiration = parseDateOrThrow(dateExpiration, "date d'expiration");
+        if (!expiration.isAfter(delivrance)) {
+            throw new IllegalArgumentException("La date d'expiration doit être postérieure à la date de délivrance.");
+        }
+
         user.setKycRectoUrl(kycStorageService.save(fileRecto));
         if (fileVerso != null && !fileVerso.isEmpty()) {
             user.setKycVersoUrl(kycStorageService.save(fileVerso));
         }
         user.setKycSelfieUrl(kycStorageService.save(fileSelfie));
         user.setKycNumeroPiece(numeroPiece);
-        user.setKycDateDelivrance(LocalDate.parse(dateDelivrance));
-        user.setKycDateExpiration(LocalDate.parse(dateExpiration));
-        user.setDateNaissance(LocalDate.parse(dateNaissance));
-        user.setAdresseResidencielle(adresse);
+        user.setKycDateDelivrance(delivrance);
+        user.setKycDateExpiration(expiration);
+        user.setDateNaissance(naissance);
+        user.setAdresseResidencielle(adresseSanitized);
         user.setKycStatus(KycStatus.EN_ATTENTE);
         user.setKycSubmittedAt(LocalDateTime.now());
         userRepository.save(user);
         return ResponseEntity.ok(ApiResponseDTO.success(null)
                 .message("Votre dossier KYC a été soumis avec succès et est en cours de révision."));
+    }
+
+    private LocalDate parseDateOrThrow(String value, String label) {
+        try {
+            return LocalDate.parse(value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Format invalide pour la " + label + ".");
+        }
     }
 
     @GetMapping("/admin/en-attente")
