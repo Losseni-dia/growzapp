@@ -70,6 +70,21 @@ public class KycVoveIdController {
         return ResponseEntity.ok(ApiResponseDTO.success(new VoveIdSessionDTO(refId, widgetUrl, publicKey)));
 }
 
+    @Operation(summary = "Rafraîchir le statut KYC depuis VOVE ID", description = "Interroge directement l'API VOVE ID pour le refId de l'utilisateur courant et met à jour son statut — utilisé par la page de retour du widget pour ne pas dépendre uniquement du webhook, qui ne peut pas atteindre un backend en local (localhost).", security = @SecurityRequirement(name = "BearerAuth"))
+    @PostMapping("/refresh-status")
+    public ResponseEntity<?> refreshStatus(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByLogin(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String refId = voveIdService.generateRefId(user.getId());
+        VoveIdResultDTO result = voveIdService.getVerificationResult(refId);
+        kycVoveIdService.updateKycStatusFromVoveId(user.getId(), result);
+
+        User updated = userRepository.findById(user.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(ApiResponseDTO.success(Map.of("kycStatus", updated.getKycStatus().name())));
+    }
+
     @Operation(summary = "Webhook VOVE ID — Réception des notifications", description = "Endpoint appelé automatiquement par VOVE ID. Ne pas appeler manuellement.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Webhook traité avec succès"),
