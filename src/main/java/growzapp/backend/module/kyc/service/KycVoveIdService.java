@@ -21,6 +21,7 @@ public class KycVoveIdService {
     private final UserRepository userRepository;
     private final VoveIdService voveIdService;
     private final KycStorageService kycStorageService;
+    private final KycDedupService kycDedupService;
 
     // VOVE ID ne documente pas un format de date unique et stable dans ses
     // réponses — "dd/MM/yyyy" seul faisait échouer silencieusement le parsing
@@ -94,25 +95,44 @@ public class KycVoveIdService {
         switch (status) {
 
             case "successful" -> {
-                user.setKycStatus(KycStatus.VALIDE);
-                user.setKycDateValidation(LocalDateTime.now());
+                VoveIdDocumentDTO doc = (result.getDocuments() != null && !result.getDocuments().isEmpty())
+                        ? result.getDocuments().get(0)
+                        : null;
+                String numeroPiece = doc != null ? doc.getIdNumber() : null;
 
-                // Extraire les données du premier document
-                if (result.getDocuments() != null
-                        && !result.getDocuments().isEmpty()) {
-                    VoveIdDocumentDTO doc = result.getDocuments().get(0);
-                    user.setKycNumeroPiece(doc.getIdNumber());
+                // Un même document ne doit pas pouvoir valider plusieurs
+                // comptes — qu'il ait déjà servi via VOVE ID ou en manuel,
+                // le hash est partagé entre les deux flux.
+                boolean doublon = false;
+                String numeroPieceHash = null;
+                if (numeroPiece != null && !numeroPiece.isBlank()) {
+                    numeroPieceHash = kycDedupService.hash(numeroPiece);
+                    doublon = userRepository.findFirstByKycNumeroPieceHashAndIdNot(numeroPieceHash, userId).isPresent();
+                }
 
-                    if (doc.getDateOfExpiration() != null) {
+                if (doublon) {
+                    user.setKycStatus(KycStatus.REJETE);
+                    user.setKycCommentaireRejet(
+                            "Ce numéro de pièce d'identité est déjà associé à un autre compte GrowzApp.");
+                    System.out.println("KYC REJETE (doublon numero de pièce) pour user: " + userId);
+                } else {
+                    user.setKycStatus(KycStatus.VALIDE);
+                    user.setKycDateValidation(LocalDateTime.now());
+
+                    if (numeroPiece != null) {
+                        user.setKycNumeroPiece(numeroPiece);
+                        user.setKycNumeroPieceHash(numeroPieceHash);
+                    }
+                    if (doc != null && doc.getDateOfExpiration() != null) {
                         LocalDate expiration = parseVoveIdDate(doc.getDateOfExpiration());
                         if (expiration != null) {
                             user.setKycDateExpiration(expiration);
                         }
                     }
-                }
 
-                archiverImagesVoveId(user, result.getRefId());
-                System.out.println("KYC VALIDE pour user: " + userId);
+                    archiverImagesVoveId(user, result.getRefId());
+                    System.out.println("KYC VALIDE pour user: " + userId);
+                }
             }
 
             case "failed" -> {

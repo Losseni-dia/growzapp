@@ -117,6 +117,15 @@ public class User {
     @Column(name = "kyc_numero_piece", length = 255)
     @jakarta.persistence.Convert(converter = growzapp.backend.config.crypto.EncryptedStringConverter.class)
     private String kycNumeroPiece;
+
+    // Hash déterministe (HMAC-SHA256) du numéro de pièce normalisé — permet
+    // de détecter qu'un même document sert à plusieurs comptes, ce que le
+    // chiffrement AES-GCM (IV aléatoire) de kycNumeroPiece rend impossible
+    // par une simple comparaison SQL, puisqu'il produit un texte différent
+    // à chaque écriture même pour une valeur identique.
+    @Column(name = "kyc_numero_piece_hash", length = 64)
+    private String kycNumeroPieceHash;
+
     @Column(name = "kyc_date_delivrance")
     private LocalDate kycDateDelivrance;
 

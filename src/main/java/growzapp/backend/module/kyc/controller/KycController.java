@@ -35,6 +35,7 @@ import jakarta.validation.constraints.Size;
 import growzapp.backend.module.email.EmailService;
 import growzapp.backend.module.kyc.dto.KycHistoriqueDTO;
 import growzapp.backend.module.kyc.enums.KycStatus;
+import growzapp.backend.module.kyc.service.KycDedupService;
 import growzapp.backend.module.kyc.service.KycStorageService;
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.shared.ApiResponseDTO;
@@ -60,6 +61,7 @@ public class KycController {
     private final UserMapper userMapper;
     private final NotificationService notificationService;
     private final EmailService emailService;
+    private final KycDedupService kycDedupService;
 
     @PostMapping(value = "/soumettre", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("isAuthenticated()")
@@ -93,12 +95,17 @@ public class KycController {
             throw new IllegalArgumentException("La date d'expiration doit être postérieure à la date de délivrance.");
         }
 
+        // Refuse un numéro de pièce déjà associé à un autre compte — que
+        // celui-ci ait été vérifié via VOVE ID ou soumis manuellement.
+        String numeroPieceHash = kycDedupService.verifierPasDeDoublon(numeroPiece, userId);
+
         user.setKycRectoUrl(kycStorageService.save(fileRecto));
         if (fileVerso != null && !fileVerso.isEmpty()) {
             user.setKycVersoUrl(kycStorageService.save(fileVerso));
         }
         user.setKycSelfieUrl(kycStorageService.save(fileSelfie));
         user.setKycNumeroPiece(numeroPiece);
+        user.setKycNumeroPieceHash(numeroPieceHash);
         user.setKycDateDelivrance(delivrance);
         user.setKycDateExpiration(expiration);
         user.setDateNaissance(naissance);

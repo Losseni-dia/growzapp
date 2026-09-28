@@ -103,6 +103,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         List<User> findByKycStatus(KycStatus status);
 
+    // Detection de doublon KYC : un meme numero de piece (meme hash) associe
+    // a un autre compte que celui en cours de soumission.
+    Optional<User> findFirstByKycNumeroPieceHashAndIdNot(String kycNumeroPieceHash, Long id);
+
         List<User> findByRoles_Role(String role);
 
         @Query("SELECT u FROM User u WHERE u.kycStatus = :statut AND " +
