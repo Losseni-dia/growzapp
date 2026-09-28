@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import growzapp.backend.module.kyc.dto.VoveIdDocumentImagesDTO;
 import growzapp.backend.module.kyc.dto.VoveIdResultDTO;
 
 import java.util.Map;
@@ -65,6 +66,18 @@ public class VoveIdService {
                 .uri("/v2/users/" + refId)
                 .retrieve()
                 .bodyToMono(VoveIdResultDTO.class)
+                .block();
+    }
+
+    // Récupérer les images du dossier (recto/verso/selfie, en base64) — un
+    // endpoint séparé chez VOVE ID, à n'appeler qu'une fois la vérification
+    // confirmée, pour les archiver dans notre propre stockage (l'utilisateur
+    // doit pouvoir les consulter en cas de litige, comme pour le dépôt manuel).
+    public VoveIdDocumentImagesDTO getVerificationDocuments(String refId) {
+        return voveIdWebClient.get()
+                .uri("/v2/users/" + refId + "/documents")
+                .retrieve()
+                .bodyToMono(VoveIdDocumentImagesDTO.class)
                 .block();
     }
 }

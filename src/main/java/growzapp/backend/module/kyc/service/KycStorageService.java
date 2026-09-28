@@ -6,6 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 import growzapp.backend.module.files.validation.FileValidationService;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.Base64;
 import java.util.UUID;
 
 @Service
@@ -52,6 +53,35 @@ public class KycStorageService {
             return fileName;
         } catch (IOException e) {
             throw new RuntimeException("Erreur lors de la sauvegarde du fichier KYC : " + e.getMessage());
+        }
+    }
+
+    // Sauvegarde une image reçue en base64 (VOVE ID renvoie ainsi les
+    // documents du dossier) — pas de MultipartFile ici, donc pas de
+    // validateDocument() : le contenu vient d'un fournisseur KYC de
+    // confiance déjà validé côté VOVE ID, pas d'un upload utilisateur brut.
+    public String saveBase64(String base64Content, String extension) {
+        if (base64Content == null || base64Content.isBlank()) {
+            throw new RuntimeException("Impossible de sauvegarder une image vide.");
+        }
+        try {
+            // Certains fournisseurs préfixent en data URL ("data:image/...;base64,")
+            String cleaned = base64Content.contains(",")
+                    ? base64Content.substring(base64Content.indexOf(",") + 1)
+                    : base64Content;
+            byte[] data = Base64.getDecoder().decode(cleaned);
+
+            String fileName = UUID.randomUUID().toString() + extension;
+            Path targetLocation = this.root.resolve(fileName).normalize();
+
+            if (!targetLocation.startsWith(this.root)) {
+                throw new RuntimeException("Tentative d'accès hors du dossier de stockage autorisé.");
+            }
+
+            Files.write(targetLocation, data);
+            return fileName;
+        } catch (IOException e) {
+            throw new RuntimeException("Erreur lors de la sauvegarde de l'image KYC : " + e.getMessage());
         }
     }
 }

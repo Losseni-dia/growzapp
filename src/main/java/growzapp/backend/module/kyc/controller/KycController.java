@@ -109,6 +109,24 @@ public class KycController {
         return ResponseEntity.ok(ApiResponseDTO.success(result));
     }
 
+    @GetMapping("/admin/non-soumis")
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "[Admin] Lister les utilisateurs n'ayant pas encore soumis de vérification d'identité (paginé)", tags = { "KYC" })
+    public ResponseEntity<ApiResponseDTO<Page<UserDTO>>> getNonSoumis(
+            @Parameter(description = "Recherche par nom, prénom ou email")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Numéro de page (commence à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'éléments par page", example = "20")
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<UserDTO> result = userRepository
+                .findKycEnAttente(KycStatus.NON_SOUMIS, search, pageable)
+                .map(userMapper::toDto);
+        return ResponseEntity.ok(ApiResponseDTO.success(result));
+    }
+
     @GetMapping("/admin/historique")
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "BearerAuth")
