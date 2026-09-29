@@ -113,4 +113,35 @@ public class ProjetWalletSelfServiceController {
             return ResponseEntity.badRequest().body(ApiResponseDTO.error(e.getMessage()));
         }
     }
+
+    @PostMapping("/reapprovisionner")
+    @Operation(
+        summary = "Transfert du wallet personnel du porteur vers le wallet de son projet",
+        description = "Le porteur réinjecte un montant depuis son propre wallet personnel vers le soldeDisponible du wallet de son projet, instantanément. Réservé au porteur du projet (ou à un admin).",
+        tags = {"Porteur - Trésorerie Projet"}
+    )
+    public ResponseEntity<ApiResponseDTO<String>> reapprovisionner(
+            @Parameter(description = "Identifiant du projet", example = "7", required = true)
+            @PathVariable Long projetId,
+            @Valid @RequestBody TransfertProjetPersonnelRequest request) {
+
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        User currentUser = userService.getCurrentUser();
+        if (!canAccess(projet, currentUser)) {
+            return ResponseEntity.status(403).body(ApiResponseDTO.error("Accès refusé"));
+        }
+        if (projet.getPorteur() == null) {
+            return ResponseEntity.badRequest().body(ApiResponseDTO.error("Ce projet n'a pas de porteur"));
+        }
+
+        try {
+            walletService.transfererPersonnelVersProjet(
+                    projet.getPorteur().getId(), projetId, request.montant(), request.idempotencyKey());
+            return ResponseEntity.ok(ApiResponseDTO.success("Transfert effectué"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponseDTO.error(e.getMessage()));
+        }
+    }
 }

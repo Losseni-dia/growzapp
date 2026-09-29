@@ -338,6 +338,67 @@ public class WalletService {
         walletRepository.saveAll(List.of(walletProjet, walletPersonnel));
     }
 
+    // ── TRANSFERT INTERNE : WALLET PERSONNEL DU PORTEUR → WALLET PROJET ─────
+    // Sens inverse de transfererProjetVersPersonnel() — le porteur réinjecte
+    // des fonds personnels dans la trésorerie de son projet (ex. avance de
+    // frais). Crédite directement soldeDisponible du projet (pas soldeBloque,
+    // qui est réservé à l'argent des investisseurs en attente de déblocage
+    // admin) : cet argent vient du porteur lui-même, immédiatement utilisable.
+    @Transactional
+    public void transfererPersonnelVersProjet(Long porteurId, Long projetId, BigDecimal montant,
+            String idempotencyKey) {
+        if (montant == null || montant.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Montant invalide");
+        }
+        if (idempotencyKey != null && transactionRepository.existsByIdempotencyKey(idempotencyKey)) {
+            throw new IllegalStateException("Cette demande de transfert a déjà été traitée.");
+        }
+
+        Wallet walletPersonnel = walletRepository.findByUserIdWithPessimisticLock(porteurId)
+                .orElseThrow(() -> new IllegalStateException("Wallet personnel introuvable"));
+        Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
+                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+
+        if (walletPersonnel.getSoldeDisponible().compareTo(montant) < 0) {
+            throw new IllegalStateException("Solde disponible insuffisant dans votre portefeuille personnel");
+        }
+
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        walletPersonnel.setSoldeDisponible(walletPersonnel.getSoldeDisponible().subtract(montant));
+        walletProjet.setSoldeDisponible(walletProjet.getSoldeDisponible().add(montant));
+
+        Transaction txOut = Transaction.builder()
+                .walletId(walletPersonnel.getId())
+                .walletType(WalletType.USER)
+                .montant(montant)
+                .type(TypeTransaction.TRANSFER_PERSONNEL_VERS_PROJET)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Transfert vers le wallet du projet « " + projet.getLibelle() + " »")
+                .referenceType("PROJET")
+                .referenceId(projetId)
+                .idempotencyKey(idempotencyKey)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Transaction txIn = Transaction.builder()
+                .walletId(walletProjet.getId())
+                .walletType(WalletType.PROJET)
+                .montant(montant)
+                .type(TypeTransaction.TRANSFER_PERSONNEL_VERS_PROJET)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Transfert reçu depuis le portefeuille personnel du porteur")
+                .referenceType("PROJET")
+                .referenceId(projetId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        transactionRepository.save(txOut);
+        transactionRepository.save(txIn);
+        walletRepository.saveAll(List.of(walletPersonnel, walletProjet));
+    }
+
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public void retirerDuProjetWallet(Long projetId, BigDecimal montant, String methode, String phone, Long adminId) {

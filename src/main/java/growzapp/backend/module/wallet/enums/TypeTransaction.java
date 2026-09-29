@@ -33,6 +33,9 @@ public enum TypeTransaction {
     // Refonte wallet projet (déblocage de trésorerie séquestrée)
     DEBLOCAGE_PROJET,
     TRANSFER_PROJET_VERS_PERSONNEL,
+    // Sens inverse : le porteur réinjecte des fonds de son wallet personnel
+    // dans la trésorerie de son projet (ex. avance de frais, remboursement).
+    TRANSFER_PERSONNEL_VERS_PROJET,
     RETRAIT_PROJET,
 
     // Achat du statut Premium (mise en avant catalogue)
