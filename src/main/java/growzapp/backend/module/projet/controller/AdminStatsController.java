@@ -184,7 +184,12 @@ public class AdminStatsController {
                         Collectors.counting()));
 
         // ── TOP PROJETS ──────────────────────────────────────────────────
+        // Un projet simplement SOUMIS (pas encore validé par l'admin) n'a
+        // pas sa place dans ces classements publics — seuls les projets
+        // réellement publiés (estPublie()) sont éligibles, même règle que
+        // GrowzMarket/Fournisseur/fiche porteur.
         List<TopProjetDTO> topParCollecte = tousLesProjets.stream()
+                .filter(p -> p.getStatutProjet().estPublie())
                 .filter(p -> p.getMontantCollecte() != null)
                 .sorted(Comparator.comparing(Projet::getMontantCollecte).reversed())
                 .limit(5)
@@ -192,6 +197,7 @@ public class AdminStatsController {
                 .toList();
 
         List<TopProjetDTO> topParProgression = tousLesProjets.stream()
+                .filter(p -> p.getStatutProjet().estPublie())
                 .filter(p -> p.getObjectifFinancement() != null
                         && p.getObjectifFinancement().compareTo(BigDecimal.ZERO) > 0
                         && p.getMontantCollecte() != null)
