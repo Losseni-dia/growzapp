@@ -66,6 +66,12 @@ public record TransactionDTO(
         String expediteurNomComplet,
 
         @Schema(description = "Login de l'expéditeur", example = "john.doe")
-        String expediteurLogin
+        String expediteurLogin,
+
+        @Schema(description = "Type de l'entité référencée par cette transaction (ex. COMMANDE)", example = "COMMANDE")
+        String referenceType,
+
+        @Schema(description = "Identifiant de l'entité référencée (ex. id de la commande)", example = "17")
+        Long referenceId
 ) {
 }

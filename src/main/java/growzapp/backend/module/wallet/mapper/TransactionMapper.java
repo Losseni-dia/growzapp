@@ -104,6 +104,8 @@ public abstract class TransactionMapper {
     @Mapping(target = "expediteurUserId", source = "expediteurUserId")
     @Mapping(target = "expediteurNomComplet", source = "expediteurNomComplet")
     @Mapping(target = "expediteurLogin", source = "expediteurLogin")
+    @Mapping(target = "referenceType", source = "t.referenceType")
+    @Mapping(target = "referenceId", source = "t.referenceId")
     protected abstract TransactionDTO toDtoInternal(
             Transaction t,
             Long userId, String userPrenom, String userNom, String userLogin,
