@@ -36,10 +36,14 @@ import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection
 import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
+import growzapp.backend.module.wallet.dto.TransactionDTO;
 import growzapp.backend.module.wallet.enums.WalletType;
+import growzapp.backend.module.wallet.mapper.TransactionMapper;
 import growzapp.backend.module.wallet.model.Wallet;
+import growzapp.backend.module.wallet.repository.TransactionRepository;
 import growzapp.backend.module.wallet.repository.WalletRepository;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +61,8 @@ public class PorteurDashboardController {
     private final ProjetValorisationRepository projetValorisationRepository;
     private final ProjetTraductionRepository traductionRepository;
     private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
+    private final TransactionMapper transactionMapper;
 
     private static final DateTimeFormatter MOIS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM");
 
@@ -196,5 +202,55 @@ public class PorteurDashboardController {
                 lignes);
 
         return ApiResponseDTO.success(dashboard);
+    }
+
+    @Operation(summary = "Transactions wallet de tous mes projets", description = "Retourne, tous projets confondus, les transactions du wallet projet filtrées par type (ex. PAIEMENT_FOURNISSEUR ou VENTE_MARKET), avec le nom du projet d'origine attaché à chaque ligne — utilisé pour les écrans Transactions sous Fournisseur et GrowzMarket côté porteur.")
+    @GetMapping("/wallet/transactions")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "BearerAuth")
+    public ApiResponseDTO<List<Map<String, Object>>> getTransactionsTousProjets(
+            Authentication authentication,
+            @Parameter(description = "Type de transaction à filtrer", example = "PAIEMENT_FOURNISSEUR")
+            @RequestParam String type) {
+
+        User porteur = userRepository.findByLoginForAuth(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        List<Projet> mesProjets = projetRepository.findByPorteurId(porteur.getId());
+
+        List<Map<String, Object>> resultat = new ArrayList<>();
+        for (Projet projet : mesProjets) {
+            Optional<Wallet> walletOpt = walletRepository.findByProjetIdAndWalletType(projet.getId(),
+                    WalletType.PROJET);
+            if (walletOpt.isEmpty()) {
+                continue;
+            }
+            List<TransactionDTO> transactions = transactionRepository
+                    .findByWalletTypeAndWalletId(WalletType.PROJET, walletOpt.get().getId())
+                    .stream()
+                    .filter(tx -> type.equals(tx.getType().name()))
+                    .map(transactionMapper::toDto)
+                    .toList();
+
+            for (TransactionDTO tx : transactions) {
+                Map<String, Object> entry = new java.util.HashMap<>();
+                entry.put("id", tx.id());
+                entry.put("montant", tx.montant());
+                entry.put("type", tx.type());
+                entry.put("statut", tx.statut());
+                entry.put("createdAt", tx.createdAt());
+                entry.put("description", tx.description());
+                entry.put("referenceType", tx.referenceType());
+                entry.put("referenceId", tx.referenceId());
+                entry.put("projetId", projet.getId());
+                entry.put("projetLibelle", projet.getLibelle());
+                resultat.add(entry);
+            }
+        }
+
+        resultat.sort((a, b) -> ((java.time.LocalDateTime) b.get("createdAt"))
+                .compareTo((java.time.LocalDateTime) a.get("createdAt")));
+
+        return ApiResponseDTO.success(resultat);
     }
 }
