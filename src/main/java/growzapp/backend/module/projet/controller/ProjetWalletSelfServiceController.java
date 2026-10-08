@@ -7,7 +7,13 @@ import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.service.UserService;
 import growzapp.backend.module.wallet.dto.RetraitProjetPorteurRequest;
+import growzapp.backend.module.wallet.dto.TransactionDTO;
 import growzapp.backend.module.wallet.dto.TransfertProjetPersonnelRequest;
+import growzapp.backend.module.wallet.enums.WalletType;
+import growzapp.backend.module.wallet.mapper.TransactionMapper;
+import growzapp.backend.module.wallet.model.Wallet;
+import growzapp.backend.module.wallet.repository.TransactionRepository;
+import growzapp.backend.module.wallet.repository.WalletRepository;
 import growzapp.backend.module.wallet.service.WalletService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,11 +24,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Actions self-service du porteur sur le wallet de SON projet : retirer vers
@@ -44,6 +54,9 @@ public class ProjetWalletSelfServiceController {
     private final UserService userService;
     private final WalletService walletService;
     private final ProjetWithdrawalService projetWithdrawalService;
+    private final WalletRepository walletRepository;
+    private final TransactionRepository transactionRepository;
+    private final TransactionMapper transactionMapper;
 
     private boolean canAccess(Projet projet, User currentUser) {
         if (currentUser == null) {
@@ -143,5 +156,35 @@ public class ProjetWalletSelfServiceController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponseDTO.error(e.getMessage()));
         }
+    }
+
+    @GetMapping("/transactions")
+    @Operation(
+        summary = "Transactions du wallet de son projet",
+        description = "Retourne l'historique complet des transactions du wallet d'un projet (déblocages, transferts, paiements fournisseur, ventes GrowzMarket...). Réservé au porteur du projet (ou à un admin).",
+        tags = {"Porteur - Trésorerie Projet"}
+    )
+    public ResponseEntity<?> getTransactions(
+            @Parameter(description = "Identifiant du projet", example = "7", required = true)
+            @PathVariable Long projetId) {
+
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        if (!canAccess(projet, userService.getCurrentUser())) {
+            return ResponseEntity.status(403).body(ApiResponseDTO.error("Accès refusé"));
+        }
+
+        Wallet wallet = walletRepository.findByProjetIdAndWalletType(projetId, WalletType.PROJET)
+                .orElseThrow(() -> new IllegalStateException("Wallet introuvable"));
+
+        List<TransactionDTO> transactions = transactionRepository
+                .findByWalletTypeAndWalletId(WalletType.PROJET, wallet.getId())
+                .stream()
+                .map(transactionMapper::toDto)
+                .sorted(Comparator.comparing(TransactionDTO::createdAt).reversed())
+                .toList();
+
+        return ResponseEntity.ok(transactions);
     }
 }
