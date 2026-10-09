@@ -27,6 +27,8 @@ import growzapp.backend.module.projet.dto.ProjetDTO;
 import growzapp.backend.module.projet.dto.RevalorisationRequestDTO;
 import growzapp.backend.module.projet.enums.StatutProjet;
 import growzapp.backend.module.projet.mapper.ProjetMapper;
+import growzapp.backend.module.projet.dto.CloturerEchecRequest;
+import growzapp.backend.module.projet.dto.ProlongerEcheanceRequest;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.projet.service.ProjetService;
 import growzapp.backend.module.shared.ApiResponseDTO;
@@ -222,6 +224,48 @@ public class AdminProjetController {
             @Parameter(description = "Identifiant du projet à valider", example = "7", required = true)
             @PathVariable Long id) {
         return changerStatut(id, StatutProjet.VALIDE);
+    }
+
+    @PatchMapping("/{id}/prolonger-echeance")
+    @Operation(
+        summary = "Prolonger la date limite de financement d'un projet",
+        description = "Repousse financement_fin — utile pour éviter une clôture en échec inutile sur un projet proche du but. Impossible sur un projet déjà clôturé (ECHEC_FINANCEMENT, TERMINE).",
+        tags = {"Admin - Projets"}
+    )
+    public ApiResponseDTO<ProjetDTO> prolongerEcheance(
+            @Parameter(description = "Identifiant du projet", example = "7", required = true)
+            @PathVariable Long id,
+            @jakarta.validation.Valid @RequestBody ProlongerEcheanceRequest request) {
+        Projet updated = projetService.prolongerEcheance(id, request.nouvelleDateFin());
+        return ApiResponseDTO.success(projetMapper.toDto(updated));
+    }
+
+    @PostMapping("/{id}/cloturer-echec")
+    @Operation(
+        summary = "Clôturer un projet en échec de financement et rembourser les investisseurs",
+        description = "Réservé aux projets dont la date limite est dépassée sans que l'objectif de financement soit atteint. Rembourse intégralement chaque investissement VALIDE (soldeBloque du wallet projet → soldeDisponible du wallet de chaque investisseur) et passe le projet à ECHEC_FINANCEMENT. Action manuelle, jamais déclenchée automatiquement.",
+        tags = {"Admin - Projets"}
+    )
+    public ApiResponseDTO<ProjetDTO> cloturerEnEchec(
+            @Parameter(description = "Identifiant du projet", example = "7", required = true)
+            @PathVariable Long id,
+            @RequestBody(required = false) CloturerEchecRequest request) {
+        String motif = request != null ? request.motif() : null;
+        Projet updated = projetService.cloturerEnEchec(id, motif);
+        return ApiResponseDTO.success(projetMapper.toDto(updated));
+    }
+
+    @GetMapping("/echeance-depassee")
+    @Operation(
+        summary = "Lister les projets en échéance dépassée sans objectif atteint",
+        description = "Projets encore actifs (publiés) dont la date limite de financement est passée et dont l'objectif n'est pas atteint — candidats à une prolongation ou une clôture en échec.",
+        tags = {"Admin - Projets"}
+    )
+    public ApiResponseDTO<List<ProjetDTO>> listeEcheanceDepassee() {
+        List<ProjetDTO> liste = projetService.listeEcheanceDepassee().stream()
+                .map(projetMapper::toDto)
+                .collect(Collectors.toList());
+        return ApiResponseDTO.success(liste);
     }
 
     @PostMapping("/{id}/premium/revoquer")

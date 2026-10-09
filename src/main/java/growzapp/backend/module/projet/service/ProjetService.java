@@ -68,6 +68,7 @@ public class ProjetService {
     private final TransactionRepository transactionRepository;
     private final PaymentProviderRouter paymentProviderRouter;
     private final FactureService factureService;
+    private final growzapp.backend.module.wallet.service.WalletService walletService;
 
     // === STATUT PREMIUM ===
     public static final BigDecimal PRIX_PREMIUM_FCFA = BigDecimal.valueOf(5000);
@@ -630,6 +631,122 @@ public class ProjetService {
                     "Le projet « " + saved.getLibelle() + " » vient d'être publié. Découvrez-le dès maintenant !",
                     saved.getId(),
                     saved.getSlug());
+        }
+
+        return saved;
+    }
+
+    // Repousse la date limite de financement d'un projet — action admin
+    // utilisée pour éviter une clôture en échec inutile sur un projet proche
+    // du but. Interdite sur un projet déjà clôturé.
+    @Transactional
+    public Projet prolongerEcheance(Long id, java.time.LocalDate nouvelleDateFin) {
+        Projet projet = getById(id);
+
+        if (projet.getStatutProjet() == StatutProjet.ECHEC_FINANCEMENT
+                || projet.getStatutProjet() == StatutProjet.TERMINE) {
+            throw new IllegalStateException("Ce projet est déjà clôturé, sa date limite ne peut plus être modifiée.");
+        }
+        if (nouvelleDateFin == null) {
+            throw new IllegalArgumentException("La nouvelle date limite est obligatoire.");
+        }
+        if (projet.getDateFin() != null && !nouvelleDateFin.isAfter(projet.getDateFin())) {
+            throw new IllegalArgumentException("La nouvelle date limite doit être postérieure à l'actuelle.");
+        }
+
+        log.info("prolongerEcheance : projet {} — {} → {}", id, projet.getDateFin(), nouvelleDateFin);
+        projet.setDateFin(nouvelleDateFin);
+        Projet saved = projetRepository.save(projet);
+
+        if (saved.getPorteur() != null) {
+            notificationService.notifyProjectOwner(
+                    saved.getPorteur(),
+                    "📅 Date limite de financement prolongée",
+                    "La date limite de financement de votre projet « " + saved.getLibelle()
+                            + " » a été repoussée au " + nouvelleDateFin + ".",
+                    saved.getId());
+        }
+
+        return saved;
+    }
+
+    // Projets encore actifs dont la date limite est dépassée sans que
+    // l'objectif soit atteint — candidats à une prolongation ou une clôture
+    // en échec. Jamais traité automatiquement : sert uniquement à informer
+    // l'admin (dashboard + bandeau sur le détail projet).
+    public List<Projet> listeEcheanceDepassee() {
+        java.time.LocalDate aujourdHui = java.time.LocalDate.now();
+        return projetRepository.findAll().stream()
+                .filter(p -> p.getStatutProjet().estPublie())
+                .filter(p -> p.getDateFin() != null && p.getDateFin().isBefore(aujourdHui))
+                .filter(p -> p.getObjectifFinancement() != null
+                        && (p.getMontantCollecte() == null
+                                || p.getMontantCollecte().compareTo(p.getObjectifFinancement()) < 0))
+                .toList();
+    }
+
+    // Clôture manuelle d'un projet qui n'a pas atteint son objectif à sa date
+    // limite : rembourse intégralement chaque investissement VALIDE, puis
+    // passe le projet à ECHEC_FINANCEMENT. Jamais déclenché automatiquement —
+    // c'est l'admin qui décide, depuis le bandeau d'alerte sur le détail
+    // projet (alimenté par listeEcheanceDepassee()).
+    @Transactional
+    public Projet cloturerEnEchec(Long id, String motif) {
+        Projet projet = getById(id);
+
+        if (projet.getDateFin() == null || !projet.getDateFin().isBefore(java.time.LocalDate.now())) {
+            throw new IllegalStateException("La date limite de financement de ce projet n'est pas encore dépassée.");
+        }
+        if (projet.getObjectifFinancement() == null
+                || (projet.getMontantCollecte() != null
+                        && projet.getMontantCollecte().compareTo(projet.getObjectifFinancement()) >= 0)) {
+            throw new IllegalStateException("Ce projet a atteint son objectif de financement — il ne peut pas être clôturé en échec.");
+        }
+
+        List<Investissement> investissementsValides = investissementRepository
+                .findByProjetIdAndStatutPartInvestissement(id, StatutPartInvestissement.VALIDE);
+
+        List<String> echecs = new java.util.ArrayList<>();
+        int rembourses = 0;
+        for (Investissement inv : investissementsValides) {
+            try {
+                walletService.rembourserEchecFinancement(
+                        id, inv.getInvestisseur().getId(), inv.getMontantInvesti(), motif);
+                inv.setStatutPartInvestissement(StatutPartInvestissement.REMBOURSE);
+                investissementRepository.save(inv);
+                rembourses++;
+            } catch (Exception e) {
+                log.error("cloturerEnEchec : échec du remboursement de l'investissement {} (projet {}) : {}",
+                        inv.getId(), id, e.getMessage());
+                echecs.add("Investissement #" + inv.getId() + " : " + e.getMessage());
+            }
+        }
+
+        log.info("cloturerEnEchec : projet {} — {} investissement(s) remboursé(s), {} échec(s)",
+                id, rembourses, echecs.size());
+        if (!echecs.isEmpty()) {
+            log.warn("cloturerEnEchec : projet {} — remboursements en échec nécessitant une intervention manuelle : {}",
+                    id, echecs);
+        }
+
+        projet.setStatutProjet(StatutProjet.ECHEC_FINANCEMENT);
+        Projet saved = projetRepository.save(projet);
+
+        notificationService.notifyInvestorsOfProject(
+                saved,
+                "💸 Projet non financé — remboursement effectué",
+                "Le projet « " + saved.getLibelle()
+                        + " » n'a pas atteint son objectif de financement avant la date limite. "
+                        + "Votre investissement vous a été intégralement remboursé sur votre portefeuille GrowzApp.");
+
+        if (saved.getPorteur() != null) {
+            notificationService.notifyProjectOwner(
+                    saved.getPorteur(),
+                    "Projet clôturé — objectif non atteint",
+                    "Votre projet « " + saved.getLibelle()
+                            + " » n'a pas atteint son objectif de financement avant la date limite et a été clôturé. "
+                            + "Les investisseurs ont été intégralement remboursés.",
+                    saved.getId());
         }
 
         return saved;

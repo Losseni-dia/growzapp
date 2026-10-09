@@ -10,7 +10,11 @@ public enum StatutProjet {
     EN_COURS,
     TERMINE,
     EN_ATTENTE,
-    FINANCE;
+    FINANCE,
+    // Date limite de financement dépassée sans que l'objectif ait été
+    // atteint — clôturé manuellement par un admin, tous les investissements
+    // VALIDE remboursés intégralement. Jamais atteint automatiquement.
+    ECHEC_FINANCEMENT;
 
     // Projet réellement validé par l'admin et publié (financement en cours
     // ou déjà financé) — à l'exclusion des brouillons, projets en attente

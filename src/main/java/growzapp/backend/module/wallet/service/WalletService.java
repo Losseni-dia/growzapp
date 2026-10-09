@@ -211,15 +211,26 @@ public class WalletService {
             throw new IllegalArgumentException("Montant invalide");
         }
 
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        // Tant que l'objectif de financement n'est pas atteint, aucun fonds ne
+        // peut être débloqué vers le porteur — garantit qu'un remboursement
+        // intégral des investisseurs reste toujours possible si le projet
+        // échoue à sa date limite (cf. cloturerEnEchec / rembourserEchecFinancement).
+        if (projet.getObjectifFinancement() != null
+                && (projet.getMontantCollecte() == null
+                        || projet.getMontantCollecte().compareTo(projet.getObjectifFinancement()) < 0)) {
+            throw new IllegalStateException(
+                    "Impossible de débloquer : l'objectif de financement n'est pas encore atteint.");
+        }
+
         Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
                 .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
 
         // lève IllegalStateException si soldeBloque insuffisant
         walletProjet.debloquerVersDisponible(montant);
         walletRepository.save(walletProjet);
-
-        Projet projet = projetRepository.findById(projetId)
-                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
 
         String motifFinal = motif != null && !motif.isBlank() ? motif : "Déblocage de trésorerie";
 
@@ -397,6 +408,63 @@ public class WalletService {
         transactionRepository.save(txOut);
         transactionRepository.save(txIn);
         walletRepository.saveAll(List.of(walletPersonnel, walletProjet));
+    }
+
+    // ── REMBOURSEMENT D'UN INVESTISSEUR (projet en échec de financement) ────
+    // Débite directement soldeBloque du wallet projet (c'est là que l'argent
+    // d'un investissement VALIDE réside tant qu'il n'a pas été débloqué par
+    // l'admin — et le déblocage est désormais interdit avant que l'objectif
+    // soit atteint, cf. debloquerTresorerieProjet) et crédite soldeDisponible
+    // du wallet de l'investisseur. Appelé par ProjetService.cloturerEnEchec
+    // pour chaque investissement VALIDE du projet.
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public void rembourserEchecFinancement(Long projetId, Long investisseurId, BigDecimal montant, String motif) {
+        if (montant == null || montant.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Montant invalide");
+        }
+
+        Wallet walletProjet = walletRepository.findByProjetIdAndWalletTypeWithLock(projetId, WalletType.PROJET)
+                .orElseThrow(() -> new IllegalStateException("Wallet projet introuvable"));
+        Wallet walletInvestisseur = walletRepository.findByUserIdWithPessimisticLock(investisseurId)
+                .orElseThrow(() -> new IllegalStateException("Wallet de l'investisseur introuvable"));
+
+        Projet projet = projetRepository.findById(projetId)
+                .orElseThrow(() -> new IllegalStateException("Projet introuvable"));
+
+        // lève IllegalStateException si soldeBloque insuffisant
+        walletProjet.debiterBloque(montant);
+        walletInvestisseur.crediterDisponible(montant);
+
+        String motifFinal = motif != null && !motif.isBlank() ? motif : "Objectif de financement non atteint";
+
+        Transaction txOut = Transaction.builder()
+                .walletId(walletProjet.getId())
+                .walletType(WalletType.PROJET)
+                .montant(montant)
+                .type(TypeTransaction.REMBOURSEMENT)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Remboursement investisseur — projet « " + projet.getLibelle() + " » : " + motifFinal)
+                .referenceType("PROJET")
+                .referenceId(projetId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Transaction txIn = Transaction.builder()
+                .walletId(walletInvestisseur.getId())
+                .walletType(WalletType.USER)
+                .montant(montant)
+                .type(TypeTransaction.REMBOURSEMENT)
+                .statut(StatutTransaction.SUCCESS)
+                .description("Remboursement — projet « " + projet.getLibelle() + " » : " + motifFinal)
+                .referenceType("PROJET")
+                .referenceId(projetId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        transactionRepository.save(txOut);
+        transactionRepository.save(txIn);
+        walletRepository.saveAll(List.of(walletProjet, walletInvestisseur));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
