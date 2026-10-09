@@ -42,5 +42,7 @@ public record PorteurProjetLigneDTO(
 
         @Schema(description = "true si le statut Premium est actuellement actif sur ce projet") boolean premiumActif,
 
-        @Schema(description = "Date de fin du statut Premium (null si jamais acheté)") LocalDateTime premiumFin) {
+        @Schema(description = "Date de fin du statut Premium (null si jamais acheté)") LocalDateTime premiumFin,
+
+        @Schema(description = "Nombre de jours restants avant la date limite de financement (null si pas de date de fin)", example = "12") Integer joursAvantEcheance) {
 }

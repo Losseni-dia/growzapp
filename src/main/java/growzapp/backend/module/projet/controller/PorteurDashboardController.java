@@ -166,6 +166,10 @@ public class PorteurDashboardController {
                 }
             }
 
+            Integer joursAvantEcheance = projet.getDateFin() != null
+                    ? (int) java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.now(), projet.getDateFin())
+                    : null;
+
             PorteurProjetLigneDTO ligne = PorteurProjetLigneDTO.builder()
                     .projetId(projet.getId())
                     .projetLibelle(projet.getLibelle())
@@ -184,6 +188,7 @@ public class PorteurDashboardController {
                     .vitesseLevee(vitesseLevee)
                     .premiumActif(projet.isPremiumActif())
                     .premiumFin(projet.getPremiumFin())
+                    .joursAvantEcheance(joursAvantEcheance)
                     .build();
 
             lignes.add(ligne);
