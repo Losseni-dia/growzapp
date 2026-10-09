@@ -299,16 +299,6 @@ public class ProjetService {
         }
     }
 
-    // La fiche de présentation du porteur (crédibilité professionnelle,
-    // distincte du KYC) doit elle aussi être VALIDEE par un admin avant toute
-    // soumission de projet.
-    private void requireFichePorteurValidee(User currentUser) {
-        if (currentUser.getFicheStatut() != growzapp.backend.module.user.enums.StatutFichePorteur.VALIDEE) {
-            throw new IllegalStateException(
-                    "Votre fiche de présentation porteur doit être validée par un administrateur avant de pouvoir soumettre un projet.");
-        }
-    }
-
     private Secteur resolveSecteur(String secteurNom) {
         return secteurRepository.findByNomIgnoreCase(secteurNom.trim())
                 .orElseGet(() -> {
@@ -394,7 +384,6 @@ public class ProjetService {
         log.info("Traitement métier pour le nouveau projet : {}", projet.getLibelle());
 
         requireKycValide(currentUser);
-        requireFichePorteurValidee(currentUser);
 
         Secteur secteur = resolveSecteur(secteurNom);
         Localite localite = resolveLocalite(localiteNom, paysNom);
@@ -509,7 +498,6 @@ public class ProjetService {
         }
 
         requireKycValide(currentUser);
-        requireFichePorteurValidee(currentUser);
 
         List<String> manquants = new java.util.ArrayList<>();
         if (projet.getLibelle() == null || projet.getLibelle().isBlank())
