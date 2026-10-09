@@ -268,6 +268,19 @@ public class AdminProjetController {
         return ApiResponseDTO.success(liste);
     }
 
+    @GetMapping("/echeance-proche")
+    @Operation(
+        summary = "Lister les projets dont l'échéance de financement approche (J-30)",
+        description = "Projets encore actifs (publiés) dont la date limite de financement tombe dans les 30 prochains jours et dont l'objectif n'est pas encore atteint — alerte précoce, purement informative.",
+        tags = {"Admin - Projets"}
+    )
+    public ApiResponseDTO<List<ProjetDTO>> listeEcheanceProche() {
+        List<ProjetDTO> liste = projetService.listeEcheanceProche().stream()
+                .map(projetMapper::toDto)
+                .collect(Collectors.toList());
+        return ApiResponseDTO.success(liste);
+    }
+
     @PostMapping("/{id}/premium/revoquer")
     @Operation(summary = "Révoquer le statut Premium d'un projet", description = "Désactive immédiatement le Premium (utile en cas d'abus ou de projet clôturé). Aucun remboursement automatique.", tags = {"Admin - Projets"})
     public ApiResponseDTO<String> revoquerPremium(@PathVariable Long id) {

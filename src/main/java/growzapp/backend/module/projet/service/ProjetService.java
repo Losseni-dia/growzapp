@@ -685,6 +685,24 @@ public class ProjetService {
                 .toList();
     }
 
+    // Projets encore actifs dont la date limite approche (J-30 à J-0) sans
+    // que l'objectif soit atteint — alerte précoce, purement informative,
+    // pour laisser le temps à l'admin et au porteur de réagir avant que la
+    // date limite ne soit dépassée (cf. listeEcheanceDepassee() au-dessus).
+    public List<Projet> listeEcheanceProche() {
+        java.time.LocalDate aujourdHui = java.time.LocalDate.now();
+        java.time.LocalDate limite = aujourdHui.plusDays(30);
+        return projetRepository.findAll().stream()
+                .filter(p -> p.getStatutProjet().estPublie())
+                .filter(p -> p.getDateFin() != null
+                        && !p.getDateFin().isBefore(aujourdHui)
+                        && !p.getDateFin().isAfter(limite))
+                .filter(p -> p.getObjectifFinancement() != null
+                        && (p.getMontantCollecte() == null
+                                || p.getMontantCollecte().compareTo(p.getObjectifFinancement()) < 0))
+                .toList();
+    }
+
     // Clôture manuelle d'un projet qui n'a pas atteint son objectif à sa date
     // limite : rembourse intégralement chaque investissement VALIDE, puis
     // passe le projet à ECHEC_FINANCEMENT. Jamais déclenché automatiquement —
