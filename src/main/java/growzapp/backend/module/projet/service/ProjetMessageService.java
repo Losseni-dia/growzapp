@@ -143,7 +143,7 @@ public class ProjetMessageService {
         notificationService.notifyAdmins(
                 "💬 Message investisseur — " + projet.getLibelle(),
                 nomInvestisseur + " a écrit sur le projet « " + projet.getLibelle() + " ».",
-                "/admin/projets/" + projetId + "#messages-investisseurs");
+                "/admin/projets/detail/" + projetId + "#messages-investisseurs");
 
         log.info("ProjetMessageService.envoyerParInvestisseur : message #{} envoyé sur le projet {} par l'investisseur {}",
                 saved.getId(), projetId, investisseur.getId());
