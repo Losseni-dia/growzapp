@@ -66,5 +66,9 @@ public record InvestissementDTO(
 
                 @Schema(description = "Nombre total de dividendes planifiés", example = "6") int dividendesPlanifies,
 
-                @Schema(description = "Statut global des dividendes (ex: EN_COURS, TERMINE, PLANIFIE)", example = "EN_COURS") String statutGlobalDividendes) {
+                @Schema(description = "Statut global des dividendes (ex: EN_COURS, TERMINE, PLANIFIE)", example = "EN_COURS") String statutGlobalDividendes,
+
+                @Schema(description = "true si la date limite de financement du projet est dépassée sans que l'objectif soit atteint — condition d'accès aux choix continuer/récupérer") boolean echeanceDepasseeSansObjectif,
+
+                @Schema(description = "Décision de l'investisseur pour le cycle d'échéance en cours (CONTINUER, RECUPERER), null si aucune décision n'a encore été prise", example = "CONTINUER") String choixEcheanceActuel) {
 }

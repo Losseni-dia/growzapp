@@ -103,12 +103,27 @@ public abstract class InvestissementMapper {
                                 : planifies == 0 ? "Tous payés"
                                                 : "Partiel (" + payes + "/" + (payes + planifies) + ")";
 
+                // Échéance de financement dépassée sans objectif atteint — condition
+                // d'accès aux boutons continuer/récupérer côté investisseur.
+                boolean echeanceDepasseeSansObjectif = false;
+                if (i.getProjet() != null) {
+                        boolean dateDepassee = i.getProjet().getDateFin() != null
+                                        && i.getProjet().getDateFin().isBefore(java.time.LocalDate.now());
+                        boolean objectifNonAtteint = i.getProjet().getObjectifFinancement() != null
+                                        && (i.getProjet().getMontantCollecte() == null
+                                                        || i.getProjet().getMontantCollecte()
+                                                                        .compareTo(i.getProjet().getObjectifFinancement()) < 0);
+                        echeanceDepasseeSansObjectif = dateDepassee && objectifNonAtteint;
+                }
+
                 // Injection des calculs dans le Builder de ton Record DTO
                 builder.montantTotalPercu(montantPercu)
                                 .montantTotalPlanifie(montantPlanifie)
                                 .roiRealise(roiRealise)
                                 .dividendesPayes((int) payes)
                                 .dividendesPlanifies((int) planifies)
-                                .statutGlobalDividendes(statutGlobal);
+                                .statutGlobalDividendes(statutGlobal)
+                                .echeanceDepasseeSansObjectif(echeanceDepasseeSansObjectif)
+                                .choixEcheanceActuel(i.getChoixEcheanceActuel() != null ? i.getChoixEcheanceActuel().name() : null);
         }
 }
