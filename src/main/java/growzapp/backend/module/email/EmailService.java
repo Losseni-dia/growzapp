@@ -328,6 +328,47 @@ public class EmailService {
         }
     }
 
+    // ── MESSAGERIE PROJET (ADMIN/COMMUNICANT ↔ INVESTISSEURS) ────────────────
+    @Async
+    public void envoyerMessageProjet(
+            String emailDestinataire, String nomDestinataire,
+            String projetLibelle, String auteurNom, String contenu, boolean deAdmin) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(emailDestinataire);
+            helper.setSubject("Nouveau message — " + projetLibelle + " — GrowzApp");
+            helper.setText(
+                    """
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
+                              <h1 style="color:#1B5E20;">GrowzApp</h1>
+                              <h2 style="color:#1976d2;">Nouveau message sur « %s »</h2>
+                              <p>Bonjour <strong>%s</strong>,</p>
+                              <p>%s a écrit :</p>
+                              <div style="background:#f1f8e9;border-left:4px solid #1b5e20;padding:16px;border-radius:0 8px 8px 0;margin:20px 0;white-space:pre-wrap;">%s</div>
+                              <p>Cordialement,<br><strong>L'équipe GrowzApp</strong></p>
+                              <p style="font-size:0.78em;color:#999;text-align:center;">GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire</p>
+                            </div>
+                            """
+                            .formatted(projetLibelle, nomDestinataire,
+                                    deAdmin ? "L'équipe GrowzApp" : auteurNom, echapperHtml(contenu)),
+                    true);
+            mailSender.send(message);
+            log.info("Email message projet envoyé à {}", emailDestinataire);
+        } catch (Exception e) {
+            log.error("Échec envoi email message projet à {} : {}", emailDestinataire, e.getMessage(), e);
+        }
+    }
+
+    // Le contenu d'un message projet peut être écrit par un investisseur
+    // (confiance moindre qu'un motif saisi par un admin) — échappé avant
+    // interpolation dans le HTML de l'email pour éviter toute injection dans
+    // le client mail du destinataire.
+    private String echapperHtml(String texte) {
+        if (texte == null) return "";
+        return texte.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
     // ── DÉBLOCAGE DE TRÉSORERIE PROJET ───────────────────────────────────────
     @Async
     public void envoyerDeblocageTresorerie(

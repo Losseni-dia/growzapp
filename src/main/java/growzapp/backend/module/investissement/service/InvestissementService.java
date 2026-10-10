@@ -76,6 +76,16 @@ public class InvestissementService {
 
 
 
+        // Investisseurs distincts d'un projet (toutes lignes d'investissement
+        // confondues) — utilisé pour le sélecteur de destinataires du canal de
+        // messagerie projet admin/communicant ↔ investisseurs.
+        public List<User> getInvestisseursDistinctsDuProjet(Long projetId) {
+                return investissementRepository.findByProjetId(projetId).stream()
+                                .map(Investissement::getInvestisseur)
+                                .distinct()
+                                .toList();
+        }
+
         public PortefeuilleDTO getPortefeuille(Long investisseurId) {
                 List<Investissement> positions = investissementRepository.findByInvestisseurId(investisseurId).stream()
                                 .filter(inv -> inv.getStatutPartInvestissement() == StatutPartInvestissement.VALIDE)

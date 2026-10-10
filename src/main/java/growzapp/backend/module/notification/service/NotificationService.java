@@ -119,6 +119,16 @@ public class NotificationService {
                 });
     }
 
+    // ── Notifie un sous-ensemble ciblé d'investisseurs (canal de messagerie
+    // projet, diffusion "CIBLES") ─────────────────────────────────────────────
+    public void notifySelectedInvestors(List<User> investisseurs, String title, String content,
+            Long projetId, String projetSlug) {
+        for (User user : investisseurs) {
+            Notification notif = buildNotif(user, title, content, projetId, projetSlug);
+            notificationRepository.save(notif);
+        }
+    }
+
     // ── Notifie tous les investisseurs d'un projet (usage générique) ──────────
     public void notifyInvestorsOfProject(Projet project, String title, String content) {
         if (project.getInvestissements() == null)
