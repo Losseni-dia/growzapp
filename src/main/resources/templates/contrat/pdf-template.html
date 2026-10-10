@@ -600,7 +600,7 @@
                                         th:text="#{contract.unit.months}">mois</span></td>
                             </tr>
                             <tr>
-                                <td class="label" th:style="${investissement.statutPartInvestissement.name() == 'REMBOURSE'} ? 'color:#1565C0' : 'color:#2E7D32'" th:text="#{contract.label.status}">STATUT</td>
+                                <td class="label" th:style="${investissement.statutPartInvestissement.name() == 'REMBOURSE'} ? 'color:#1565C0' : 'color:#2E7D32'" th:text="#{contract.status.label}">STATUT</td>
                                 <td class="value" th:style="${investissement.statutPartInvestissement.name() == 'REMBOURSE'} ? 'color:#1565C0' : 'color:#1B5E20'"
                                     th:text="${investissement.statutPartInvestissement.name() == 'REMBOURSE'} ? #{contract.status.refunded_check} : #{contract.status.paid_check}">VALIDÉ
                                     &amp; PAYÉ ✓</td>
