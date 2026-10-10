@@ -96,11 +96,15 @@ public class ProjetMessageService {
                 ? tousLesInvestisseurs
                 : tousLesInvestisseurs.stream().filter(u -> destinataireIds.contains(u.getId())).toList();
 
+        // Chemin absolu plutôt que le slug du projet : un clic sur la
+        // notification doit ouvrir directement le fil de discussion pour
+        // que l'investisseur puisse répondre, pas la fiche projet.
+        String cheminConversation = "/projets/" + projetId + "/messages";
         String titre = "💬 Nouveau message — " + projet.getLibelle();
         if (destinataireIds.isEmpty()) {
-            notificationService.notifyInvestorsOfProject(projet, titre, contenu);
+            notificationService.notifyInvestorsOfProject(projet, titre, contenu, cheminConversation);
         } else {
-            notificationService.notifySelectedInvestors(destinataires, titre, contenu, projet.getId(), projet.getSlug());
+            notificationService.notifySelectedInvestors(destinataires, titre, contenu, projet.getId(), cheminConversation);
         }
         for (User investisseur : destinataires) {
             emailService.envoyerMessageProjet(
@@ -139,7 +143,7 @@ public class ProjetMessageService {
         notificationService.notifyAdmins(
                 "💬 Message investisseur — " + projet.getLibelle(),
                 nomInvestisseur + " a écrit sur le projet « " + projet.getLibelle() + " ».",
-                "/admin/projets/" + projetId);
+                "/admin/projets/" + projetId + "#messages-investisseurs");
 
         log.info("ProjetMessageService.envoyerParInvestisseur : message #{} envoyé sur le projet {} par l'investisseur {}",
                 saved.getId(), projetId, investisseur.getId());

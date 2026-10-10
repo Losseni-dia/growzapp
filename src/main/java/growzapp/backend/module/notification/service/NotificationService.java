@@ -131,6 +131,13 @@ public class NotificationService {
 
     // ── Notifie tous les investisseurs d'un projet (usage générique) ──────────
     public void notifyInvestorsOfProject(Projet project, String title, String content) {
+        notifyInvestorsOfProject(project, title, content, project.getSlug());
+    }
+
+    // Variante avec chemin de redirection personnalisé (ex: chemin absolu
+    // "/projets/{id}/messages" pour renvoyer vers le canal de messagerie
+    // plutôt que la fiche projet — cf. isAbsolutePathNotif côté frontend).
+    public void notifyInvestorsOfProject(Projet project, String title, String content, String projetSlugOuChemin) {
         if (project.getInvestissements() == null)
             return;
         project.getInvestissements().stream()
@@ -142,7 +149,7 @@ public class NotificationService {
                             title,
                             content,
                             project.getId(),
-                            project.getSlug());
+                            projetSlugOuChemin);
                     notificationRepository.save(notif);
                 });
     }
