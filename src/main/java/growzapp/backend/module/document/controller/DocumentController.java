@@ -249,12 +249,16 @@ public class DocumentController {
         String realExtension = getRealExtension(doc.getFilename());
         String contentType = switch (realExtension) {
             case "pdf" -> "application/pdf";
-            case "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "xlsx", "xls" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             case "csv" -> "text/csv";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "webp" -> "image/webp";
             default -> switch (doc.getType().toUpperCase()) {
                 case "PDF" -> "application/pdf";
                 case "EXCEL" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 case "CSV" -> "text/csv";
+                case "IMAGE" -> "image/jpeg";
                 default -> "application/octet-stream";
             };
         };
@@ -292,6 +296,7 @@ public class DocumentController {
             case "PDF" -> ".pdf";
             case "EXCEL" -> ".xlsx";
             case "CSV" -> ".csv";
+            case "IMAGE" -> ".jpg";
             default -> "";
         };
     }

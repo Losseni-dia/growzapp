@@ -73,12 +73,32 @@ public class ProjetDocumentFileController {
             byte[] content = Files.readAllBytes(filePath);
 
             return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentType(resolveContentType(filename))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
                     .body(new ByteArrayResource(content));
 
         } catch (Exception e) {
             return ResponseEntity.status(500).build();
         }
+    }
+
+    // L'extension réelle du fichier stocké fait foi — sans ça, le navigateur
+    // recevait toujours application/octet-stream et proposait de télécharger
+    // le fichier au lieu de l'afficher inline (PDF, image), rendant le
+    // bouton "voir" inutile.
+    private MediaType resolveContentType(String filename) {
+        int dot = filename.lastIndexOf('.');
+        String extension = dot >= 0 && dot < filename.length() - 1
+                ? filename.substring(dot + 1).toLowerCase()
+                : "";
+        return switch (extension) {
+            case "pdf" -> MediaType.APPLICATION_PDF;
+            case "jpg", "jpeg" -> MediaType.IMAGE_JPEG;
+            case "png" -> MediaType.IMAGE_PNG;
+            case "webp" -> MediaType.valueOf("image/webp");
+            case "xlsx", "xls" -> MediaType.valueOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            case "csv" -> MediaType.valueOf("text/csv");
+            default -> MediaType.APPLICATION_OCTET_STREAM;
+        };
     }
 }

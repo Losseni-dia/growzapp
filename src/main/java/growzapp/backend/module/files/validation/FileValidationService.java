@@ -25,7 +25,10 @@ public class FileValidationService {
             "image/jpeg", "image/png", "image/webp");
 
     private static final Set<String> DOCUMENT_TYPES = Set.of(
-            "image/jpeg", "image/png", "image/webp", "application/pdf");
+            "image/jpeg", "image/png", "image/webp", "application/pdf",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/csv", "text/plain");
 
     private static final long MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 Mo
 
