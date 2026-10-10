@@ -39,8 +39,12 @@ public class ProjetDocumentFileController {
             return ResponseEntity.status(401).build();
         }
 
+        // Compare via getUrl() (qui normalise déjà l'ancienne valeur
+        // doublée de filename) plutôt que getFilename() brut, pour que les
+        // documents uploadés avant le correctif restent accessibles sans
+        // ré-upload.
         Optional<Document> documentOpt = documentRepository.findAll().stream()
-                .filter(d -> filename.equals(d.getFilename()))
+                .filter(d -> ("/files/documents/" + filename).equals(d.getUrl()))
                 .findFirst();
         if (documentOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
