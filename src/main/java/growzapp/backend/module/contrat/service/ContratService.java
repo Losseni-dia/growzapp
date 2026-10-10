@@ -174,7 +174,15 @@ public class ContratService {
 
         boolean deviseParDefaut = devise == null || devise.isBlank() || "XOF".equalsIgnoreCase(devise);
 
-        if (locale.equals(Locale.FRENCH) && deviseParDefaut) {
+        // Le PDF mis en cache (fichierUrl) a été généré une seule fois, au
+        // moment de la validation — il reste figé sur "VALIDÉ & PAYÉ" même
+        // si l'investissement est remboursé depuis. On ne le sert donc
+        // depuis le cache que si le statut n'a pas changé ; un contrat
+        // remboursé est toujours régénéré pour refléter son statut réel.
+        boolean statutInchangeDepuisGeneration = contrat.getInvestissement().getStatutPartInvestissement()
+                != growzapp.backend.module.investissement.enums.StatutPartInvestissement.REMBOURSE;
+
+        if (locale.equals(Locale.FRENCH) && deviseParDefaut && statutInchangeDepuisGeneration) {
             try {
                 return fileStorageService.loadAsBytes(contrat.getFichierUrl());
             } catch (Exception e) {

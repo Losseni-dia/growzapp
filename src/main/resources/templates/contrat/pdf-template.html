@@ -434,7 +434,8 @@
                         <span
                             th:text="${contrat != null ? #temporals.format(contrat.dateGeneration,'dd/MM/yyyy') : #temporals.format(#temporals.createNow(),'dd/MM/yyyy')}">01/01/2026</span><br />
                         <strong th:text="#{contract.status.label}">STATUT</strong> : <span
-                            style="color:#FFC107; font-weight:bold" th:text="#{contract.status.value}">VALIDÉ &amp;
+                            th:style="${investissement.statutPartInvestissement.name() == 'REMBOURSE'} ? 'color:#1565C0; font-weight:bold' : 'color:#FFC107; font-weight:bold'"
+                            th:text="${investissement.statutPartInvestissement.name() == 'REMBOURSE'} ? #{contract.status.refunded} : #{contract.status.value}">VALIDÉ &amp;
                             PAYÉ</span>
                     </div>
                 </td>
@@ -599,8 +600,9 @@
                                         th:text="#{contract.unit.months}">mois</span></td>
                             </tr>
                             <tr>
-                                <td class="label" style="color:#2E7D32" th:text="#{contract.label.status}">STATUT</td>
-                                <td class="value" style="color:#1B5E20" th:text="#{contract.status.paid_check}">VALIDÉ
+                                <td class="label" th:style="${investissement.statutPartInvestissement.name() == 'REMBOURSE'} ? 'color:#1565C0' : 'color:#2E7D32'" th:text="#{contract.label.status}">STATUT</td>
+                                <td class="value" th:style="${investissement.statutPartInvestissement.name() == 'REMBOURSE'} ? 'color:#1565C0' : 'color:#1B5E20'"
+                                    th:text="${investissement.statutPartInvestissement.name() == 'REMBOURSE'} ? #{contract.status.refunded_check} : #{contract.status.paid_check}">VALIDÉ
                                     &amp; PAYÉ ✓</td>
                             </tr>
                         </table>
