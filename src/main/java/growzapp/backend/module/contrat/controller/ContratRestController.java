@@ -56,7 +56,7 @@ public class ContratRestController {
 
         if (contrat == null) {
             return ResponseEntity.ok(new ContratPublicDTO(
-                    false, "Introuvable", "—", "—", 0, "—"));
+                    false, "Introuvable", "—", "—", 0, "—", null, null));
         }
 
         Investissement inv = contrat.getInvestissement();
@@ -82,7 +82,11 @@ public class ContratRestController {
                 nom,
                 inv.getMontantInvesti().doubleValue(),
                 contrat.getDateGeneration().format(
-                        java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
+                        java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                inv.getStatutPartInvestissement().name(),
+                contrat.getArchiveLe() != null
+                        ? contrat.getArchiveLe().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        : null));
     }
 
     @PostMapping("/public/verifier-securise")
@@ -133,13 +137,20 @@ public class ContratRestController {
 
             failureTracker.remove(email);
 
-            return ResponseEntity.ok(Map.of(
-                    "valide", true,
-                    "numeroContrat", contrat.getNumeroContrat(),
-                    "projet", contrat.getInvestissement().getProjet().getLibelle(),
-                    "investisseur", user.getPrenom() + " " + user.getNom(),
-                    "montant", contrat.getInvestissement().getMontantInvesti(),
-                    "date", contrat.getDateGeneration().toLocalDate()));
+            // "valide" signifie uniquement "ce contrat est authentique" — un
+            // contrat remboursé/archivé reste authentique, mais statutInvestissement
+            // et archiveLe permettent au frontend de ne pas afficher "Contrat valide"
+            // sans nuance pour un investissement qui a en réalité été remboursé.
+            Map<String, Object> reponse = new java.util.HashMap<>();
+            reponse.put("valide", true);
+            reponse.put("numeroContrat", contrat.getNumeroContrat());
+            reponse.put("projet", contrat.getInvestissement().getProjet().getLibelle());
+            reponse.put("investisseur", user.getPrenom() + " " + user.getNom());
+            reponse.put("montant", contrat.getInvestissement().getMontantInvesti());
+            reponse.put("date", contrat.getDateGeneration().toLocalDate());
+            reponse.put("statutInvestissement", contrat.getInvestissement().getStatutPartInvestissement().name());
+            reponse.put("archiveLe", contrat.getArchiveLe());
+            return ResponseEntity.ok(reponse);
 
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

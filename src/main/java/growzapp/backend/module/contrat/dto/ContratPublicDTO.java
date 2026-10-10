@@ -20,6 +20,12 @@ public record ContratPublicDTO(
         double montant,
 
         @Schema(description = "Date de génération du contrat", example = "2025-09-10")
-        String date
+        String date,
+
+        @Schema(description = "Statut de l'investissement lié (VALIDE, REMBOURSE, ANNULE...) — un contrat remboursé reste authentique mais n'est plus actif", example = "VALIDE")
+        String statutInvestissement,
+
+        @Schema(description = "Date d'archivage du contrat, null si actif", example = "2026-03-01")
+        String archiveLe
 ) {
 }
