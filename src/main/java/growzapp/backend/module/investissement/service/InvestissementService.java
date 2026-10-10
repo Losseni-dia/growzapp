@@ -360,6 +360,16 @@ public class InvestissementService {
                 inv.setChoixEcheanceActuel(ChoixEcheance.RECUPERER);
                 investissementRepository.save(inv);
 
+                // Le montant collecté et les parts prises sont incrémentés à la
+                // validation (validerInvestissement) mais jamais décrémentés
+                // ailleurs — sans ce correctif, un projet entièrement remboursé
+                // continuait d'afficher son ancien montant collecté sur sa fiche
+                // (public et admin), ce qui est trompeur.
+                Projet projet = inv.getProjet();
+                projet.setMontantCollecte(projet.getMontantCollecte().subtract(inv.getMontantInvesti()));
+                projet.setPartsPrises(Math.max(0, projet.getPartsPrises() - inv.getNombrePartsPris()));
+                projetRepository.save(projet);
+
                 if (inv.getContrat() != null) {
                         try {
                                 contratService.archiver(
@@ -387,7 +397,6 @@ public class InvestissementService {
                 decisionEcheanceInvestissementRepository.save(decision);
 
                 User investisseur = inv.getInvestisseur();
-                Projet projet = inv.getProjet();
 
                 String messageNotif = declencheParAdmin
                                 ? "Le projet « " + projet.getLibelle() + " » a été clôturé en échec de financement "
