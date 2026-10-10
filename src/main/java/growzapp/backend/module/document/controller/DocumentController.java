@@ -94,7 +94,14 @@ public class DocumentController {
                             .error("Seuls l'admin et le porteur de ce projet peuvent y ajouter un document."));
         }
 
-        String filename = fileStorageService.saveProjectDocument(file);
+        // fileStorageService.saveProjectDocument renvoie le chemin complet
+        // ("/files/documents/{uuid}_{nomOriginal}") — Document.filename ne
+        // doit stocker que le nom de fichier nu, sinon Document.getUrl() le
+        // re-préfixe et produit une URL doublée ("/files/documents//files/
+        // documents/...") que ProjetDocumentFileController rejette en 400
+        // (le nom de fichier contient alors un "/").
+        String cheminComplet = fileStorageService.saveProjectDocument(file);
+        String filename = cheminComplet.substring(cheminComplet.lastIndexOf('/') + 1);
         Document doc = new Document();
         doc.setNom(nom);
         doc.setFilename(filename);

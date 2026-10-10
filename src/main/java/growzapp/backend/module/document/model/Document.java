@@ -58,8 +58,17 @@ public class Document {
     @JoinColumn(name = "projet_id")
     private Projet projet;
 
+    // Avant correction, l'upload stockait le chemin complet dans filename
+    // au lieu du simple nom de fichier — pour les documents déjà en base
+    // avec cette valeur doublée, on ne garde que la partie après le
+    // dernier "/" plutôt que de ré-préfixer un chemin déjà préfixé (ce qui
+    // produisait "/files/documents//files/documents/..." et faisait
+    // échouer ProjetDocumentFileController avec un 400).
     public String getUrl() {
-        return "/files/documents/" + this.filename;
+        String nomFichierNu = this.filename != null && this.filename.contains("/")
+                ? this.filename.substring(this.filename.lastIndexOf('/') + 1)
+                : this.filename;
+        return "/files/documents/" + nomFichierNu;
     }
 
     @Override
