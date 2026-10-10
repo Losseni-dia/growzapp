@@ -530,6 +530,7 @@ public class InvestissementService {
 
                 Projet projet = projetRepository.findByIdWithLock(projetId)
                                 .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé"));
+                verifierProjetOuvertAuxInvestissements(projet);
 
                 BigDecimal prixPart = projet.getPrixUnePart();
                 BigDecimal montantTotal = prixPart.multiply(BigDecimal.valueOf(nombrePartsPris));
@@ -567,6 +568,7 @@ public class InvestissementService {
 
                 Projet projet = projetRepository.findByIdWithLock(projetId)
                                 .orElseThrow(() -> new EntityNotFoundException("Projet non trouvé"));
+                verifierProjetOuvertAuxInvestissements(projet);
 
                 BigDecimal montantTotal = projet.getPrixUnePart().multiply(BigDecimal.valueOf(nombrePartsPris));
 
@@ -578,6 +580,19 @@ public class InvestissementService {
 
                 return finaliserCreationInvestissement(projet, nombrePartsPris, montantTotal, investisseur,
                                 walletUser.getId(), sourcePaiement);
+        }
+
+        // Garde-fou backend indépendant du frontend : un projet clôturé
+        // (échec de financement, déjà entièrement financé, ou pas encore
+        // publié) ne doit jamais pouvoir recevoir un nouvel investissement,
+        // même via un appel API direct ou un lien de notification pointant
+        // vers sa fiche détail.
+        private void verifierProjetOuvertAuxInvestissements(Projet projet) {
+                if (projet.getStatutProjet() != StatutProjet.VALIDE && projet.getStatutProjet() != StatutProjet.EN_COURS) {
+                        throw new IllegalStateException(
+                                        "Ce projet n'accepte plus de nouveaux investissements (statut : "
+                                                        + projet.getStatutProjet() + ").");
+                }
         }
 
         private InvestissementDTO finaliserCreationInvestissement(Projet projet, int nombrePartsPris,
