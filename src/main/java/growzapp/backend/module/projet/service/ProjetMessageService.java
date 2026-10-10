@@ -154,7 +154,7 @@ public class ProjetMessageService {
                 (m.getAuteur().getPrenom() + " " + m.getAuteur().getNom()).trim(),
                 m.getRole(),
                 m.getContenu(),
-                m.getDestinataireIds(),
+                m.getDestinataireIds() != null ? m.getDestinataireIds() : Set.of(),
                 m.getDateEnvoi());
     }
 }
