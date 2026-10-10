@@ -94,6 +94,12 @@ public class Projet {
     @Column(name = "financement_fin")
     private LocalDate dateFin;
 
+    // Date du dernier envoi de l'alerte d'échéance (J-30 ou dépassée) à
+    // l'admin et au porteur — évite de renotifier plusieurs fois le même
+    // jour si le job planifié tourne ou est relancé plusieurs fois.
+    @Column(name = "derniere_alerte_echeance_envoyee_le")
+    private LocalDate derniereAlerteEcheanceEnvoyeeLe;
+
     @Enumerated(EnumType.STRING)
     private StatutProjet statutProjet = StatutProjet.SOUMIS;
 

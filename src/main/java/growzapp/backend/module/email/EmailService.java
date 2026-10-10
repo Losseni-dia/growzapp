@@ -256,6 +256,78 @@ public class EmailService {
         }
     }
 
+    // ── ALERTE ÉCHÉANCE DE FINANCEMENT (PORTEUR) ─────────────────────────────
+    @Async
+    public void envoyerAlerteEcheanceProjet(
+            String emailPorteur, String nomPorteur, String projetLibelle, boolean depassee) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(emailPorteur);
+            helper.setSubject(
+                    (depassee ? "Date limite dépassée — " : "Date limite proche — ")
+                            + projetLibelle + " — GrowzApp");
+            String corps = depassee
+                    ? "Votre projet <strong>" + projetLibelle + "</strong> a dépassé sa date limite de financement "
+                            + "sans avoir atteint son objectif. L'équipe GrowzApp va décider de prolonger le délai "
+                            + "ou de clôturer le projet avec remboursement des investisseurs."
+                    : "Votre projet <strong>" + projetLibelle + "</strong> approche de sa date limite de financement "
+                            + "(moins de 30 jours) et n'a pas encore atteint son objectif. Pensez à relancer votre "
+                            + "communication auprès des investisseurs potentiels.";
+            helper.setText(
+                    """
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
+                              <h1 style="color:#1B5E20;">GrowzApp</h1>
+                              <h2 style="color:#d97706;">%s</h2>
+                              <p>Bonjour <strong>%s</strong>,</p>
+                              <p>%s</p>
+                              <p>Cordialement,<br><strong>L'équipe GrowzApp</strong></p>
+                              <p style="font-size:0.78em;color:#999;text-align:center;">GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire</p>
+                            </div>
+                            """
+                            .formatted(
+                                    depassee ? "Date limite dépassée" : "Date limite proche",
+                                    nomPorteur, corps),
+                    true);
+            mailSender.send(message);
+            log.info("Email alerte échéance ({}) envoyé à {}", depassee ? "dépassée" : "proche", emailPorteur);
+        } catch (Exception e) {
+            log.error("Échec envoi email alerte échéance à {} : {}", emailPorteur, e.getMessage(), e);
+        }
+    }
+
+    // ── ALERTE ÉCHÉANCE DE FINANCEMENT (ADMIN) ───────────────────────────────
+    @Async
+    public void envoyerAlerteEcheanceAdmin(String emailAdmin, String projetLibelle, boolean depassee) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(emailAdmin);
+            helper.setSubject(
+                    (depassee ? "[Admin] Date limite dépassée — " : "[Admin] Date limite proche — ")
+                            + projetLibelle + " — GrowzApp");
+            String corps = depassee
+                    ? "Le projet <strong>" + projetLibelle + "</strong> a dépassé sa date limite de financement "
+                            + "sans avoir atteint son objectif. Une prolongation ou une clôture en échec est à décider."
+                    : "Le projet <strong>" + projetLibelle + "</strong> approche de sa date limite de financement "
+                            + "(moins de 30 jours) et n'a pas encore atteint son objectif.";
+            helper.setText(
+                    """
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
+                              <h1 style="color:#1B5E20;">GrowzApp — Admin</h1>
+                              <h2 style="color:#d97706;">%s</h2>
+                              <p>%s</p>
+                            </div>
+                            """
+                            .formatted(depassee ? "Date limite dépassée" : "Date limite proche", corps),
+                    true);
+            mailSender.send(message);
+            log.info("Email alerte échéance admin ({}) envoyé à {}", depassee ? "dépassée" : "proche", emailAdmin);
+        } catch (Exception e) {
+            log.error("Échec envoi email alerte échéance admin à {} : {}", emailAdmin, e.getMessage(), e);
+        }
+    }
+
     // ── DÉBLOCAGE DE TRÉSORERIE PROJET ───────────────────────────────────────
     @Async
     public void envoyerDeblocageTresorerie(
