@@ -177,8 +177,49 @@ public class DocumentController {
                         .filter(d -> d.getStatut() == growzapp.backend.module.document.enums.StatutDocument.APPROUVE)
                         .toList();
 
-        List<DocumentDTO> docs = documentMapper.toDocumentDtoList(documents);
+        java.util.Set<Long> archivedIds = documentService.getArchivedDocumentIds(user.getId());
+        List<DocumentDTO> docs = documents.stream()
+                .map(d -> withArchiveFlag(documentMapper.toDocumentDto(d), archivedIds.contains(d.getId())))
+                .toList();
         return ResponseEntity.ok(ApiResponseDTO.success(docs));
+    }
+
+    // DocumentMapper ne connaît pas l'utilisateur courant — l'archivage est
+    // strictement personnel (comme Gmail), donc ce drapeau est recalculé ici
+    // plutôt que par le mapper générique.
+    private DocumentDTO withArchiveFlag(DocumentDTO dto, boolean archive) {
+        return new DocumentDTO(dto.id(), dto.nom(), dto.url(), dto.type(), dto.uploadedAt(),
+                dto.description(), dto.statut(), archive);
+    }
+
+    @PostMapping("/{documentId}/archiver")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "Archiver un document pour soi-même",
+            description = "Archivage strictement personnel (comme Gmail) : n'affecte pas l'affichage pour les autres utilisateurs ayant accès à ce document.",
+            tags = { "Documents" })
+    public ResponseEntity<ApiResponseDTO<String>> archiverPourMoi(
+            @PathVariable Long documentId, Authentication auth) {
+        User user = userRepository.findByLoginForAuth(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        Document doc = documentService.findById(documentId);
+        if (!documentService.hasAccessToProject(user, doc.getProjet().getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        documentService.archiverPourUtilisateur(documentId, user.getId());
+        return ResponseEntity.ok(ApiResponseDTO.<String>success(null).message("Document archivé"));
+    }
+
+    @PostMapping("/{documentId}/desarchiver")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "Désarchiver un document pour soi-même", tags = { "Documents" })
+    public ResponseEntity<ApiResponseDTO<String>> desarchiverPourMoi(
+            @PathVariable Long documentId, Authentication auth) {
+        User user = userRepository.findByLoginForAuth(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        documentService.desarchiverPourUtilisateur(documentId, user.getId());
+        return ResponseEntity.ok(ApiResponseDTO.<String>success(null).message("Document désarchivé"));
     }
 
     @GetMapping("/admin/all")
@@ -333,6 +374,15 @@ public class DocumentController {
         Document doc = documentService.rejeter(documentId);
         return ResponseEntity.ok(ApiResponseDTO.success(documentMapper.toDocumentDto(doc))
                 .message("Document rejeté"));
+    }
+
+    @DeleteMapping("/{documentId}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "[Admin] Retirer définitivement un document déjà uploadé", tags = { "Documents" })
+    public ResponseEntity<ApiResponseDTO<String>> supprimerDocument(@PathVariable Long documentId) {
+        documentService.supprimer(documentId);
+        return ResponseEntity.ok(ApiResponseDTO.<String>success(null).message("Document supprimé"));
     }
 
     @GetMapping("/projet/{projetId}/en-attente")

@@ -123,6 +123,35 @@ public class FileStorageService {
     }
 
     // SUPPRIME ÇA (l’ancienne) :
+    // Supprime le fichier physique d'un document projet — ne fait rien
+    // (pas d'exception) si le fichier n'existe déjà plus sur le disque,
+    // pour que la suppression de la ligne en base reste possible même en
+    // cas d'incohérence préalable.
+    public void deleteDocument(String filenameOnly) throws IOException {
+        if (filenameOnly == null || filenameOnly.isBlank()) {
+            return;
+        }
+
+        String cleanFilename = filenameOnly
+                .substring(filenameOnly.lastIndexOf("/") + 1)
+                .substring(filenameOnly.lastIndexOf("\\") + 1)
+                .trim();
+
+        if (cleanFilename.isBlank() || cleanFilename.contains("..") || cleanFilename.contains("/")
+                || cleanFilename.contains("\\")) {
+            throw new IOException("Nom de fichier invalide après nettoyage : " + cleanFilename);
+        }
+
+        Path root = getUploadPath("documents");
+        Path filePath = root.resolve(cleanFilename).normalize();
+
+        if (!filePath.startsWith(root)) {
+            throw new IOException("Tentative d'accès hors du dossier documents : " + cleanFilename);
+        }
+
+        Files.deleteIfExists(filePath);
+    }
+
     // public byte[] loadAsBytes(String subfolder, String filename) throws
     // IOException { ... }
 

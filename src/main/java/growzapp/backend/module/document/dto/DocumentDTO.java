@@ -14,5 +14,6 @@ public record DocumentDTO(
                 @Schema(description = "Date et heure d'upload du document", example = "2025-09-10T14:30:00") LocalDateTime uploadedAt,
                 @Schema(description = "Description du contenu du document", example = "Bilan comptable du 2e trimestre") String description,
                 @Schema(description = "Statut de validation du document", example = "EN_ATTENTE", allowableValues = {
-                                "EN_ATTENTE", "APPROUVE", "REJETE" }) String statut) {
+                                "EN_ATTENTE", "APPROUVE", "REJETE" }) String statut,
+                @Schema(description = "true si l'utilisateur courant a archivé ce document pour lui-même (archivage strictement personnel, comme Gmail)") boolean archive) {
 }
