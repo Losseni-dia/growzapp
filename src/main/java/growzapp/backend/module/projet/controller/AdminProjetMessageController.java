@@ -6,9 +6,11 @@ import growzapp.backend.module.projet.dto.ProjetMessageDTO;
 import growzapp.backend.module.projet.service.ProjetMessageService;
 import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,6 +29,7 @@ import java.util.List;
 public class AdminProjetMessageController {
 
     private final ProjetMessageService projetMessageService;
+    private final UserRepository userRepository;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'COMMUNICANT')")
@@ -54,7 +57,8 @@ public class AdminProjetMessageController {
             @PathVariable Long projetId,
             @Valid @RequestBody ProjetMessageAdminCreateDTO dto,
             Authentication auth) {
-        User auteur = (User) auth.getPrincipal();
+        User auteur = userRepository.findByLoginForAuth(auth.getName())
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable"));
         ProjetMessageDTO message = projetMessageService.envoyerParAdmin(
                 projetId, auteur, dto.contenu(), dto.destinataireType(), dto.destinataireIds());
         return ApiResponseDTO.success(message);

@@ -5,9 +5,11 @@ import growzapp.backend.module.projet.dto.ProjetMessageDTO;
 import growzapp.backend.module.projet.service.ProjetMessageService;
 import growzapp.backend.module.shared.ApiResponseDTO;
 import growzapp.backend.module.user.model.User;
+import growzapp.backend.module.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +28,7 @@ import java.util.List;
 public class ProjetMessageController {
 
     private final ProjetMessageService projetMessageService;
+    private final UserRepository userRepository;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -33,7 +36,8 @@ public class ProjetMessageController {
     @Operation(summary = "Lister les messages visibles pour l'investisseur connecté sur ce projet",
             tags = {"Messagerie projet"})
     public ApiResponseDTO<List<ProjetMessageDTO>> lister(@PathVariable Long projetId, Authentication auth) {
-        User investisseur = (User) auth.getPrincipal();
+        User investisseur = userRepository.findByLoginForAuth(auth.getName())
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable"));
         return ApiResponseDTO.success(projetMessageService.listerPourInvestisseur(projetId, investisseur.getId()));
     }
 
@@ -45,7 +49,8 @@ public class ProjetMessageController {
             @PathVariable Long projetId,
             @Valid @RequestBody ProjetMessageCreateDTO dto,
             Authentication auth) {
-        User investisseur = (User) auth.getPrincipal();
+        User investisseur = userRepository.findByLoginForAuth(auth.getName())
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable"));
         ProjetMessageDTO message = projetMessageService.envoyerParInvestisseur(projetId, investisseur, dto.contenu());
         return ApiResponseDTO.success(message);
     }
