@@ -388,6 +388,22 @@ public class InvestissementService {
 
                 User investisseur = inv.getInvestisseur();
                 Projet projet = inv.getProjet();
+
+                String messageNotif = declencheParAdmin
+                                ? "Le projet « " + projet.getLibelle() + " » a été clôturé en échec de financement "
+                                                + "par l'équipe GrowzApp. Votre investissement de "
+                                                + inv.getMontantInvesti().toPlainString()
+                                                + " FCFA vous a été intégralement remboursé."
+                                : "Votre investissement de " + inv.getMontantInvesti().toPlainString()
+                                                + " FCFA dans le projet « " + projet.getLibelle()
+                                                + " » vous a été intégralement remboursé, suite à votre choix de récupérer vos fonds.";
+                notificationService.notifyUser(
+                                investisseur,
+                                "💸 Remboursement effectué — " + projet.getLibelle(),
+                                messageNotif,
+                                projet.getId(),
+                                projet.getSlug());
+
                 emailService.envoyerRemboursementEcheance(
                                 investisseur.getEmail(),
                                 investisseur.getPrenom() + " " + investisseur.getNom(),

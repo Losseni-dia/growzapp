@@ -670,6 +670,23 @@ public class ProjetService {
             }
         }
 
+        // Tous les investisseurs encore VALIDE sont informés de la
+        // prolongation — en particulier ceux qui avaient choisi « Continuer »
+        // lors du cycle précédent et dont le choix vient d'être remis à
+        // zéro. On ne notifie que les investisseurs encore actifs sur ce
+        // projet (pas ceux déjà remboursés lors d'un cycle précédent).
+        investissementsValides.stream()
+                .map(Investissement::getInvestisseur)
+                .distinct()
+                .forEach(investisseur -> notificationService.notifyUser(
+                        investisseur,
+                        "📅 Date limite de financement prolongée — " + saved.getLibelle(),
+                        "La date limite de financement du projet « " + saved.getLibelle()
+                                + " », dans lequel vous avez investi, a été repoussée au " + nouvelleDateFin
+                                + ". Votre investissement reste actif.",
+                        saved.getId(),
+                        saved.getSlug()));
+
         if (saved.getPorteur() != null) {
             notificationService.notifyProjectOwner(
                     saved.getPorteur(),
@@ -778,12 +795,11 @@ public class ProjetService {
         projet.setStatutProjet(StatutProjet.ECHEC_FINANCEMENT);
         Projet saved = projetRepository.save(projet);
 
-        notificationService.notifyInvestorsOfProject(
-                saved,
-                "💸 Projet non financé — remboursement effectué",
-                "Le projet « " + saved.getLibelle()
-                        + " » n'a pas atteint son objectif de financement avant la date limite. "
-                        + "Votre investissement vous a été intégralement remboursé sur votre portefeuille GrowzApp.");
+        // Chaque investisseur remboursé a déjà reçu une notification précise
+        // (montant, motif) via rembourserPourEchecFinancement — pas besoin
+        // d'un message collectif en plus, qui serait redondant et risquerait
+        // de renotifier à tort un investisseur déjà remboursé lors d'un cycle
+        // précédent.
 
         if (saved.getPorteur() != null) {
             notificationService.notifyProjectOwner(
