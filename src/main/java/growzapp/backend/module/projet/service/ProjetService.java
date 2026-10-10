@@ -64,11 +64,11 @@ public class ProjetService {
     private final DeepLTranslationService deepLTranslationService;
     private final ProjetValorisationService projetValorisationService;
     private final InvestissementRepository investissementRepository;
+    private final growzapp.backend.module.investissement.service.InvestissementService investissementService;
     private final UserService userService;
     private final TransactionRepository transactionRepository;
     private final PaymentProviderRouter paymentProviderRouter;
     private final FactureService factureService;
-    private final growzapp.backend.module.wallet.service.WalletService walletService;
 
     // === STATUT PREMIUM ===
     public static final BigDecimal PRIX_PREMIUM_FCFA = BigDecimal.valueOf(5000);
@@ -658,6 +658,18 @@ public class ProjetService {
         projet.setDateFin(nouvelleDateFin);
         Projet saved = projetRepository.save(projet);
 
+        // Nouveau cycle d'échéance : chaque investisseur doit pouvoir décider à
+        // nouveau si cette nouvelle date limite échoue aussi. Les lignes d'audit
+        // du cycle précédent ne sont jamais modifiées.
+        List<Investissement> investissementsValides = investissementRepository
+                .findByProjetIdAndStatutPartInvestissement(id, StatutPartInvestissement.VALIDE);
+        for (Investissement inv : investissementsValides) {
+            if (inv.getChoixEcheanceActuel() != null) {
+                inv.setChoixEcheanceActuel(null);
+                investissementRepository.save(inv);
+            }
+        }
+
         if (saved.getPorteur() != null) {
             notificationService.notifyProjectOwner(
                     saved.getPorteur(),
@@ -728,15 +740,31 @@ public class ProjetService {
         int rembourses = 0;
         for (Investissement inv : investissementsValides) {
             try {
-                walletService.rembourserEchecFinancement(
-                        id, inv.getInvestisseur().getId(), inv.getMontantInvesti(), motif);
-                inv.setStatutPartInvestissement(StatutPartInvestissement.REMBOURSE);
-                investissementRepository.save(inv);
+                // rembourserPourEchecFinancement gère à elle seule le wallet, le
+                // statut, l'archivage du contrat, l'audit et l'email — qu'il
+                // s'agisse d'un investisseur qui avait choisi CONTINUER ou qui n'a
+                // rien choisi : l'admin reste décisionnaire en dernier ressort.
+                investissementService.rembourserPourEchecFinancement(inv, motif, true);
                 rembourses++;
             } catch (Exception e) {
                 log.error("cloturerEnEchec : échec du remboursement de l'investissement {} (projet {}) : {}",
                         inv.getId(), id, e.getMessage());
                 echecs.add("Investissement #" + inv.getId() + " : " + e.getMessage());
+            }
+        }
+
+        // Les investissements encore EN_ATTENTE (jamais validés par l'admin) sur
+        // un projet clôturé en échec n'ont plus de sens à être validés — rejetés
+        // automatiquement, fonds restitués à l'investisseur.
+        List<Investissement> investissementsEnAttente = investissementRepository
+                .findByProjetIdAndStatutPartInvestissement(id, StatutPartInvestissement.EN_ATTENTE);
+        for (Investissement inv : investissementsEnAttente) {
+            try {
+                investissementService.annulerInvestissement(inv.getId(),
+                        "Projet clôturé en échec de financement avant validation de cet investissement");
+            } catch (Exception e) {
+                log.error("cloturerEnEchec : échec du rejet de l'investissement en attente {} (projet {}) : {}",
+                        inv.getId(), id, e.getMessage());
             }
         }
 

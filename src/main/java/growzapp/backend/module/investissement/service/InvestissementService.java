@@ -4,10 +4,15 @@ import growzapp.backend.module.investissement.dto.InvestissementCreateDTO;
 import growzapp.backend.module.investissement.dto.InvestissementDTO;
 import growzapp.backend.module.investissement.dto.PortefeuilleDTO;
 import growzapp.backend.module.investissement.dto.PortefeuilleLigneDTO;
+import growzapp.backend.module.investissement.enums.ChoixEcheance;
 import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.investissement.mapper.InvestissementMapper;
+import growzapp.backend.module.investissement.model.DecisionEcheanceInvestissement;
 import growzapp.backend.module.investissement.model.Investissement;
+import growzapp.backend.module.investissement.repository.DecisionEcheanceInvestissementRepository;
 import growzapp.backend.module.investissement.repository.InvestissementRepository;
+import growzapp.backend.module.contrat.service.ContratService;
+import growzapp.backend.module.wallet.service.WalletService;
 import growzapp.backend.module.kyc.enums.KycStatus;
 import growzapp.backend.module.notification.service.NotificationService;
 import growzapp.backend.module.dividende.dto.DividendeSnapshotDTO;
@@ -65,6 +70,9 @@ public class InvestissementService {
         private final ProjetValorisationRepository projetValorisationRepository;
         private final DividendeRepository dividendeRepository;
         private final UserService userService;
+        private final WalletService walletService;
+        private final ContratService contratService;
+        private final DecisionEcheanceInvestissementRepository decisionEcheanceInvestissementRepository;
 
 
 
@@ -290,6 +298,164 @@ public class InvestissementService {
         @Transactional
         public void annulerInvestissement(Long id) {
                 annulerInvestissement(id, "Refusé par l'administration");
+        }
+
+        // ── Textes de consentement légal affichés à l'investisseur avant de
+        // valider son choix à l'échéance de financement d'un projet — copiés
+        // intégralement dans DecisionEcheanceInvestissement.consentementTexte au
+        // moment de la décision, pour rester lisibles même si ces textes changent
+        // plus tard. Pas un avis juridique final — à faire relire avant mise en
+        // production.
+        public static final String CONSENTEMENT_CONTINUER =
+                        "En choisissant de continuer, je confirme vouloir maintenir mon investissement dans ce "
+                        + "projet malgré le dépassement de sa date limite de financement, dans l'hypothèse où "
+                        + "GrowzApp déciderait de la prolonger. Ce choix est définitif pour la période en cours : "
+                        + "je ne pourrai plus demander le remboursement de cet investissement tant qu'une nouvelle "
+                        + "date limite n'est pas elle-même dépassée sans objectif atteint. Si GrowzApp décide "
+                        + "malgré tout de clôturer ce projet en échec, mon investissement me sera intégralement "
+                        + "remboursé sans action de ma part. Aucune garantie n'est donnée que le projet atteindra "
+                        + "son objectif même après prolongation.";
+
+        public static final String CONSENTEMENT_RECUPERER =
+                        "En choisissant de récupérer mon investissement, je confirme vouloir être intégralement "
+                        + "remboursé du montant investi dans ce projet, qui n'a pas atteint son objectif de "
+                        + "financement à sa date limite. Ce remboursement est immédiat et irrévocable. Mon contrat "
+                        + "d'investissement pour ce projet est annulé et archivé à compter de cette décision — il "
+                        + "reste consultable comme justificatif historique mais ne représente plus une "
+                        + "participation active. Je renonce à toute part de capital, tout dividende futur ou autre "
+                        + "droit lié à cet investissement dans ce projet. Toute utilisation frauduleuse de ce "
+                        + "contrat annulé après remboursement constitue une infraction pouvant faire l'objet de "
+                        + "poursuites conformément aux CGU et CGV de GrowzApp.";
+
+        private static final String CONSENTEMENT_CLOTURE_ADMIN =
+                        "Remboursement automatique suite à la clôture administrative du projet par l'équipe GrowzApp.";
+
+        // Rembourse un investissement VALIDE dont le projet n'a pas atteint son
+        // objectif de financement à sa date limite — point d'entrée unique
+        // partagé par la clôture admin en masse (ProjetService.cloturerEnEchec)
+        // et le choix individuel self-service de l'investisseur
+        // (/{id}/echeance/recuperer), pour que la logique wallet + statut +
+        // archivage de contrat + audit + email ne soit jamais dupliquée.
+        @Transactional
+        public void rembourserPourEchecFinancement(Investissement inv, String motif, boolean declencheParAdmin) {
+                Long projetId = inv.getProjet().getId();
+                Long investisseurId = inv.getInvestisseur().getId();
+
+                walletService.rembourserEchecFinancement(projetId, investisseurId, inv.getMontantInvesti(), motif);
+
+                inv.setStatutPartInvestissement(StatutPartInvestissement.REMBOURSE);
+                // Un remboursement forcé par la clôture admin écrase un éventuel choix
+                // "CONTINUER" fait avant que l'admin ne décide malgré tout de ne pas
+                // prolonger — ce champ ne représente que le cycle courant.
+                inv.setChoixEcheanceActuel(ChoixEcheance.RECUPERER);
+                investissementRepository.save(inv);
+
+                if (inv.getContrat() != null) {
+                        try {
+                                contratService.archiver(
+                                                inv.getContrat().getId(),
+                                                declencheParAdmin
+                                                                ? "SYSTEM (clôture échec financement)"
+                                                                : "Investisseur (choix à l'échéance)");
+                        } catch (Exception e) {
+                                log.error("rembourserPourEchecFinancement : échec de l'archivage du contrat {} "
+                                                + "(investissement {}) : {}",
+                                                inv.getContrat().getId(), inv.getId(), e.getMessage());
+                        }
+                }
+
+                DecisionEcheanceInvestissement decision = DecisionEcheanceInvestissement.builder()
+                                .investissementId(inv.getId())
+                                .projetId(projetId)
+                                .investisseurId(investisseurId)
+                                .choix(ChoixEcheance.RECUPERER)
+                                .dateDecision(LocalDateTime.now())
+                                .dateFinProjetAuMoment(inv.getProjet().getDateFin())
+                                .consentementTexte(declencheParAdmin ? CONSENTEMENT_CLOTURE_ADMIN : CONSENTEMENT_RECUPERER)
+                                .declencheParAdmin(declencheParAdmin)
+                                .build();
+                decisionEcheanceInvestissementRepository.save(decision);
+
+                User investisseur = inv.getInvestisseur();
+                Projet projet = inv.getProjet();
+                emailService.envoyerRemboursementEcheance(
+                                investisseur.getEmail(),
+                                investisseur.getPrenom() + " " + investisseur.getNom(),
+                                projet.getLibelle(),
+                                inv.getMontantInvesti().toPlainString(),
+                                motif,
+                                declencheParAdmin);
+
+                log.info("rembourserPourEchecFinancement : investissement {} remboursé ({} FCFA) — déclenché par {}",
+                                inv.getId(), inv.getMontantInvesti(), declencheParAdmin ? "admin" : "investisseur");
+        }
+
+        // Choix de l'investisseur de maintenir son investissement malgré la date
+        // limite dépassée, dans l'espoir d'une prolongation. Aucun effet
+        // financier — engagement enregistré uniquement.
+        @Transactional
+        public void continuerMalgreEcheance(Long investissementId, Long investisseurConnecteId) {
+                Investissement inv = chargerPourChoixEcheance(investissementId, investisseurConnecteId);
+
+                inv.setChoixEcheanceActuel(ChoixEcheance.CONTINUER);
+                investissementRepository.save(inv);
+
+                DecisionEcheanceInvestissement decision = DecisionEcheanceInvestissement.builder()
+                                .investissementId(inv.getId())
+                                .projetId(inv.getProjet().getId())
+                                .investisseurId(investisseurConnecteId)
+                                .choix(ChoixEcheance.CONTINUER)
+                                .dateDecision(LocalDateTime.now())
+                                .dateFinProjetAuMoment(inv.getProjet().getDateFin())
+                                .consentementTexte(CONSENTEMENT_CONTINUER)
+                                .declencheParAdmin(false)
+                                .build();
+                decisionEcheanceInvestissementRepository.save(decision);
+
+                log.info("continuerMalgreEcheance : investissement {} — investisseur {} choisit de continuer",
+                                investissementId, investisseurConnecteId);
+        }
+
+        // Choix de l'investisseur de récupérer immédiatement son argent plutôt
+        // que d'attendre une éventuelle prolongation.
+        @Transactional
+        public void recupererAEcheance(Long investissementId, Long investisseurConnecteId) {
+                Investissement inv = chargerPourChoixEcheance(investissementId, investisseurConnecteId);
+                rembourserPourEchecFinancement(inv, null, false);
+        }
+
+        // Vérifications communes aux deux choix d'échéance : l'investissement
+        // appartient bien à l'utilisateur connecté, est encore VALIDE, le projet
+        // a dépassé sa date limite sans atteindre son objectif, et aucune
+        // décision n'a encore été prise pour le cycle d'échéance en cours.
+        private Investissement chargerPourChoixEcheance(Long investissementId, Long investisseurConnecteId) {
+                Investissement inv = investissementRepository.findByIdWithLock(investissementId)
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Investissement non trouvé : " + investissementId));
+
+                if (!inv.getInvestisseur().getId().equals(investisseurConnecteId)) {
+                        throw new org.springframework.security.access.AccessDeniedException(
+                                        "Cet investissement ne vous appartient pas.");
+                }
+                if (inv.getStatutPartInvestissement() != StatutPartInvestissement.VALIDE) {
+                        throw new IllegalStateException("Cet investissement n'est pas dans un état permettant ce choix.");
+                }
+
+                Projet projet = inv.getProjet();
+                boolean dateDepassee = projet.getDateFin() != null
+                                && projet.getDateFin().isBefore(java.time.LocalDate.now());
+                boolean objectifNonAtteint = projet.getObjectifFinancement() != null
+                                && (projet.getMontantCollecte() == null
+                                                || projet.getMontantCollecte().compareTo(projet.getObjectifFinancement()) < 0);
+                if (!dateDepassee || !objectifNonAtteint) {
+                        throw new IllegalStateException(
+                                        "La date limite de financement de ce projet n'est pas dépassée sans objectif atteint.");
+                }
+                if (inv.getChoixEcheanceActuel() != null) {
+                        throw new IllegalStateException("Une décision a déjà été prise pour ce cycle d'échéance.");
+                }
+
+                return inv;
         }
 
         @Transactional

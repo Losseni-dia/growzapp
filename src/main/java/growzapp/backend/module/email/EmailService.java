@@ -215,6 +215,47 @@ public class EmailService {
         }
     }
 
+    // ── REMBOURSEMENT À L'ÉCHÉANCE DE FINANCEMENT ────────────────────────────
+    @Async
+    public void envoyerRemboursementEcheance(
+            String emailInvestisseur, String nomInvestisseur,
+            String projetLibelle, String montant, String motif, boolean declencheParAdmin) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(emailInvestisseur);
+            helper.setSubject("Remboursement — " + projetLibelle + " — GrowzApp");
+            String origine = declencheParAdmin
+                    ? "Ce projet n'a pas atteint son objectif de financement à sa date limite et a été clôturé par l'équipe GrowzApp."
+                    : "Vous avez choisi de récupérer votre investissement suite au dépassement de la date limite de financement de ce projet.";
+            helper.setText(
+                    """
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:24px;border-radius:12px;">
+                              <h1 style="color:#1B5E20;">GrowzApp</h1>
+                              <h2 style="color:#1976d2;">Remboursement effectué</h2>
+                              <p>Bonjour <strong>%s</strong>,</p>
+                              <p>%s</p>
+                              <div style="background:#f1f8e9;border-radius:8px;padding:16px;margin:20px 0;">
+                                <p style="margin:0;color:#555;">💰 <strong>%s FCFA</strong> ont été restitués dans votre portefeuille GrowzApp.</p>
+                              </div>
+                              <div style="background:#f5f5f5;border-left:4px solid #9e9e9e;padding:16px;border-radius:0 8px 8px 0;margin:20px 0;">
+                                <p style="margin:0;font-weight:bold;color:#555;">Détail :</p>
+                                <p style="margin:8px 0 0 0;color:#333;">%s</p>
+                              </div>
+                              <p>Votre contrat d'investissement pour ce projet est archivé — il reste consultable comme justificatif historique.</p>
+                              <p>Cordialement,<br><strong>L'équipe GrowzApp</strong></p>
+                              <p style="font-size:0.78em;color:#999;text-align:center;">GrowzApp S.A.R.L — Abidjan, Côte d'Ivoire</p>
+                            </div>
+                            """
+                            .formatted(nomInvestisseur, origine, montant, motif != null ? motif : "—"),
+                    true);
+            mailSender.send(message);
+            log.info("Email remboursement échéance envoyé à {}", emailInvestisseur);
+        } catch (Exception e) {
+            log.error("Échec envoi email remboursement échéance à {} : {}", emailInvestisseur, e.getMessage(), e);
+        }
+    }
+
     // ── DÉBLOCAGE DE TRÉSORERIE PROJET ───────────────────────────────────────
     @Async
     public void envoyerDeblocageTresorerie(

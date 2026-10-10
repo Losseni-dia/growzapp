@@ -214,6 +214,44 @@ public class InvestissementController {
     }
 
 
+    @PostMapping("/{id}/echeance/continuer")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "Choisir de maintenir son investissement malgré l'échéance dépassée",
+            description = "Accessible une fois la date limite de financement du projet dépassée sans objectif atteint. Aucun effet financier — engagement enregistré, définitif pour le cycle d'échéance en cours.",
+            tags = {"Investissements"})
+    public ApiResponseDTO<String> continuerEcheance(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        boolean consentement = Boolean.TRUE.equals(body != null ? body.get("consentement") : null);
+        if (!consentement) {
+            throw new IllegalArgumentException("Le consentement est obligatoire pour valider ce choix.");
+        }
+        User investisseur = (User) auth.getPrincipal();
+        investissementService.continuerMalgreEcheance(id, investisseur.getId());
+        return ApiResponseDTO.<String>success(null).message("Choix enregistré — vous restez investi dans ce projet.");
+    }
+
+    @PostMapping("/{id}/echeance/recuperer")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "BearerAuth")
+    @Operation(summary = "Récupérer immédiatement son investissement à l'échéance dépassée",
+            description = "Accessible une fois la date limite de financement du projet dépassée sans objectif atteint. Remboursement immédiat et irrévocable, contrat annulé et archivé.",
+            tags = {"Investissements"})
+    public ApiResponseDTO<String> recupererEcheance(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        boolean consentement = Boolean.TRUE.equals(body != null ? body.get("consentement") : null);
+        if (!consentement) {
+            throw new IllegalArgumentException("Le consentement est obligatoire pour valider ce choix.");
+        }
+        User investisseur = (User) auth.getPrincipal();
+        investissementService.recupererAEcheance(id, investisseur.getId());
+        return ApiResponseDTO.<String>success(null).message("Remboursement effectué — les fonds sont disponibles dans votre portefeuille.");
+    }
+
     // ── Helper : appliquer traduction sur un InvestissementDTO ──────────────
     private InvestissementDTO applyTraductionInvestissement(InvestissementDTO dto, String langue) {
         if (langue == null || langue.isBlank() || langue.equals("fr") || dto.projetId() == null)

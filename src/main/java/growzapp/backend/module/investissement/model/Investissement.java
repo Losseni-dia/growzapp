@@ -2,6 +2,7 @@ package growzapp.backend.module.investissement.model;
 
 import growzapp.backend.module.contrat.model.Contrat;
 import growzapp.backend.module.dividende.model.Dividende;
+import growzapp.backend.module.investissement.enums.ChoixEcheance;
 import growzapp.backend.module.investissement.enums.StatutPartInvestissement;
 import growzapp.backend.module.projet.model.Projet;
 import growzapp.backend.module.user.model.User;
@@ -57,6 +58,16 @@ public class Investissement {
     // ── Idempotence Stripe — évite de créer deux fois le même investissement ──
     @Column(name = "reference_externe_stripe", unique = true)
     private String referenceExterneStripe;
+
+    // Décision de l'investisseur pour le cycle d'échéance en cours
+    // (continuer / récupérer son argent) une fois la date limite de
+    // financement du projet dépassée sans objectif atteint. Remis à null par
+    // ProjetService.prolongerEcheance() à chaque nouvelle prolongation —
+    // représente uniquement le cycle courant, jamais l'historique (qui est
+    // conservé dans DecisionEcheanceInvestissement).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "choix_echeance_actuel")
+    private ChoixEcheance choixEcheanceActuel;
 
     // ── RELATIONS ─────────────────────────────────────────────────────────────
 
