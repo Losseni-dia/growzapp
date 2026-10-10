@@ -13,6 +13,7 @@ import growzapp.backend.module.traduction.DeepL.model.ProjetTraductionProjection
 import growzapp.backend.module.traduction.DeepL.repository.ProjetTraductionRepository;
 import growzapp.backend.module.user.model.User;
 import growzapp.backend.module.user.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -228,7 +229,8 @@ public class InvestissementController {
         if (!consentement) {
             throw new IllegalArgumentException("Le consentement est obligatoire pour valider ce choix.");
         }
-        User investisseur = (User) auth.getPrincipal();
+        User investisseur = userRepository.findByLoginForAuth(auth.getName())
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable"));
         investissementService.continuerMalgreEcheance(id, investisseur.getId());
         return ApiResponseDTO.<String>success(null).message("Choix enregistré — vous restez investi dans ce projet.");
     }
@@ -247,7 +249,8 @@ public class InvestissementController {
         if (!consentement) {
             throw new IllegalArgumentException("Le consentement est obligatoire pour valider ce choix.");
         }
-        User investisseur = (User) auth.getPrincipal();
+        User investisseur = userRepository.findByLoginForAuth(auth.getName())
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable"));
         investissementService.recupererAEcheance(id, investisseur.getId());
         return ApiResponseDTO.<String>success(null).message("Remboursement effectué — les fonds sont disponibles dans votre portefeuille.");
     }
