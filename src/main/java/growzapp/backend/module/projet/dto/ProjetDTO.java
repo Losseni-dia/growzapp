@@ -79,6 +79,9 @@ public class ProjetDTO {
         @Schema(description = "Motif de rejet renseigné par l'admin — null si le projet n'a jamais été rejeté")
         private String motifRejet;
 
+        @Schema(description = "Motif de suspension ou d'arrêt définitif renseigné par l'admin — null si jamais suspendu")
+        private String motifSuspension;
+
         @Schema(description = "Date de création du projet")
         private LocalDateTime createdAt;
 

@@ -108,6 +108,12 @@ public class Projet {
     @Column(name = "motif_rejet", length = 1000)
     private String motifRejet;
 
+    // Motif renseigné par l'admin lors d'une suspension (EN_COURS → SUSPENDU)
+    // ou d'un arrêt définitif (SUSPENDU → TERMINE) — affiché aux investisseurs
+    // notifiés. Écrasé, pas historisé — un seul motif "actif" à la fois.
+    @Column(name = "motif_suspension", length = 1000)
+    private String motifSuspension;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @JsonIgnore

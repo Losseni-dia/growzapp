@@ -254,6 +254,57 @@ public class AdminProjetController {
         return ApiResponseDTO.success(projetMapper.toDto(updated));
     }
 
+    @PostMapping("/{id}/suspendre")
+    @Operation(
+        summary = "Suspendre un projet En cours",
+        description = "Passe le projet de EN_COURS à SUSPENDU suite à un incident — motif obligatoire, investisseurs et porteur notifiés.",
+        tags = {"Admin - Projets"}
+    )
+    public ApiResponseDTO<ProjetDTO> suspendre(
+            @Parameter(description = "Identifiant du projet à suspendre", example = "7", required = true)
+            @PathVariable Long id,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Motif de la suspension (obligatoire)",
+                content = @Content(mediaType = "application/json",
+                    schema = @Schema(example = "{\"motif\": \"Incident sur le site — travaux suspendus le temps de l'enquête.\"}")))
+            @RequestBody java.util.Map<String, String> body) {
+        String motif = body != null ? body.get("motif") : null;
+        Projet updated = projetService.suspendre(id, motif);
+        return ApiResponseDTO.success(projetMapper.toDto(updated));
+    }
+
+    @PostMapping("/{id}/reprendre")
+    @Operation(
+        summary = "Faire reprendre un projet Suspendu",
+        description = "Passe le projet de SUSPENDU à EN_COURS — l'incident est résolu. Aucun motif requis.",
+        tags = {"Admin - Projets"}
+    )
+    public ApiResponseDTO<ProjetDTO> reprendre(
+            @Parameter(description = "Identifiant du projet à faire reprendre", example = "7", required = true)
+            @PathVariable Long id) {
+        Projet updated = projetService.reprendre(id);
+        return ApiResponseDTO.success(projetMapper.toDto(updated));
+    }
+
+    @PostMapping("/{id}/arreter")
+    @Operation(
+        summary = "Arrêter définitivement un projet Suspendu",
+        description = "Passe le projet de SUSPENDU à TERMINE — arrêt définitif, ne reprendra pas. Motif obligatoire, investisseurs et porteur notifiés.",
+        tags = {"Admin - Projets"}
+    )
+    public ApiResponseDTO<ProjetDTO> arreter(
+            @Parameter(description = "Identifiant du projet à arrêter définitivement", example = "7", required = true)
+            @PathVariable Long id,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Motif de l'arrêt définitif (obligatoire)",
+                content = @Content(mediaType = "application/json",
+                    schema = @Schema(example = "{\"motif\": \"Le site est inutilisable suite à l'incident, le projet ne peut reprendre.\"}")))
+            @RequestBody java.util.Map<String, String> body) {
+        String motif = body != null ? body.get("motif") : null;
+        Projet updated = projetService.arreterDefinitivement(id, motif);
+        return ApiResponseDTO.success(projetMapper.toDto(updated));
+    }
+
     @PatchMapping("/{id}/prolonger-echeance")
     @Operation(
         summary = "Prolonger la date limite de financement d'un projet",

@@ -614,10 +614,49 @@ public class ProjetService {
     // LOGIQUE MÉTIER
     // ========================
 
+    // Transitions de statut accessibles via le PATCH générique /statut (sans
+    // motif). REJETE, SUSPENDU et l'arrêt définitif depuis SUSPENDU exigent
+    // tous un motif et passent par leurs endpoints dédiés (rejeter/suspendre/
+    // arreterDefinitivement) — jamais par ce chemin générique.
+    private static final java.util.Map<StatutProjet, java.util.Set<StatutProjet>> TRANSITIONS_SANS_MOTIF = java.util.Map.of(
+            StatutProjet.SOUMIS, java.util.Set.of(StatutProjet.VALIDE),
+            StatutProjet.VALIDE, java.util.Set.of(StatutProjet.SOUMIS),
+            StatutProjet.FINANCE, java.util.Set.of(StatutProjet.EN_COURS),
+            StatutProjet.EN_COURS, java.util.Set.of(StatutProjet.TERMINE),
+            StatutProjet.SUSPENDU, java.util.Set.of(StatutProjet.EN_COURS),
+            StatutProjet.REJETE, java.util.Set.of(StatutProjet.SOUMIS, StatutProjet.VALIDE));
+
+    private boolean aAuMoinsUnInvestissement(Long projetId) {
+        return investissementRepository.existsByProjetId(projetId);
+    }
+
     @Transactional
     public Projet changerStatut(Long id, StatutProjet nouveauStatut) {
         Projet projet = getById(id);
         StatutProjet ancienStatut = projet.getStatutProjet();
+
+        if (ancienStatut == nouveauStatut) {
+            return projet;
+        }
+
+        java.util.Set<StatutProjet> ciblesAutorisees = TRANSITIONS_SANS_MOTIF.get(ancienStatut);
+        if (ciblesAutorisees == null || !ciblesAutorisees.contains(nouveauStatut)) {
+            throw new IllegalStateException(
+                    "Transition de statut non autorisée : " + ancienStatut + " → " + nouveauStatut
+                            + (nouveauStatut == StatutProjet.REJETE
+                                    ? " — utilisez l'action « Rejeter » (motif obligatoire)."
+                                    : nouveauStatut == StatutProjet.SUSPENDU
+                                            ? " — utilisez l'action « Suspendre » (motif obligatoire)."
+                                            : ""));
+        }
+
+        // Un projet VALIDE avec au moins un investissement ne peut plus
+        // redescendre en SOUMIS — des fonds sont déjà engagés.
+        if (ancienStatut == StatutProjet.VALIDE && nouveauStatut == StatutProjet.SOUMIS
+                && aAuMoinsUnInvestissement(id)) {
+            throw new IllegalStateException(
+                    "Impossible de repasser ce projet en Soumis : il a déjà reçu au moins un investissement.");
+        }
 
         // Aucun projet ne peut être VALIDÉ tant que la fiche de présentation
         // de son porteur n'est pas elle-même VALIDEE par un admin — même si
@@ -672,6 +711,16 @@ public class ProjetService {
         }
 
         Projet projet = getById(id);
+        StatutProjet ancienStatut = projet.getStatutProjet();
+        if (ancienStatut != StatutProjet.SOUMIS && ancienStatut != StatutProjet.VALIDE) {
+            throw new IllegalStateException(
+                    "Seul un projet Soumis ou Validé peut être rejeté (statut actuel : " + ancienStatut + ").");
+        }
+        if (ancienStatut == StatutProjet.VALIDE && aAuMoinsUnInvestissement(id)) {
+            throw new IllegalStateException(
+                    "Impossible de rejeter ce projet : il a déjà reçu au moins un investissement.");
+        }
+
         log.info("rejeter : projet {} — motif : {}", id, motif);
 
         projet.setStatutProjet(StatutProjet.REJETE);
@@ -709,6 +758,80 @@ public class ProjetService {
         log.info("rouvrirPourModification : projet {} — REJETE → BROUILLON", id);
         projet.setStatutProjet(StatutProjet.BROUILLON);
         return projetRepository.save(projet);
+    }
+
+    // Suspend un projet EN_COURS suite à un incident — motif obligatoire,
+    // tous les investisseurs du projet et le porteur sont notifiés. Peut
+    // ensuite reprendre (reprendre()) ou s'arrêter définitivement
+    // (arreterDefinitivement()).
+    @Transactional
+    public Projet suspendre(Long id, String motif) {
+        if (motif == null || motif.isBlank()) {
+            throw new IllegalArgumentException("Le motif de suspension est obligatoire.");
+        }
+        Projet projet = getById(id);
+        if (projet.getStatutProjet() != StatutProjet.EN_COURS) {
+            throw new IllegalStateException(
+                    "Seul un projet En cours peut être suspendu (statut actuel : " + projet.getStatutProjet() + ").");
+        }
+
+        log.info("suspendre : projet {} — motif : {}", id, motif);
+        projet.setStatutProjet(StatutProjet.SUSPENDU);
+        projet.setMotifSuspension(motif);
+        Projet saved = projetRepository.save(projet);
+
+        notifierSuspensionOuArret(saved, "⏸️ Projet suspendu — " + saved.getLibelle(),
+                "Le projet « " + saved.getLibelle() + " » a été suspendu. Motif : " + motif, motif);
+
+        return saved;
+    }
+
+    // Fait reprendre un projet SUSPENDU — l'incident est résolu, retour à
+    // EN_COURS. Aucun motif requis, aucune notification obligatoire (simple
+    // reprise d'activité normale).
+    @Transactional
+    public Projet reprendre(Long id) {
+        Projet projet = getById(id);
+        if (projet.getStatutProjet() != StatutProjet.SUSPENDU) {
+            throw new IllegalStateException(
+                    "Seul un projet Suspendu peut reprendre (statut actuel : " + projet.getStatutProjet() + ").");
+        }
+
+        log.info("reprendre : projet {} — SUSPENDU → EN_COURS", id);
+        projet.setStatutProjet(StatutProjet.EN_COURS);
+        return projetRepository.save(projet);
+    }
+
+    // Arrête définitivement un projet SUSPENDU — motif obligatoire, le
+    // projet ne reprendra pas. Investisseurs et porteur notifiés.
+    @Transactional
+    public Projet arreterDefinitivement(Long id, String motif) {
+        if (motif == null || motif.isBlank()) {
+            throw new IllegalArgumentException("Le motif d'arrêt définitif est obligatoire.");
+        }
+        Projet projet = getById(id);
+        if (projet.getStatutProjet() != StatutProjet.SUSPENDU) {
+            throw new IllegalStateException(
+                    "Seul un projet Suspendu peut être arrêté définitivement (statut actuel : "
+                            + projet.getStatutProjet() + ").");
+        }
+
+        log.info("arreterDefinitivement : projet {} — motif : {}", id, motif);
+        projet.setStatutProjet(StatutProjet.TERMINE);
+        projet.setMotifSuspension(motif);
+        Projet saved = projetRepository.save(projet);
+
+        notifierSuspensionOuArret(saved, "🛑 Projet arrêté définitivement — " + saved.getLibelle(),
+                "Le projet « " + saved.getLibelle() + " » a été arrêté définitivement. Motif : " + motif, motif);
+
+        return saved;
+    }
+
+    private void notifierSuspensionOuArret(Projet projet, String titre, String contenu, String motif) {
+        notificationService.notifyInvestorsOfProject(projet, titre, contenu);
+        if (projet.getPorteur() != null) {
+            notificationService.notifyProjectOwner(projet.getPorteur(), titre, contenu, projet.getId());
+        }
     }
 
     // Repousse la date limite de financement d'un projet — action admin
