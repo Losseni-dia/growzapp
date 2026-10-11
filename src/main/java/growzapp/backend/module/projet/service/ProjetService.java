@@ -92,11 +92,17 @@ public class ProjetService {
                 .orElseThrow(() -> new EntityNotFoundException("Projet introuvable (ID: " + id + ")"));
     }
 
+    // Un brouillon n'a pas encore été soumis par le porteur — il n'existe
+    // que dans son espace personnel tant qu'il n'a pas cliqué "Soumettre".
+    // L'admin ne doit voir que les projets réellement soumis à validation
+    // (SOUMIS) ou au-delà, jamais les brouillons en cours de rédaction.
     public List<Projet> getAllAdmin(String search) {
-        if (search != null && !search.isBlank()) {
-            return projetRepository.findBySearchTerm("%" + search.toLowerCase() + "%");
-        }
-        return projetRepository.findAll();
+        List<Projet> projets = (search != null && !search.isBlank())
+                ? projetRepository.findBySearchTerm("%" + search.toLowerCase() + "%")
+                : projetRepository.findAll();
+        return projets.stream()
+                .filter(p -> p.getStatutProjet() != StatutProjet.BROUILLON)
+                .toList();
     }
 
     public List<Projet> getByPorteurId(Long porteurId) {
