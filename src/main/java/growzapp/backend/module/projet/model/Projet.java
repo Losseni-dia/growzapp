@@ -103,6 +103,11 @@ public class Projet {
     @Enumerated(EnumType.STRING)
     private StatutProjet statutProjet = StatutProjet.SOUMIS;
 
+    // Motif renseigné par l'admin lors d'un rejet — affiché au porteur pour
+    // qu'il sache quoi corriger avant de rouvrir le projet pour modification.
+    @Column(name = "motif_rejet", length = 1000)
+    private String motifRejet;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @JsonIgnore

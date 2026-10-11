@@ -320,6 +320,24 @@ public class ProjetRestController {
         }
     }
 
+    // ── REJET — ROUVRIR POUR MODIFICATION ────────────────────────────────────
+    @Operation(summary = "Rouvrir un projet rejeté pour le modifier et le resoumettre",
+            description = "Repasse un projet REJETE en BROUILLON — réutilise ensuite le même formulaire/flux que pour un brouillon (PUT /brouillon/{id} puis POST /brouillon/{id}/soumettre).",
+            security = @SecurityRequirement(name = "BearerAuth"))
+    @PostMapping("/{id}/rouvrir")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponseDTO<ProjetDTO> rouvrirPourModification(Authentication authentication, @PathVariable Long id) {
+        User currentUser = getCurrentUser(authentication);
+        try {
+            Projet saved = projetService.rouvrirPourModification(id, currentUser);
+            return ApiResponseDTO.success(projetMapper.toDto(saved))
+                    .message("Projet rouvert pour modification");
+        } catch (Exception e) {
+            log.error("Erreur réouverture projet rejeté", e);
+            return ApiResponseDTO.error(e.getMessage());
+        }
+    }
+
     // ── MES PROJETS ───────────────────────────────────────────────────────────
     @GetMapping("/mes-projets")
     @PreAuthorize("isAuthenticated()")

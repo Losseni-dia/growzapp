@@ -76,6 +76,9 @@ public class ProjetDTO {
         @Schema(description = "Statut du projet", example = "SOUMIS")
         private String statutProjet;
 
+        @Schema(description = "Motif de rejet renseigné par l'admin — null si le projet n'a jamais été rejeté")
+        private String motifRejet;
+
         @Schema(description = "Date de création du projet")
         private LocalDateTime createdAt;
 

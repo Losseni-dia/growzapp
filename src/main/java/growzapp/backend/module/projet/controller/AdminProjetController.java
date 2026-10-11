@@ -226,6 +226,34 @@ public class AdminProjetController {
         return changerStatut(id, StatutProjet.VALIDE);
     }
 
+    @PostMapping("/{id}/rejeter")
+    @Operation(
+        summary = "Rejeter un projet avec motif",
+        description = "Passe le projet à REJETE et enregistre le motif, affiché au porteur. Celui-ci peut ensuite rouvrir le projet pour le modifier et le resoumettre.",
+        tags = {"Admin - Projets"}
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Projet rejeté",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class))),
+        @ApiResponse(responseCode = "400", description = "Motif manquant",
+            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))),
+        @ApiResponse(responseCode = "404", description = "Projet introuvable",
+            content = @Content(schema = @Schema(implementation = ApiResponseDTO.class)))
+    })
+    public ApiResponseDTO<ProjetDTO> rejeter(
+            @Parameter(description = "Identifiant du projet à rejeter", example = "7", required = true)
+            @PathVariable Long id,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Motif du rejet (obligatoire)",
+                content = @Content(mediaType = "application/json",
+                    schema = @Schema(example = "{\"motif\": \"Description insuffisante, merci de préciser le plan d'affaires.\"}")))
+            @RequestBody java.util.Map<String, String> body) {
+        String motif = body != null ? body.get("motif") : null;
+        Projet updated = projetService.rejeter(id, motif);
+        return ApiResponseDTO.success(projetMapper.toDto(updated));
+    }
+
     @PatchMapping("/{id}/prolonger-echeance")
     @Operation(
         summary = "Prolonger la date limite de financement d'un projet",

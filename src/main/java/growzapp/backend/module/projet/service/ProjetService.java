@@ -422,7 +422,23 @@ public class ProjetService {
                     saved.getId(), e.getMessage());
         }
 
+        notifierAdminsNouvelleSoumission(saved);
+
         return saved;
+    }
+
+    // Jusqu'ici aucune notification n'informait l'admin qu'un projet venait
+    // d'être soumis — il ne le découvrait qu'en rechargeant manuellement le
+    // dashboard. Appelé à la fois par create() (soumission directe) et
+    // soumettreBrouillon() (brouillon → SOUMIS).
+    private void notifierAdminsNouvelleSoumission(Projet projet) {
+        String nomPorteur = projet.getPorteur() != null
+                ? (projet.getPorteur().getPrenom() + " " + projet.getPorteur().getNom()).trim()
+                : "un porteur";
+        notificationService.notifyAdmins(
+                "📥 Nouveau projet soumis — " + projet.getLibelle(),
+                nomPorteur + " a soumis le projet « " + projet.getLibelle() + " », en attente de validation.",
+                "/admin/projets/detail/" + projet.getId());
     }
 
     // ========================
@@ -549,6 +565,8 @@ public class ProjetService {
                     saved.getId(), e.getMessage());
         }
 
+        notifierAdminsNouvelleSoumission(saved);
+
         return saved;
     }
 
@@ -640,6 +658,57 @@ public class ProjetService {
         }
 
         return saved;
+    }
+
+    // Rejette un projet soumis, avec un motif obligatoire — l'admin doit
+    // expliquer ce qu'il faut corriger, puisque le porteur peut ensuite
+    // rouvrir ce projet pour modification (rouvrirPourModification) et le
+    // resoumettre. Le motif est conservé jusqu'au prochain rejet éventuel
+    // (écrasé, pas historisé — un seul motif "actif" à la fois).
+    @Transactional
+    public Projet rejeter(Long id, String motif) {
+        if (motif == null || motif.isBlank()) {
+            throw new IllegalArgumentException("Le motif de rejet est obligatoire.");
+        }
+
+        Projet projet = getById(id);
+        log.info("rejeter : projet {} — motif : {}", id, motif);
+
+        projet.setStatutProjet(StatutProjet.REJETE);
+        projet.setMotifRejet(motif);
+        Projet saved = projetRepository.save(projet);
+
+        if (saved.getPorteur() != null) {
+            notificationService.notifyProjectOwner(
+                    saved.getPorteur(),
+                    "❌ Projet rejeté — " + saved.getLibelle(),
+                    "Votre projet « " + saved.getLibelle() + " » a été rejeté. Motif : " + motif
+                            + " Vous pouvez le modifier et le resoumettre depuis « Mes projets ».",
+                    saved.getId());
+        }
+
+        return saved;
+    }
+
+    // Rouvre un projet REJETE pour modification — le repasse en BROUILLON
+    // pour réutiliser tel quel le formulaire et le flux de soumission déjà
+    // en place (updateBrouillon / soumettreBrouillon), plutôt que de dupliquer
+    // une logique d'édition parallèle pour les projets déjà soumis. Réservé
+    // au porteur propriétaire, et uniquement depuis REJETE — un projet SOUMIS
+    // ou VALIDE ne doit jamais être rouvert de cette façon.
+    @Transactional
+    public Projet rouvrirPourModification(Long id, User currentUser) {
+        Projet projet = getById(id);
+        if (projet.getPorteur() == null || !projet.getPorteur().getId().equals(currentUser.getId())) {
+            throw new SecurityException("Ce projet ne vous appartient pas.");
+        }
+        if (projet.getStatutProjet() != StatutProjet.REJETE) {
+            throw new IllegalStateException("Seul un projet rejeté peut être rouvert pour modification.");
+        }
+
+        log.info("rouvrirPourModification : projet {} — REJETE → BROUILLON", id);
+        projet.setStatutProjet(StatutProjet.BROUILLON);
+        return projetRepository.save(projet);
     }
 
     // Repousse la date limite de financement d'un projet — action admin

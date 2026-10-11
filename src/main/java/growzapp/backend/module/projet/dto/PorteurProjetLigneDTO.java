@@ -44,5 +44,7 @@ public record PorteurProjetLigneDTO(
 
         @Schema(description = "Date de fin du statut Premium (null si jamais acheté)") LocalDateTime premiumFin,
 
-        @Schema(description = "Nombre de jours restants avant la date limite de financement (null si pas de date de fin)", example = "12") Integer joursAvantEcheance) {
+        @Schema(description = "Nombre de jours restants avant la date limite de financement (null si pas de date de fin)", example = "12") Integer joursAvantEcheance,
+
+        @Schema(description = "Motif de rejet renseigné par l'admin — null si le projet n'a jamais été rejeté") String motifRejet) {
 }

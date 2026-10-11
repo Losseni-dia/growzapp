@@ -189,6 +189,7 @@ public class PorteurDashboardController {
                     .premiumActif(projet.isPremiumActif())
                     .premiumFin(projet.getPremiumFin())
                     .joursAvantEcheance(joursAvantEcheance)
+                    .motifRejet(projet.getMotifRejet())
                     .build();
 
             lignes.add(ligne);
